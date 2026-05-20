@@ -202,6 +202,17 @@ This creates an `email_messages` table. Each row tracks a message's
 (`STS\EmailEvents\Models\EmailMessage`) is swappable via the
 `email-events.persistence.model` config key.
 
+It ships query scopes for the common lookups — `delivered()`, `bounced()`,
+`complained()`, `opened()`, `clicked()`, `sent()`, `accepted()`, `deferred()`,
+`dropped()`, and the generic `withStatus()`:
+
+```php
+use STS\EmailEvents\Models\EmailMessage;
+
+EmailMessage::bounced()->count();
+EmailMessage::delivered()->where('sent_at', '>', now()->subDay())->get();
+```
+
 The package still dispatches `EmailEvent` in all modes — persistence is just a
 first-party listener layered on top.
 
@@ -247,7 +258,7 @@ Now every email's lifecycle is queryable from the model:
 
 ```php
 $order->emailMessages;                  // every email sent for this order
-$order->emailMessages()->where('status', 'bounced')->exists();
+$order->emailMessages()->bounced()->exists();
 ```
 
 The association is carried on the message in-process only — written as a
@@ -296,7 +307,7 @@ class OrderConfirmation extends Mailable
 Query a tenant's activity:
 
 ```php
-EmailMessage::forTenant($tenant)->where('status', 'bounced')->get();
+EmailMessage::forTenant($tenant)->bounced()->get();
 ```
 
 To get a `tenant()` relationship on `EmailMessage`, point config at your tenant

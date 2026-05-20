@@ -222,6 +222,17 @@ class PersistenceTest extends TestCase
         $this->assertTrue($tenant->is($record->tenant));
     }
 
+    public function testStatusScopesFilterRecords()
+    {
+        EmailMessage::create(['message_id' => 'a', 'status' => EmailEvent::EVENT_DELIVERED]);
+        EmailMessage::create(['message_id' => 'b', 'status' => EmailEvent::EVENT_BOUNCED]);
+        EmailMessage::create(['message_id' => 'c', 'status' => EmailEvent::EVENT_DELIVERED]);
+
+        $this->assertCount(2, EmailMessage::delivered()->get());
+        $this->assertCount(1, EmailMessage::bounced()->get());
+        $this->assertCount(1, EmailMessage::withStatus(EmailEvent::EVENT_BOUNCED)->get());
+    }
+
     public function testWebhookCorrelationIgnoresGlobalScopes()
     {
         config(['email-events.persistence.model' => ScopedEmailMessage::class]);

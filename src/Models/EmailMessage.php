@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use RuntimeException;
+use STS\EmailEvents\EmailEvent;
 
 /**
  * A record of an outbound email and its delivery lifecycle.
@@ -97,5 +98,72 @@ class EmailMessage extends Model
         $key = $tenant instanceof Model ? $tenant->getKey() : $tenant;
 
         return $query->where($this->tenantColumn(), $key);
+    }
+
+    /**
+     * Scope to messages at a given lifecycle status.
+     *
+     * @param Builder $query
+     * @param string  $status One of the EmailEvent::EVENT_* constants.
+     *
+     * @return Builder
+     */
+    public function scopeWithStatus( Builder $query, $status )
+    {
+        return $query->where('status', $status);
+    }
+
+    /** @return Builder */
+    public function scopeSent( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_SENT);
+    }
+
+    /** @return Builder */
+    public function scopeAccepted( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EMAIL_ACCEPTED);
+    }
+
+    /** @return Builder */
+    public function scopeDeferred( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_DEFERRED);
+    }
+
+    /** @return Builder */
+    public function scopeDelivered( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_DELIVERED);
+    }
+
+    /** @return Builder */
+    public function scopeBounced( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_BOUNCED);
+    }
+
+    /** @return Builder */
+    public function scopeDropped( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_DROPPED);
+    }
+
+    /** @return Builder */
+    public function scopeComplained( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_COMPLAINED);
+    }
+
+    /** @return Builder */
+    public function scopeOpened( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_OPENED);
+    }
+
+    /** @return Builder */
+    public function scopeClicked( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_CLICKED);
     }
 }

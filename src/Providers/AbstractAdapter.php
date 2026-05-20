@@ -1,11 +1,11 @@
 <?php
 
-namespace STS\EmailEvents\Providers;
+namespace STS\Postmaster\Providers;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use STS\EmailEvents\Contracts\Adapter;
-use STS\EmailEvents\EmailEvent;
+use STS\Postmaster\Contracts\Adapter;
+use STS\Postmaster\EmailEvent;
 
 abstract class AbstractAdapter implements Adapter
 {

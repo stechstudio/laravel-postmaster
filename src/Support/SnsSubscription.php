@@ -1,11 +1,11 @@
 <?php
 
-namespace STS\EmailEvents\Support;
+namespace STS\Postmaster\Support;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
-use STS\EmailEvents\Providers\Ses\SignatureAuth;
+use STS\Postmaster\Providers\Ses\SignatureAuth;
 
 /**
  * Handles the Amazon SNS subscription-confirmation handshake. When SES is

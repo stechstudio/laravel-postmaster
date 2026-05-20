@@ -1,10 +1,10 @@
 <?php
 
-namespace STS\EmailEvents\Facades;
+namespace STS\Postmaster\Facades;
 
 use Illuminate\Support\Facades\Facade;
 
-class EmailEvents extends Facade
+class Postmaster extends Facade
 {
     /**
      * Get the registered name of the component.
@@ -13,6 +13,6 @@ class EmailEvents extends Facade
      */
     protected static function getFacadeAccessor()
     {
-        return 'emailevents';
+        return 'postmaster';
     }
 }

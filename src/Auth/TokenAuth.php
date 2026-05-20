@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Auth;
+namespace STS\Postmaster\Auth;
 
 use Illuminate\Http\Request;
 

@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Listeners;
+namespace STS\Postmaster\Listeners;
 
 use Illuminate\Mail\Events\MessageSending;
-use STS\EmailEvents\Support\OutboundMetadata;
+use STS\Postmaster\Support\OutboundMetadata;
 
 /**
  * Runs just before an email is handed to the transport. If the message

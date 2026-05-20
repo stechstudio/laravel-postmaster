@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Exceptions;
+namespace STS\Postmaster\Exceptions;
 
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\HttpException;

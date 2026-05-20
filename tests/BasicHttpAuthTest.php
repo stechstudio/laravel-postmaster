@@ -1,17 +1,17 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
 use Illuminate\Http\Request;
-use STS\EmailEvents\Auth\BasicHttpAuth;
+use STS\Postmaster\Auth\BasicHttpAuth;
 
 class BasicHttpAuthTest extends TestCase
 {
     public function testBasicHttpAuth()
     {
         config([
-            'email-events.basic_username' => 'secretusername',
-            'email-events.basic_password' => 'secretpassword',
+            'postmaster.basic_username' => 'secretusername',
+            'postmaster.basic_password' => 'secretpassword',
         ]);
 
         $auth = resolve(BasicHttpAuth::class);

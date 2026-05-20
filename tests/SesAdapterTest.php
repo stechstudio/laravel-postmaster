@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
-use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\Providers\Ses\Adapter as Ses;
+use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Providers\Ses\Adapter as Ses;
 
 class SesAdapterTest extends TestCase
 {

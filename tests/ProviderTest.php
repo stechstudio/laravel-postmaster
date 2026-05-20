@@ -1,11 +1,11 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
 use Illuminate\Support\Facades\Log;
-use STS\EmailEvents\Providers\SendGrid\Adapter as SendGrid;
-use STS\EmailEvents\Exceptions\InvalidEventException;
-use STS\EmailEvents\Provider;
+use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
+use STS\Postmaster\Exceptions\InvalidEventException;
+use STS\Postmaster\Provider;
 
 class ProviderTest extends TestCase
 {

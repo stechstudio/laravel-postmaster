@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
-use STS\EmailEvents\Providers\Mailgun\Adapter as Mailgun;
-use STS\EmailEvents\EmailEvent;
+use STS\Postmaster\Providers\Mailgun\Adapter as Mailgun;
+use STS\Postmaster\EmailEvent;
 
 class MailgunAdapterTest extends TestCase
 {

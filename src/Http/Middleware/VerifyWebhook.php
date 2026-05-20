@@ -1,11 +1,11 @@
 <?php
 
-namespace STS\EmailEvents\Http\Middleware;
+namespace STS\Postmaster\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use STS\EmailEvents\EmailEvents;
-use STS\EmailEvents\Exceptions\UnauthorizedException;
+use STS\Postmaster\Postmaster;
+use STS\Postmaster\Exceptions\UnauthorizedException;
 
 /**
  * Verifies an inbound provider webhook using that provider's configured
@@ -14,7 +14,7 @@ use STS\EmailEvents\Exceptions\UnauthorizedException;
  */
 class VerifyWebhook
 {
-    public function __construct( protected EmailEvents $events )
+    public function __construct( protected Postmaster $events )
     {
     }
 

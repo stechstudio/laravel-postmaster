@@ -1,19 +1,19 @@
 <?php
 
-namespace STS\EmailEvents\Http\Controllers;
+namespace STS\Postmaster\Http\Controllers;
 
 use Illuminate\Http\Request;
-use STS\EmailEvents\EmailEvents;
-use STS\EmailEvents\Support\SnsSubscription;
+use STS\Postmaster\Postmaster;
+use STS\Postmaster\Support\SnsSubscription;
 
 /**
- * Receives a provider webhook, adapts the payload into EmailEvents and
+ * Receives a provider webhook, adapts the payload into Postmaster and
  * dispatches them. Authorization is handled upstream by the VerifyWebhook
  * middleware, so by the time a request reaches here it is already trusted.
  */
 class WebhookController
 {
-    public function __construct( protected EmailEvents $events )
+    public function __construct( protected Postmaster $events )
     {
     }
 

@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
-use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\Providers\Resend\Adapter as Resend;
+use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Providers\Resend\Adapter as Resend;
 
 class ResendAdapterTest extends TestCase
 {

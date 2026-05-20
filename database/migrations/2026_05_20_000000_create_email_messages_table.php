@@ -8,12 +8,12 @@ return new class extends Migration
 {
     protected function table(): string
     {
-        return config('email-events.persistence.table', 'email_messages');
+        return config('postmaster.persistence.table', 'email_messages');
     }
 
     protected function tenantColumn(): string
     {
-        return config('email-events.persistence.tenant_column', 'tenant_id');
+        return config('postmaster.persistence.tenant_column', 'tenant_id');
     }
 
     public function up(): void
@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('subject')->nullable();
             // Full message representation, captured at send time only when
             // persistence.store_content is enabled, and purged again by the
-            // email-events:prune-content command per prune_content_after_days.
+            // postmaster:prune-content command per prune_content_after_days.
             $table->string('from_address')->nullable();
             $table->json('recipients')->nullable();
             $table->longText('html_body')->nullable();

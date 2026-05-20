@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests\Stubs;
+namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Mail\Mailable;
-use STS\EmailEvents\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksEmailEvents;
 
 class OrderConfirmationMail extends Mailable
 {

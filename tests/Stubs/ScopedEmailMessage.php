@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests\Stubs;
+namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Database\Eloquent\Builder;
-use STS\EmailEvents\Models\EmailMessage;
+use STS\Postmaster\Models\EmailMessage;
 
 /**
  * Stands in for a swapped-in model that carries a tenant global scope

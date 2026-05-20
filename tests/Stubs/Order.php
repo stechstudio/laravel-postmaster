@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests\Stubs;
+namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Database\Eloquent\Model;
-use STS\EmailEvents\Concerns\HasEmailMessages;
+use STS\Postmaster\Concerns\HasEmailMessages;
 
 class Order extends Model
 {

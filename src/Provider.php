@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents;
+namespace STS\Postmaster;
 
 use Illuminate\Http\Request;
-use STS\EmailEvents\Exceptions\InvalidEventException;
+use STS\Postmaster\Exceptions\InvalidEventException;
 
 /**
  *

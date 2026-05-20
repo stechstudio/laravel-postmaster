@@ -1,14 +1,14 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
-use STS\EmailEvents\Providers\Mailgun\Adapter as Mailgun;
-use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
-use STS\EmailEvents\Providers\Resend\Adapter as Resend;
-use STS\EmailEvents\Providers\SendGrid\Adapter as SendGrid;
-use STS\EmailEvents\Providers\Ses\Adapter as Ses;
-use STS\EmailEvents\EmailEvent;
+use STS\Postmaster\Providers\Mailgun\Adapter as Mailgun;
+use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
+use STS\Postmaster\Providers\Resend\Adapter as Resend;
+use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
+use STS\Postmaster\Providers\Ses\Adapter as Ses;
+use STS\Postmaster\EmailEvent;
 
 /**
  * Exercises each adapter against captured webhook payloads stored as JSON

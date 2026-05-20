@@ -1,23 +1,23 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Schema;
-use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\Facades\EmailEvents;
-use STS\EmailEvents\Models\EmailMessage;
-use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
-use STS\EmailEvents\Tests\Stubs\FullMail;
-use STS\EmailEvents\Tests\Stubs\Order;
-use STS\EmailEvents\Tests\Stubs\OrderConfirmationMail;
-use STS\EmailEvents\Tests\Stubs\RelatedNotification;
-use STS\EmailEvents\Tests\Stubs\ScopedEmailMessage;
-use STS\EmailEvents\Tests\Stubs\Tenant;
-use STS\EmailEvents\Tests\Stubs\TrackedMail;
-use STS\EmailEvents\Tests\Stubs\TrackedMailMessage;
+use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Facades\Postmaster;
+use STS\Postmaster\Models\EmailMessage;
+use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
+use STS\Postmaster\Tests\Stubs\FullMail;
+use STS\Postmaster\Tests\Stubs\Order;
+use STS\Postmaster\Tests\Stubs\OrderConfirmationMail;
+use STS\Postmaster\Tests\Stubs\RelatedNotification;
+use STS\Postmaster\Tests\Stubs\ScopedEmailMessage;
+use STS\Postmaster\Tests\Stubs\Tenant;
+use STS\Postmaster\Tests\Stubs\TrackedMail;
+use STS\Postmaster\Tests\Stubs\TrackedMailMessage;
 use Symfony\Component\Mime\Email;
 
 class PersistenceTest extends TestCase
@@ -26,7 +26,7 @@ class PersistenceTest extends TestCase
 
     protected function defineEnvironment($app)
     {
-        $app['config']->set('email-events.persistence.enabled', true);
+        $app['config']->set('postmaster.persistence.enabled', true);
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
             'driver'   => 'sqlite',
@@ -145,8 +145,8 @@ class PersistenceTest extends TestCase
         $this->assertCount(1, $messages);
 
         $headers = $messages->first()->getOriginalMessage()->getHeaders();
-        $this->assertFalse($headers->has('X-Email-Events-Related-Type'));
-        $this->assertFalse($headers->has('X-Email-Events-Related-Id'));
+        $this->assertFalse($headers->has('X-Postmaster-Related-Type'));
+        $this->assertFalse($headers->has('X-Postmaster-Related-Id'));
     }
 
     public function testRelatedModelCanLoadItsEmailMessages()
@@ -180,7 +180,7 @@ class PersistenceTest extends TestCase
 
     public function testTenantIsRecordedFromGlobalResolver()
     {
-        EmailEvents::resolveTenantUsing(fn () => 99);
+        Postmaster::resolveTenantUsing(fn () => 99);
 
         Mail::raw('Hello', function ($message) {
             $message->to('recipient@example.com')->subject('Greetings');
@@ -191,7 +191,7 @@ class PersistenceTest extends TestCase
 
     public function testExplicitForTenantOverridesTheResolver()
     {
-        EmailEvents::resolveTenantUsing(fn () => 1);
+        Postmaster::resolveTenantUsing(fn () => 1);
 
         Mail::to('recipient@example.com')->send(new TrackedMail(tenant: 2));
 
@@ -227,7 +227,7 @@ class PersistenceTest extends TestCase
 
         $this->assertSame(
             $order->getMorphClass(),
-            $email->getHeaders()->get('X-Email-Events-Related-Type')->getBodyAsString()
+            $email->getHeaders()->get('X-Postmaster-Related-Type')->getBodyAsString()
         );
     }
 
@@ -236,7 +236,7 @@ class PersistenceTest extends TestCase
         Mail::to('recipient@example.com')->send(new TrackedMail(tenant: 42));
 
         $headers = Mail::getSymfonyTransport()->messages()->first()->getOriginalMessage()->getHeaders();
-        $this->assertFalse($headers->has('X-Email-Events-Tenant'));
+        $this->assertFalse($headers->has('X-Postmaster-Tenant'));
     }
 
     public function testForTenantScopeFiltersByTenant()
@@ -252,7 +252,7 @@ class PersistenceTest extends TestCase
     public function testTenantRelationResolves()
     {
         Schema::create('tenants', fn ($table) => $table->id());
-        config(['email-events.persistence.tenant_model' => Tenant::class]);
+        config(['postmaster.persistence.tenant_model' => Tenant::class]);
         $tenant = Tenant::create();
 
         $record = EmailMessage::create(['message_id' => 'a', 'tenant_id' => $tenant->getKey()]);
@@ -262,7 +262,7 @@ class PersistenceTest extends TestCase
 
     public function testFullMessageContentIsStoredWhenEnabled()
     {
-        config(['email-events.persistence.store_content' => true]);
+        config(['postmaster.persistence.store_content' => true]);
 
         Mail::to('to@example.com')
             ->cc('cc@example.com')
@@ -295,7 +295,7 @@ class PersistenceTest extends TestCase
 
     public function testPruneContentCommandPurgesOldContentButKeepsTheRecord()
     {
-        config(['email-events.persistence.prune_content_after_days' => 30]);
+        config(['postmaster.persistence.prune_content_after_days' => 30]);
 
         $old = EmailMessage::create([
             'message_id'   => 'old',
@@ -311,7 +311,7 @@ class PersistenceTest extends TestCase
             'html_body'  => '<p>recent</p>',
         ]);
 
-        $this->artisan('email-events:prune-content')->assertSuccessful();
+        $this->artisan('postmaster:prune-content')->assertSuccessful();
 
         $old->refresh();
         $this->assertNull($old->html_body);
@@ -334,7 +334,7 @@ class PersistenceTest extends TestCase
 
     public function testWebhookCorrelationIgnoresGlobalScopes()
     {
-        config(['email-events.persistence.model' => ScopedEmailMessage::class]);
+        config(['postmaster.persistence.model' => ScopedEmailMessage::class]);
 
         EmailMessage::create([
             'message_id' => 'scoped-message-1',

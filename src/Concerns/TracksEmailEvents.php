@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Concerns;
+namespace STS\Postmaster\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
-use STS\EmailEvents\EmailEvents;
+use STS\Postmaster\Postmaster;
 
 /**
  * Associates an outbound email with one of your models (an Order, User, etc.)
@@ -14,7 +14,7 @@ use STS\EmailEvents\EmailEvents;
  * Add it to a Mailable, or to your own MailMessage subclass — the trait only
  * depends on withSymfonyMessage(), which both Laravel Mailables and
  * Illuminate\Notifications\Messages\MailMessage expose. (For a plain
- * MailMessage, call EmailEvents::relatedTo()/forTenant() via
+ * MailMessage, call Postmaster::relatedTo()/forTenant() via
  * withSymfonyMessage() instead — the trait delegates to those same builders.)
  *
  * The associations are carried on the message only in-process: each is
@@ -22,7 +22,7 @@ use STS\EmailEvents\EmailEvents;
  * transmitted, so nothing about the related model or tenant is ever exposed
  * in the outbound email.
  *
- * Requires the optional persistence layer (MAIL_EVENTS_PERSISTENCE=true).
+ * Requires the optional persistence layer (POSTMASTER_PERSISTENCE=true).
  */
 trait TracksEmailEvents
 {
@@ -35,13 +35,13 @@ trait TracksEmailEvents
      */
     public function relatedTo( Model $model )
     {
-        return $this->withSymfonyMessage(app(EmailEvents::class)->relatedTo($model));
+        return $this->withSymfonyMessage(app(Postmaster::class)->relatedTo($model));
     }
 
     /**
      * Associate this email with the given tenant. Use this when tenant
      * context is not available globally (e.g. inside a queued job) — it
-     * takes precedence over the EmailEvents::resolveTenantUsing() resolver.
+     * takes precedence over the Postmaster::resolveTenantUsing() resolver.
      *
      * @param Model|int|string $tenant A tenant model or its key.
      *
@@ -49,6 +49,6 @@ trait TracksEmailEvents
      */
     public function forTenant( $tenant )
     {
-        return $this->withSymfonyMessage(app(EmailEvents::class)->forTenant($tenant));
+        return $this->withSymfonyMessage(app(Postmaster::class)->forTenant($tenant));
     }
 }

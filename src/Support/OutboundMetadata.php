@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Support;
+namespace STS\Postmaster\Support;
 
 /**
  * In-process bridge that carries metadata about an outbound email — the
@@ -20,9 +20,9 @@ class OutboundMetadata
      * TracksEmailEvents trait, read and removed by StashOutboundMetadata
      * before the message is handed to the transport.
      */
-    const HEADER_RELATED_TYPE = 'X-Email-Events-Related-Type';
-    const HEADER_RELATED_ID   = 'X-Email-Events-Related-Id';
-    const HEADER_TENANT       = 'X-Email-Events-Tenant';
+    const HEADER_RELATED_TYPE = 'X-Postmaster-Related-Type';
+    const HEADER_RELATED_ID   = 'X-Postmaster-Related-Id';
+    const HEADER_TENANT       = 'X-Postmaster-Tenant';
 
     /**
      * @var array<int, array<string, string>>

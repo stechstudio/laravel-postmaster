@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Providers\Mailgun;
+namespace STS\Postmaster\Providers\Mailgun;
 
 use Illuminate\Http\Request;
 

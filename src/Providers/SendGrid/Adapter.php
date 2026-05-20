@@ -1,11 +1,11 @@
 <?php
 
-namespace STS\EmailEvents\Providers\SendGrid;
+namespace STS\Postmaster\Providers\SendGrid;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\Providers\AbstractAdapter;
+use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Providers\AbstractAdapter;
 
 class Adapter extends AbstractAdapter
 {

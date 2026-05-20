@@ -1,5 +1,5 @@
 {
-    "name": "stechstudio/laravel-email-events",
+    "name": "stechstudio/laravel-postmaster",
     "description": "Verify, normalize, and track email delivery webhooks from SendGrid, Postmark, Mailgun, Amazon SES, and Resend",
     "license": "MIT",
     "authors": [
@@ -9,8 +9,11 @@
             "homepage": "https://stechstudio.com"
         }
     ],
-    "homepage": "https://github.com/stechstudio/laravel-email-events",
-    "keywords": ["Laravel", "Email Events", "Webhooks", "SendGrid", "Postmark", "Mailgun", "SES", "Resend"],
+    "homepage": "https://github.com/stechstudio/laravel-postmaster",
+    "keywords": ["Laravel", "Postmaster", "Email", "Email Events", "Webhooks", "SendGrid", "Postmark", "Mailgun", "SES", "Resend"],
+    "replace": {
+        "stechstudio/laravel-email-events": "self.version"
+    },
     "require": {
         "php": "^8.2",
         "illuminate/support": "^12.0|^13.0"
@@ -23,21 +26,21 @@
     },
     "autoload": {
         "psr-4": {
-            "STS\\EmailEvents\\": "src/"
+            "STS\\Postmaster\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "STS\\EmailEvents\\Tests\\": "tests"
+            "STS\\Postmaster\\Tests\\": "tests"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "STS\\EmailEvents\\EmailEventsServiceProvider"
+                "STS\\Postmaster\\PostmasterServiceProvider"
             ],
             "aliases": {
-                "EmailEvents": "STS\\EmailEvents\\Facades\\EmailEvents"
+                "Postmaster": "STS\\Postmaster\\Facades\\Postmaster"
             }
         }
     }

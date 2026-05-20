@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Tests\Stubs;
+namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Mail\Mailable;
 

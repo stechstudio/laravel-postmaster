@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Contracts;
+namespace STS\Postmaster\Contracts;
 
 use Illuminate\Support\Collection;
 

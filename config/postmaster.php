@@ -4,30 +4,30 @@ return [
 
     /*
      * The path the webhook route is registered at. The provider name is
-     * appended, e.g. ".hooks/email-events/sendgrid".
+     * appended, e.g. ".hooks/postmaster/sendgrid".
      */
-    'url' => env('MAIL_EVENTS_URL', '.hooks/email-events'),
+    'url' => env('POSTMASTER_URL', '.hooks/postmaster'),
 
     /*
      * Whether the package registers its webhook route automatically. Disable
-     * this to register the route yourself with EmailEvents::routes() — for
+     * this to register the route yourself with Postmaster::routes() — for
      * example to apply a custom domain, prefix, or middleware.
      */
-    'register_route' => env('MAIL_EVENTS_REGISTER_ROUTE', true),
+    'register_route' => env('POSTMASTER_REGISTER_ROUTE', true),
 
     /*
      * What to do with a webhook payload that no adapter can turn into a valid
      * event: "log" a warning, "throw" an exception, or silently "ignore" it.
      */
-    'on_invalid' => env('MAIL_EVENTS_ON_INVALID', 'log'),
+    'on_invalid' => env('POSTMASTER_ON_INVALID', 'log'),
 
     /*
      * Shared credentials for the "token" and "basic" authorizers below.
      */
-    'token' => env('MAIL_EVENTS_AUTH_TOKEN'),
-    'token_parameter' => env('MAIL_EVENTS_AUTH_TOKEN_PARAM', 'auth'),
-    'basic_username' => env('MAIL_EVENTS_AUTH_USERNAME'),
-    'basic_password' => env('MAIL_EVENTS_AUTH_PASSWORD'),
+    'token' => env('POSTMASTER_AUTH_TOKEN'),
+    'token_parameter' => env('POSTMASTER_AUTH_TOKEN_PARAM', 'auth'),
+    'basic_username' => env('POSTMASTER_AUTH_USERNAME'),
+    'basic_password' => env('POSTMASTER_AUTH_PASSWORD'),
 
     /*
      * Named, provider-agnostic authorizers. A provider's "auth" setting may
@@ -35,9 +35,9 @@ return [
      * directly (e.g. a provider-specific signature verifier).
      */
     'authorizers' => [
-        'token'      => \STS\EmailEvents\Auth\TokenAuth::class,
-        'basic'      => \STS\EmailEvents\Auth\BasicHttpAuth::class,
-        'user-agent' => \STS\EmailEvents\Auth\UserAgentAuth::class,
+        'token'      => \STS\Postmaster\Auth\TokenAuth::class,
+        'basic'      => \STS\Postmaster\Auth\BasicHttpAuth::class,
+        'user-agent' => \STS\Postmaster\Auth\UserAgentAuth::class,
     ],
 
     /*
@@ -48,35 +48,35 @@ return [
     'providers' => [
 
         'sendgrid' => [
-            'adapter' => \STS\EmailEvents\Providers\SendGrid\Adapter::class,
-            'auth'    => env('MAIL_EVENTS_SENDGRID_AUTH', \STS\EmailEvents\Providers\SendGrid\SignatureAuth::class),
+            'adapter' => \STS\Postmaster\Providers\SendGrid\Adapter::class,
+            'auth'    => env('POSTMASTER_SENDGRID_AUTH', \STS\Postmaster\Providers\SendGrid\SignatureAuth::class),
             // The base64 "Verification Key" from SendGrid's Signed Event Webhook settings.
-            'verification_key' => env('MAIL_EVENTS_SENDGRID_VERIFICATION_KEY'),
+            'verification_key' => env('POSTMASTER_SENDGRID_VERIFICATION_KEY'),
         ],
 
         'postmark' => [
-            'adapter' => \STS\EmailEvents\Providers\Postmark\Adapter::class,
+            'adapter' => \STS\Postmaster\Providers\Postmark\Adapter::class,
             // Postmark does not sign webhook payloads; use basic auth or a token.
-            'auth'    => env('MAIL_EVENTS_POSTMARK_AUTH', 'basic'),
+            'auth'    => env('POSTMASTER_POSTMARK_AUTH', 'basic'),
         ],
 
         'mailgun' => [
-            'adapter' => \STS\EmailEvents\Providers\Mailgun\Adapter::class,
-            'auth'    => env('MAIL_EVENTS_MAILGUN_AUTH', \STS\EmailEvents\Providers\Mailgun\SignatureAuth::class),
-            'signing_key' => env('MAIL_EVENTS_MAILGUN_SIGNING_KEY', env('MAILGUN_SECRET')),
+            'adapter' => \STS\Postmaster\Providers\Mailgun\Adapter::class,
+            'auth'    => env('POSTMASTER_MAILGUN_AUTH', \STS\Postmaster\Providers\Mailgun\SignatureAuth::class),
+            'signing_key' => env('POSTMASTER_MAILGUN_SIGNING_KEY', env('MAILGUN_SECRET')),
         ],
 
         'ses' => [
-            'adapter' => \STS\EmailEvents\Providers\Ses\Adapter::class,
+            'adapter' => \STS\Postmaster\Providers\Ses\Adapter::class,
             // SES delivers via SNS; the SNS message is verified against its x509 cert.
-            'auth'    => env('MAIL_EVENTS_SES_AUTH', \STS\EmailEvents\Providers\Ses\SignatureAuth::class),
+            'auth'    => env('POSTMASTER_SES_AUTH', \STS\Postmaster\Providers\Ses\SignatureAuth::class),
         ],
 
         'resend' => [
-            'adapter' => \STS\EmailEvents\Providers\Resend\Adapter::class,
-            'auth'    => env('MAIL_EVENTS_RESEND_AUTH', \STS\EmailEvents\Providers\Resend\SignatureAuth::class),
+            'adapter' => \STS\Postmaster\Providers\Resend\Adapter::class,
+            'auth'    => env('POSTMASTER_RESEND_AUTH', \STS\Postmaster\Providers\Resend\SignatureAuth::class),
             // The "whsec_..." signing secret from Resend's webhook settings.
-            'signing_secret' => env('MAIL_EVENTS_RESEND_SIGNING_SECRET'),
+            'signing_secret' => env('POSTMASTER_RESEND_SIGNING_SECRET'),
         ],
 
     ],
@@ -88,8 +88,8 @@ return [
      * dispatcher without it.
      */
     'persistence' => [
-        'enabled' => env('MAIL_EVENTS_PERSISTENCE', false),
-        'model'   => \STS\EmailEvents\Models\EmailMessage::class,
+        'enabled' => env('POSTMASTER_PERSISTENCE', false),
+        'model'   => \STS\Postmaster\Models\EmailMessage::class,
         'table'   => 'email_messages',
 
         /*
@@ -97,12 +97,12 @@ return [
          * connection. Database-per-tenant apps should point this at a shared
          * connection so tenant-less webhooks can always find the record.
          */
-        'connection' => env('MAIL_EVENTS_PERSISTENCE_CONNECTION'),
+        'connection' => env('POSTMASTER_PERSISTENCE_CONNECTION'),
 
         /*
          * Multitenancy. The tenant column stores the owning tenant's key.
          * Populate it per-send with a Mailable's forTenant(), or globally via
-         * EmailEvents::resolveTenantUsing() in a service provider. Set
+         * Postmaster::resolveTenantUsing() in a service provider. Set
          * tenant_model to enable the EmailMessage::tenant() relationship.
          */
         'tenant_column' => 'tenant_id',
@@ -114,14 +114,14 @@ return [
          * bodies are large and may contain personal data or secrets such as
          * password-reset links.
          */
-        'store_content' => env('MAIL_EVENTS_STORE_CONTENT', false),
+        'store_content' => env('POSTMASTER_STORE_CONTENT', false),
 
         /*
-         * Days to retain stored content before the email-events:prune-content
+         * Days to retain stored content before the postmaster:prune-content
          * command purges it (the record itself is kept). The command is
          * scheduled automatically when this is set. Null disables pruning.
          */
-        'prune_content_after_days' => env('MAIL_EVENTS_PRUNE_CONTENT_AFTER_DAYS'),
+        'prune_content_after_days' => env('POSTMASTER_PRUNE_CONTENT_AFTER_DAYS'),
     ],
 
 ];

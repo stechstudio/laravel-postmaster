@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Exceptions;
+namespace STS\Postmaster\Exceptions;
 
 class UnrecognizedEventException extends \Exception
 {

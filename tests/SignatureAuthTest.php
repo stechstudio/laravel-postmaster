@@ -1,13 +1,13 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use STS\EmailEvents\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
-use STS\EmailEvents\Providers\Resend\SignatureAuth as ResendSignatureAuth;
-use STS\EmailEvents\Providers\Ses\SignatureAuth as SesSignatureAuth;
-use STS\EmailEvents\Providers\SendGrid\SignatureAuth as SendGridSignatureAuth;
+use STS\Postmaster\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
+use STS\Postmaster\Providers\Resend\SignatureAuth as ResendSignatureAuth;
+use STS\Postmaster\Providers\Ses\SignatureAuth as SesSignatureAuth;
+use STS\Postmaster\Providers\SendGrid\SignatureAuth as SendGridSignatureAuth;
 
 class SignatureAuthTest extends TestCase
 {

@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Listeners\Concerns;
+namespace STS\Postmaster\Listeners\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
-use STS\EmailEvents\Models\EmailMessage;
+use STS\Postmaster\Models\EmailMessage;
 
 trait InteractsWithEmailMessages
 {
@@ -14,7 +14,7 @@ trait InteractsWithEmailMessages
      */
     protected function messageModel()
     {
-        $class = config('email-events.persistence.model', EmailMessage::class);
+        $class = config('postmaster.persistence.model', EmailMessage::class);
 
         return new $class;
     }
@@ -26,6 +26,6 @@ trait InteractsWithEmailMessages
      */
     protected function tenantColumn()
     {
-        return config('email-events.persistence.tenant_column', 'tenant_id');
+        return config('postmaster.persistence.tenant_column', 'tenant_id');
     }
 }

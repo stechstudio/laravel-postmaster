@@ -1,16 +1,16 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
-use STS\EmailEvents\Provider;
-use STS\EmailEvents\ProviderRegistry;
-use STS\EmailEvents\Providers\SendGrid\Adapter as SendGrid;
+use STS\Postmaster\Provider;
+use STS\Postmaster\ProviderRegistry;
+use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
 
 class ProviderRegistryTest extends TestCase
 {
     protected function registry(): ProviderRegistry
     {
-        return new ProviderRegistry(config('email-events'));
+        return new ProviderRegistry(config('postmaster'));
     }
 
     public function testResolvesAConfiguredProvider()

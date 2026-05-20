@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents;
+namespace STS\Postmaster;
 
 use Closure;
 use Illuminate\Support\Arr;

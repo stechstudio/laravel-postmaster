@@ -1,16 +1,16 @@
 <?php
 
-namespace STS\EmailEvents;
+namespace STS\Postmaster;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
-use STS\EmailEvents\Http\Controllers\WebhookController;
-use STS\EmailEvents\Http\Middleware\VerifyWebhook;
-use STS\EmailEvents\Support\OutboundMetadata;
+use STS\Postmaster\Http\Controllers\WebhookController;
+use STS\Postmaster\Http\Middleware\VerifyWebhook;
+use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
 
-class EmailEvents
+class Postmaster
 {
     /**
      * @var array
@@ -31,7 +31,7 @@ class EmailEvents
     protected $tenantResolver;
 
     /**
-     * EmailEvents constructor.
+     * Postmaster constructor.
      *
      * @param $config
      */
@@ -165,6 +165,6 @@ class EmailEvents
     {
         Route::post($this->config['url'] . '/{provider}', WebhookController::class)
             ->middleware(VerifyWebhook::class)
-            ->name('webhook.email-events');
+            ->name('webhook.postmaster');
     }
 }

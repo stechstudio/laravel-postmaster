@@ -1,10 +1,10 @@
 <?php
 
-namespace STS\EmailEvents;
+namespace STS\Postmaster;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Support\Collection;
-use STS\EmailEvents\Contracts\Adapter;
+use STS\Postmaster\Contracts\Adapter;
 
 /**
  * Class EmailEvent

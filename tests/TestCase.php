@@ -1,21 +1,21 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
-use STS\EmailEvents\EmailEventsServiceProvider;
-use STS\EmailEvents\Facades\EmailEvents;
+use STS\Postmaster\PostmasterServiceProvider;
+use STS\Postmaster\Facades\Postmaster;
 
 abstract class TestCase extends \Orchestra\Testbench\TestCase
 {
     protected function getPackageProviders($app)
     {
-        return [EmailEventsServiceProvider::class];
+        return [PostmasterServiceProvider::class];
     }
 
     protected function getPackageAliases($app)
     {
         return [
-            'EmailEvents' => EmailEvents::class
+            'Postmaster' => Postmaster::class
         ];
     }
 }

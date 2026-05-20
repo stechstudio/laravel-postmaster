@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Providers\Ses;
+namespace STS\Postmaster\Providers\Ses;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -117,7 +117,7 @@ class SignatureAuth
      */
     protected function fetchCertificate( $url )
     {
-        $key = 'email-events:sns-cert:' . sha1($url);
+        $key = 'postmaster:sns-cert:' . sha1($url);
 
         if ($cached = Cache::get($key)) {
             return $cached;

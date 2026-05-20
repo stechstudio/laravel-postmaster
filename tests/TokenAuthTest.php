@@ -1,16 +1,16 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
 use Illuminate\Http\Request;
-use STS\EmailEvents\Auth\TokenAuth;
+use STS\Postmaster\Auth\TokenAuth;
 
 class TokenAuthTest extends TestCase
 {
     public function testSimpleToken()
     {
         config([
-            'email-events.token' => 'mysupersecrettoken',
+            'postmaster.token' => 'mysupersecrettoken',
         ]);
 
         $auth = resolve(TokenAuth::class);
@@ -30,8 +30,8 @@ class TokenAuthTest extends TestCase
     public function testCustomTokenParam()
     {
         config([
-            'email-events.token' => 'mysupersecrettoken',
-            'email-events.token_parameter' => 'token',
+            'postmaster.token' => 'mysupersecrettoken',
+            'postmaster.token_parameter' => 'token',
         ]);
 
         $auth = resolve(TokenAuth::class);

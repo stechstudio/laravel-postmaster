@@ -1,11 +1,11 @@
 <?php
 
-namespace STS\EmailEvents\Providers\Ses;
+namespace STS\Postmaster\Providers\Ses;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\Providers\AbstractAdapter;
+use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Providers\AbstractAdapter;
 
 /**
  * Adapts Amazon SES event notifications, delivered via SNS.

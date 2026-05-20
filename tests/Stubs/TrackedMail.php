@@ -1,10 +1,10 @@
 <?php
 
-namespace STS\EmailEvents\Tests\Stubs;
+namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Mailable;
-use STS\EmailEvents\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksEmailEvents;
 
 class TrackedMail extends Mailable
 {

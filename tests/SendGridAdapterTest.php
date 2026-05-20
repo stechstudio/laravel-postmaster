@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
-use STS\EmailEvents\Providers\SendGrid\Adapter as SendGrid;
-use STS\EmailEvents\EmailEvent;
+use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
+use STS\Postmaster\EmailEvent;
 
 class SendGridAdapterTest extends TestCase
 {

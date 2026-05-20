@@ -1,11 +1,11 @@
 <?php
 
-namespace STS\EmailEvents\Providers\Mailgun;
+namespace STS\Postmaster\Providers\Mailgun;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\Providers\AbstractAdapter;
+use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Providers\AbstractAdapter;
 
 class Adapter extends AbstractAdapter
 {

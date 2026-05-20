@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Exceptions;
+namespace STS\Postmaster\Exceptions;
 
 class InvalidEventException extends \Exception
 {

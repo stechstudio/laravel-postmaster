@@ -1,12 +1,12 @@
 <?php
 
-namespace STS\EmailEvents\Listeners;
+namespace STS\Postmaster\Listeners;
 
 use Illuminate\Mail\Events\MessageSent;
-use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\EmailEvents;
-use STS\EmailEvents\Listeners\Concerns\InteractsWithEmailMessages;
-use STS\EmailEvents\Support\OutboundMetadata;
+use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Postmaster;
+use STS\Postmaster\Listeners\Concerns\InteractsWithEmailMessages;
+use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
 
 /**
@@ -17,7 +17,7 @@ class RecordOutboundMessage
 {
     use InteractsWithEmailMessages;
 
-    public function __construct( protected EmailEvents $events )
+    public function __construct( protected Postmaster $events )
     {
     }
 
@@ -54,7 +54,7 @@ class RecordOutboundMessage
             $attributes[$this->tenantColumn()] = $tenant;
         }
 
-        if (config('email-events.persistence.store_content', false)) {
+        if (config('postmaster.persistence.store_content', false)) {
             $attributes += $this->content($message);
         }
 

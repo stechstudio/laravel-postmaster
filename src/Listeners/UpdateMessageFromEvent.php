@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Listeners;
+namespace STS\Postmaster\Listeners;
 
-use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\Listeners\Concerns\InteractsWithEmailMessages;
+use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Listeners\Concerns\InteractsWithEmailMessages;
 
 /**
  * Updates the stored email record as webhook events arrive, correlated by

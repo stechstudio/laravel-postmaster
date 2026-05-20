@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Providers\SendGrid;
+namespace STS\Postmaster\Providers\SendGrid;
 
 use Illuminate\Http\Request;
 

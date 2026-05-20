@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests\Stubs;
+namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Notifications\Messages\MailMessage;
-use STS\EmailEvents\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksEmailEvents;
 
 /**
  * A MailMessage subclass with the TracksEmailEvents trait — proving the trait

@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Console;
+namespace STS\Postmaster\Console;
 
 use Illuminate\Console\Command;
-use STS\EmailEvents\Models\EmailMessage;
+use STS\Postmaster\Models\EmailMessage;
 
 /**
  * Purges stored message content (sender, recipients, bodies, attachment
@@ -13,13 +13,13 @@ use STS\EmailEvents\Models\EmailMessage;
  */
 class PruneEmailContent extends Command
 {
-    protected $signature = 'email-events:prune-content';
+    protected $signature = 'postmaster:prune-content';
 
     protected $description = 'Purge stored email content past the configured retention window';
 
     public function handle(): int
     {
-        $days = config('email-events.persistence.prune_content_after_days');
+        $days = config('postmaster.persistence.prune_content_after_days');
 
         if ($days === null) {
             $this->info('No content retention window configured (persistence.prune_content_after_days); nothing to prune.');
@@ -27,7 +27,7 @@ class PruneEmailContent extends Command
             return self::SUCCESS;
         }
 
-        $class = config('email-events.persistence.model', EmailMessage::class);
+        $class = config('postmaster.persistence.model', EmailMessage::class);
 
         $pruned = (new $class)->newQuery()
             ->where('created_at', '<', now()->subDays((int) $days))

@@ -1,6 +1,6 @@
-# Laravel Email Events
+# Postmaster
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/stechstudio/laravel-email-events.svg?style=flat-square)](https://packagist.org/packages/stechstudio/laravel-email-events)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/stechstudio/laravel-postmaster.svg?style=flat-square)](https://packagist.org/packages/stechstudio/laravel-postmaster)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
 
 Your Laravel app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, or
@@ -8,9 +8,15 @@ Resend. Each of those providers can POST a webhook back to you when something
 happens to a message — a delivery, an open, a bounce, a complaint — but every
 provider authenticates, shapes, and names those events differently.
 
-This package accepts webhooks from any supported provider and normalizes them
+Postmaster accepts webhooks from any supported provider and normalizes them
 into a single Laravel `EmailEvent`. You listen for one event and react — with
-no provider-specific code in your app.
+no provider-specific code in your app. Switch on the optional persistence layer
+and it also records every outbound message, keeping a queryable delivery
+history that stays current as events arrive.
+
+> The name is the job. `postmaster@` is the mailbox the email standards reserve
+> for delivery problems and bounce notifications — Postmaster is that mailbox
+> for your Laravel app.
 
 ## Supported providers
 
@@ -24,7 +30,7 @@ SendGrid, Postmark, Mailgun, Amazon SES, and Resend.
 ## Installation
 
 ```bash
-composer require stechstudio/laravel-email-events
+composer require stechstudio/laravel-postmaster
 ```
 
 That's all the setup there is — the webhook route is registered automatically.
@@ -33,11 +39,11 @@ That's all the setup there is — the webhook route is registered automatically.
 
 ### 1. Point your provider at the webhook
 
-The package serves `POST .hooks/email-events/{provider}`. In your email
+The package serves `POST .hooks/postmaster/{provider}`. In your email
 provider's dashboard, set the webhook URL to:
 
 ```
-https://your-app.com/.hooks/email-events/{provider}
+https://your-app.com/.hooks/postmaster/{provider}
 ```
 
 …where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, or `resend`.
@@ -48,7 +54,7 @@ In a service provider's `boot()` method:
 
 ```php
 use Illuminate\Support\Facades\Event;
-use STS\EmailEvents\EmailEvent;
+use STS\Postmaster\EmailEvent;
 
 Event::listen(function (EmailEvent $event) {
     if ($event->isPermanent()) {
@@ -123,26 +129,26 @@ needs to be published.
 Enable the Signed Event Webhook in SendGrid and copy the verification key:
 
 ```
-MAIL_EVENTS_SENDGRID_VERIFICATION_KEY=...
+POSTMASTER_SENDGRID_VERIFICATION_KEY=...
 ```
 
 ### Mailgun
 
 ```
-MAIL_EVENTS_MAILGUN_SIGNING_KEY=...   # falls back to MAILGUN_SECRET
+POSTMASTER_MAILGUN_SIGNING_KEY=...   # falls back to MAILGUN_SECRET
 ```
 
 ### Amazon SES
 
 SES delivers events through SNS. Subscribe an SNS topic to
-`.hooks/email-events/ses`; the package verifies the SNS message signature and
+`.hooks/postmaster/ses`; the package verifies the SNS message signature and
 automatically completes the subscription-confirmation handshake. No secret to
 configure.
 
 ### Resend
 
 ```
-MAIL_EVENTS_RESEND_SIGNING_SECRET=whsec_...
+POSTMASTER_RESEND_SIGNING_SECRET=whsec_...
 ```
 
 ### Postmark
@@ -151,8 +157,8 @@ Postmark does not sign webhook payloads. Use HTTP basic auth (the default) or a
 URL token:
 
 ```
-MAIL_EVENTS_AUTH_USERNAME=...
-MAIL_EVENTS_AUTH_PASSWORD=...
+POSTMASTER_AUTH_USERNAME=...
+POSTMASTER_AUTH_PASSWORD=...
 ```
 
 ### Token or basic auth
@@ -161,12 +167,12 @@ Any provider can instead use a shared URL token or HTTP basic auth by setting
 its `auth` to `token` or `basic`:
 
 ```
-MAIL_EVENTS_AUTH_TOKEN=mysecrettoken
+POSTMASTER_AUTH_TOKEN=mysecrettoken
 # then append ?auth=mysecrettoken to the webhook URL
 ```
 
 Each provider's verification method is its `auth` key in
-`config/email-events.php` — a built-in authorizer (`token`, `basic`,
+`config/postmaster.php` — a built-in authorizer (`token`, `basic`,
 `user-agent`) or a fully-qualified authorizer class. Providers default to
 signature verification where the provider supports it.
 
@@ -176,7 +182,7 @@ If a payload can't be turned into a valid event, the `on_invalid` config
 setting decides what happens: `log` (default), `throw`, or `ignore`.
 
 ```
-MAIL_EVENTS_ON_INVALID=log
+POSTMASTER_ON_INVALID=log
 ```
 
 ## Optional persistence
@@ -187,27 +193,27 @@ webhook events arrive — correlated by provider message id — giving you a
 queryable delivery history.
 
 ```
-MAIL_EVENTS_PERSISTENCE=true
+POSTMASTER_PERSISTENCE=true
 ```
 
 Publish and run the migration:
 
 ```bash
-php artisan vendor:publish --tag=email-events.migrations
+php artisan vendor:publish --tag=postmaster.migrations
 php artisan migrate
 ```
 
 This creates an `email_messages` table. Each row tracks a message's
 `status`, `bounce_type`, `sent_at`, and `last_event_at`. The model
-(`STS\EmailEvents\Models\EmailMessage`) is swappable via the
-`email-events.persistence.model` config key.
+(`STS\Postmaster\Models\EmailMessage`) is swappable via the
+`postmaster.persistence.model` config key.
 
 It ships query scopes for the common lookups — `delivered()`, `bounced()`,
 `complained()`, `opened()`, `clicked()`, `sent()`, `accepted()`, `deferred()`,
 `dropped()`, and the generic `withStatus()`:
 
 ```php
-use STS\EmailEvents\Models\EmailMessage;
+use STS\Postmaster\Models\EmailMessage;
 
 EmailMessage::bounced()->count();
 EmailMessage::delivered()->where('sent_at', '>', now()->subDay())->get();
@@ -225,7 +231,7 @@ filenames. This is captured from the message itself at send time, so it works
 the same for every provider.
 
 ```
-MAIL_EVENTS_STORE_CONTENT=true
+POSTMASTER_STORE_CONTENT=true
 ```
 
 > Message bodies are large and routinely contain personal data or secrets
@@ -239,13 +245,13 @@ number of days to keep content and the package schedules a daily prune
 automatically — the record is kept, only the content columns are cleared:
 
 ```
-MAIL_EVENTS_PRUNE_CONTENT_AFTER_DAYS=30
+POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=30
 ```
 
 You can also run it on demand:
 
 ```bash
-php artisan email-events:prune-content
+php artisan postmaster:prune-content
 ```
 
 ### Relating emails to your models
@@ -258,7 +264,7 @@ Add the `TracksEmailEvents` trait to a Mailable and call `relatedTo()`:
 
 ```php
 use Illuminate\Mail\Mailable;
-use STS\EmailEvents\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksEmailEvents;
 
 class OrderConfirmation extends Mailable
 {
@@ -278,7 +284,7 @@ class OrderConfirmation extends Mailable
 Add the `HasEmailMessages` trait to the related model:
 
 ```php
-use STS\EmailEvents\Concerns\HasEmailMessages;
+use STS\Postmaster\Concerns\HasEmailMessages;
 
 class Order extends Model
 {
@@ -306,18 +312,18 @@ about the related model is ever exposed in the outbound email.
 Notifications send through the same mailer, so recording, content capture, and
 status correlation all work for notification emails with no extra setup. To
 *associate* one, a notification's `toMail()` returns a `MailMessage` rather
-than a Mailable — pass the `EmailEvents` builders to `withSymfonyMessage()`:
+than a Mailable — pass the `Postmaster` builders to `withSymfonyMessage()`:
 
 ```php
-use STS\EmailEvents\Facades\EmailEvents;
+use STS\Postmaster\Facades\Postmaster;
 
 public function toMail($notifiable)
 {
     return (new MailMessage)
         ->subject('Your order shipped')
         ->line('Your order is on its way.')
-        ->withSymfonyMessage(EmailEvents::relatedTo($this->order))
-        ->withSymfonyMessage(EmailEvents::forTenant($this->order->tenant));
+        ->withSymfonyMessage(Postmaster::relatedTo($this->order))
+        ->withSymfonyMessage(Postmaster::forTenant($this->order->tenant));
 }
 ```
 
@@ -334,9 +340,9 @@ tenant can see all of its delivery activity at once.
 Register a tenant resolver, typically in a service provider:
 
 ```php
-use STS\EmailEvents\Facades\EmailEvents;
+use STS\Postmaster\Facades\Postmaster;
 
-EmailEvents::resolveTenantUsing(fn () => tenant());
+Postmaster::resolveTenantUsing(fn () => tenant());
 ```
 
 The resolver may return a tenant model or its key, and is called lazily when
@@ -393,28 +399,28 @@ The defaults work out of the box. To customize them — change the webhook path,
 adjust per-provider settings, tweak persistence — publish the config file:
 
 ```bash
-php artisan vendor:publish --tag=email-events.config
+php artisan vendor:publish --tag=postmaster.config
 ```
 
 The webhook route is registered for you. To register it yourself instead — a
-custom domain, prefix, or middleware — set `MAIL_EVENTS_REGISTER_ROUTE=false`
-and call `EmailEvents::routes()` from your own route file.
+custom domain, prefix, or middleware — set `POSTMASTER_REGISTER_ROUTE=false`
+and call `Postmaster::routes()` from your own route file.
 
 ## Custom providers
 
 Register your own provider at runtime with a resolver closure:
 
 ```php
-use STS\EmailEvents\Facades\EmailEvents;
-use STS\EmailEvents\Provider;
+use STS\Postmaster\Facades\Postmaster;
+use STS\Postmaster\Provider;
 
-EmailEvents::extend('myprovider', function (array $config) {
+Postmaster::extend('myprovider', function (array $config) {
     return new Provider('myprovider', MyAdapter::class, fn ($request) => true);
 });
 ```
 
-An adapter implements `STS\EmailEvents\Contracts\Adapter` (extending
-`STS\EmailEvents\Providers\AbstractAdapter` covers most of it).
+An adapter implements `STS\Postmaster\Contracts\Adapter` (extending
+`STS\Postmaster\Providers\AbstractAdapter` covers most of it).
 
 ## Upgrading
 

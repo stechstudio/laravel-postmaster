@@ -1,9 +1,9 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
-use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
-use STS\EmailEvents\EmailEvent;
+use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
+use STS\Postmaster\EmailEvent;
 
 class PostmarkAdapterTest extends TestCase
 {

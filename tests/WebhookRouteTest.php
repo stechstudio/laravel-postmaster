@@ -1,19 +1,19 @@
 <?php
 
-namespace STS\EmailEvents\Tests;
+namespace STS\Postmaster\Tests;
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
-use STS\EmailEvents\EmailEvent;
+use STS\Postmaster\EmailEvent;
 
 class WebhookRouteTest extends TestCase
 {
     protected function defineEnvironment($app)
     {
-        $app['config']->set('email-events.token', 'secret-token');
-        $app['config']->set('email-events.providers.sendgrid.auth', 'token');
-        $app['config']->set('email-events.providers.ses.auth', 'token');
+        $app['config']->set('postmaster.token', 'secret-token');
+        $app['config']->set('postmaster.providers.sendgrid.auth', 'token');
+        $app['config']->set('postmaster.providers.ses.auth', 'token');
     }
 
     protected function sendgridPayload(): array
@@ -29,14 +29,14 @@ class WebhookRouteTest extends TestCase
 
     public function testWebhookRouteIsRegisteredAutomatically()
     {
-        $this->assertTrue(Route::has('webhook.email-events'));
+        $this->assertTrue(Route::has('webhook.postmaster'));
     }
 
     public function testValidWebhookDispatchesEmailEvent()
     {
         Event::fake();
 
-        $this->postJson('/.hooks/email-events/sendgrid?auth=secret-token', $this->sendgridPayload())
+        $this->postJson('/.hooks/postmaster/sendgrid?auth=secret-token', $this->sendgridPayload())
             ->assertOk();
 
         Event::assertDispatched(EmailEvent::class);
@@ -46,7 +46,7 @@ class WebhookRouteTest extends TestCase
     {
         Event::fake();
 
-        $this->postJson('/.hooks/email-events/sendgrid?auth=wrong-token', $this->sendgridPayload())
+        $this->postJson('/.hooks/postmaster/sendgrid?auth=wrong-token', $this->sendgridPayload())
             ->assertForbidden();
 
         Event::assertNotDispatched(EmailEvent::class);
@@ -54,7 +54,7 @@ class WebhookRouteTest extends TestCase
 
     public function testWebhookWithNoTokenIsRejected()
     {
-        $this->postJson('/.hooks/email-events/sendgrid', $this->sendgridPayload())
+        $this->postJson('/.hooks/postmaster/sendgrid', $this->sendgridPayload())
             ->assertForbidden();
     }
 
@@ -74,7 +74,7 @@ class WebhookRouteTest extends TestCase
             ]),
         ]);
 
-        $this->call('POST', '/.hooks/email-events/ses?auth=secret-token', [], [], [], [
+        $this->call('POST', '/.hooks/postmaster/ses?auth=secret-token', [], [], [], [
             'CONTENT_TYPE' => 'text/plain',
         ], $body)->assertOk();
 
@@ -90,7 +90,7 @@ class WebhookRouteTest extends TestCase
             'SubscribeURL' => 'https://sns.us-east-1.amazonaws.com/?Action=ConfirmSubscription&Token=abc',
         ]);
 
-        $this->call('POST', '/.hooks/email-events/ses?auth=secret-token', [], [], [], [
+        $this->call('POST', '/.hooks/postmaster/ses?auth=secret-token', [], [], [], [
             'CONTENT_TYPE' => 'text/plain',
         ], $body)->assertOk();
 

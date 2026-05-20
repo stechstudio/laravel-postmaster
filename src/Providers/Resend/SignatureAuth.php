@@ -1,6 +1,6 @@
 <?php
 
-namespace STS\EmailEvents\Providers\Resend;
+namespace STS\Postmaster\Providers\Resend;
 
 use Illuminate\Http\Request;
 

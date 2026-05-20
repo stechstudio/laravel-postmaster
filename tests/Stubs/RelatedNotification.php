@@ -1,13 +1,13 @@
 <?php
 
-namespace STS\EmailEvents\Tests\Stubs;
+namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use STS\EmailEvents\Facades\EmailEvents;
+use STS\Postmaster\Facades\Postmaster;
 
 /**
- * Associates a notification email using the EmailEvents factory helpers on a
+ * Associates a notification email using the Postmaster factory helpers on a
  * plain Laravel MailMessage — the no-subclass path.
  */
 class RelatedNotification extends Notification
@@ -26,7 +26,7 @@ class RelatedNotification extends Notification
         return (new MailMessage)
             ->subject('Order shipped')
             ->line('Your order has shipped.')
-            ->withSymfonyMessage(EmailEvents::relatedTo($this->order))
-            ->withSymfonyMessage(EmailEvents::forTenant(7));
+            ->withSymfonyMessage(Postmaster::relatedTo($this->order))
+            ->withSymfonyMessage(Postmaster::forTenant(7));
     }
 }

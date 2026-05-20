@@ -1,22 +1,22 @@
 <?php
 
-namespace STS\EmailEvents;
+namespace STS\Postmaster;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\ServiceProvider;
-use STS\EmailEvents\Auth\BasicHttpAuth;
-use STS\EmailEvents\Auth\TokenAuth;
-use STS\EmailEvents\Console\PruneEmailContent;
-use STS\EmailEvents\Listeners\RecordOutboundMessage;
-use STS\EmailEvents\Listeners\StashOutboundMetadata;
-use STS\EmailEvents\Listeners\UpdateMessageFromEvent;
-use STS\EmailEvents\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
-use STS\EmailEvents\Providers\Resend\SignatureAuth as ResendSignatureAuth;
-use STS\EmailEvents\Providers\SendGrid\SignatureAuth as SendGridSignatureAuth;
+use STS\Postmaster\Auth\BasicHttpAuth;
+use STS\Postmaster\Auth\TokenAuth;
+use STS\Postmaster\Console\PruneEmailContent;
+use STS\Postmaster\Listeners\RecordOutboundMessage;
+use STS\Postmaster\Listeners\StashOutboundMetadata;
+use STS\Postmaster\Listeners\UpdateMessageFromEvent;
+use STS\Postmaster\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
+use STS\Postmaster\Providers\Resend\SignatureAuth as ResendSignatureAuth;
+use STS\Postmaster\Providers\SendGrid\SignatureAuth as SendGridSignatureAuth;
 
-class EmailEventsServiceProvider extends ServiceProvider
+class PostmasterServiceProvider extends ServiceProvider
 {
     /**
      * Perform post-registration booting of services.
@@ -32,8 +32,8 @@ class EmailEventsServiceProvider extends ServiceProvider
 
         // Register the webhook route automatically. Skipped when routes are
         // cached (the cache already holds it) or disabled via config.
-        if ($this->app['config']->get('email-events.register_route') && ! $this->app->routesAreCached()) {
-            $this->app->make(EmailEvents::class)->routes();
+        if ($this->app['config']->get('postmaster.register_route') && ! $this->app->routesAreCached()) {
+            $this->app->make(Postmaster::class)->routes();
         }
 
         // For local dev let's debug log all email events
@@ -45,7 +45,7 @@ class EmailEventsServiceProvider extends ServiceProvider
 
         // Optional persistence: record outbound mail and update those records
         // as webhook events arrive.
-        if ($this->app['config']->get('email-events.persistence.enabled')) {
+        if ($this->app['config']->get('postmaster.persistence.enabled')) {
             $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
             $this->app['events']->listen(MessageSending::class, StashOutboundMetadata::class);
@@ -61,46 +61,46 @@ class EmailEventsServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/email-events.php', 'email-events');
+        $this->mergeConfigFrom(__DIR__.'/../config/postmaster.php', 'postmaster');
 
         // Register the service the package provides.
-        $this->app->singleton('emailevents', function ($app) {
-            return new EmailEvents(
-                $app['config']->get('email-events')
+        $this->app->singleton('postmaster', function ($app) {
+            return new Postmaster(
+                $app['config']->get('postmaster')
             );
         });
 
-        $this->app->alias('emailevents', EmailEvents::class);
+        $this->app->alias('postmaster', Postmaster::class);
 
         $this->app->bind(TokenAuth::class, function($app) {
             return new TokenAuth(
-                $app['config']->get('email-events.token'),
-                $app['config']->get('email-events.token_parameter')
+                $app['config']->get('postmaster.token'),
+                $app['config']->get('postmaster.token_parameter')
             );
         });
 
         $this->app->bind(BasicHttpAuth::class, function($app) {
             return new BasicHttpAuth(
-                $app['config']->get('email-events.basic_username'),
-                $app['config']->get('email-events.basic_password')
+                $app['config']->get('postmaster.basic_username'),
+                $app['config']->get('postmaster.basic_password')
             );
         });
 
         $this->app->bind(MailgunSignatureAuth::class, function($app) {
             return new MailgunSignatureAuth(
-                $app['config']->get('email-events.providers.mailgun.signing_key')
+                $app['config']->get('postmaster.providers.mailgun.signing_key')
             );
         });
 
         $this->app->bind(SendGridSignatureAuth::class, function($app) {
             return new SendGridSignatureAuth(
-                $app['config']->get('email-events.providers.sendgrid.verification_key')
+                $app['config']->get('postmaster.providers.sendgrid.verification_key')
             );
         });
 
         $this->app->bind(ResendSignatureAuth::class, function($app) {
             return new ResendSignatureAuth(
-                $app['config']->get('email-events.providers.resend.signing_secret')
+                $app['config']->get('postmaster.providers.resend.signing_secret')
             );
         });
     }
@@ -112,7 +112,7 @@ class EmailEventsServiceProvider extends ServiceProvider
      */
     public function provides()
     {
-        return ['emailevents'];
+        return ['postmaster'];
     }
     
     /**
@@ -124,22 +124,22 @@ class EmailEventsServiceProvider extends ServiceProvider
     {
         // Publishing the configuration file.
         $this->publishes([
-            __DIR__.'/../config/email-events.php' => config_path('email-events.php'),
-        ], 'email-events.config');
+            __DIR__.'/../config/postmaster.php' => config_path('postmaster.php'),
+        ], 'postmaster.config');
 
         // Publishing the persistence migration.
         $this->publishes([
             __DIR__.'/../database/migrations' => database_path('migrations'),
-        ], 'email-events.migrations');
+        ], 'postmaster.migrations');
 
-        if ($this->app['config']->get('email-events.persistence.enabled')) {
+        if ($this->app['config']->get('postmaster.persistence.enabled')) {
             $this->commands([PruneEmailContent::class]);
 
             // Auto-schedule content pruning when a retention window is set.
-            if ($this->app['config']->get('email-events.persistence.prune_content_after_days') !== null) {
+            if ($this->app['config']->get('postmaster.persistence.prune_content_after_days') !== null) {
                 $this->app->booted(function () {
                     $this->app->make(Schedule::class)
-                        ->command('email-events:prune-content')
+                        ->command('postmaster:prune-content')
                         ->daily();
                 });
             }

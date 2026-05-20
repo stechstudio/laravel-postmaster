@@ -44,28 +44,26 @@ https://your-app.com/.hooks/email-events/{provider}
 
 ### 2. Listen for the event
 
-```php
-namespace App\Listeners;
+In a service provider's `boot()` method:
 
+```php
+use Illuminate\Support\Facades\Event;
 use STS\EmailEvents\EmailEvent;
 
-class HandleEmailEvent
-{
-    public function handle(EmailEvent $event): void
-    {
-        if ($event->isPermanent()) {
-            // A hard bounce or a block — safe to suppress this address.
-            MySuppressionList::add($event->getRecipient());
-        }
+Event::listen(function (EmailEvent $event) {
+    if ($event->isPermanent()) {
+        // A hard bounce or a block — safe to suppress this address.
+        MySuppressionList::add($event->getRecipient());
     }
-}
+});
 ```
 
 That's the whole integration. Every webhook — a delivery, open, bounce, or
 complaint, from any provider — arrives as one normalized `EmailEvent`.
 
-To process webhooks off the request cycle, make your listener implement
-`Illuminate\Contracts\Queue\ShouldQueue` — Laravel will queue it for you.
+For anything substantial, use a dedicated listener class instead — Laravel
+auto-discovers it, and it can implement `Illuminate\Contracts\Queue\ShouldQueue`
+to process webhooks off the request cycle.
 
 > **Before going live**, set up [webhook verification](#verifying-webhooks) so
 > the package can trust inbound requests. Unverified webhooks are rejected by

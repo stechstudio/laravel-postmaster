@@ -41,8 +41,10 @@ class WebhookController
     }
 
     /**
-     * The decoded webhook payload. Falls back to decoding the raw body so
-     * that providers posting as text/plain (e.g. Amazon SNS) still work.
+     * The decoded webhook payload. Read from the request body only — never
+     * the query string, so an "?auth=" token does not leak into the payload.
+     * Falls back to decoding the raw body for providers posting as text/plain
+     * (e.g. Amazon SNS).
      *
      * @param Request $request
      *
@@ -50,14 +52,16 @@ class WebhookController
      */
     protected function payload( Request $request )
     {
-        $payload = $request->all();
-
-        if (! empty($payload)) {
-            return $payload;
+        if ($request->isJson()) {
+            return (array) $request->json()->all();
         }
 
         $decoded = json_decode($request->getContent(), true);
 
-        return is_array($decoded) ? $decoded : [];
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        return $request->request->all();
     }
 }

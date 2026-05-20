@@ -8,3 +8,7 @@ parameters:
     # Docblocks in this package are intentionally loose (e.g. "@return string"
     # on accessors that may return null); trust runtime checks over PHPDoc.
     treatPhpDocTypesAsCertain: false
+    # TracksEmailEvents / HasEmailMessages are public API traits applied by
+    # consuming apps, so they are legitimately "unused" within this package.
+    ignoreErrors:
+        - identifier: trait.unused

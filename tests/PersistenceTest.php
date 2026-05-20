@@ -4,9 +4,12 @@ namespace STS\EmailEvents\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use STS\EmailEvents\EmailEvent;
 use STS\EmailEvents\Models\EmailMessage;
 use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
+use STS\EmailEvents\Tests\Stubs\Order;
+use STS\EmailEvents\Tests\Stubs\OrderConfirmationMail;
 
 class PersistenceTest extends TestCase
 {
@@ -82,6 +85,45 @@ class PersistenceTest extends TestCase
         $record = EmailMessage::where('message_id', 'postmark-message-2')->first();
         $this->assertSame(EmailEvent::EVENT_BOUNCED, $record->status);
         $this->assertSame(EmailEvent::BOUNCE_HARD, $record->bounce_type);
+    }
+
+    public function testRelatedModelIsRecordedFromMailable()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        Mail::to('recipient@example.com')->send(new OrderConfirmationMail($order));
+
+        $record = EmailMessage::first();
+        $this->assertSame($order->getMorphClass(), $record->related_type);
+        $this->assertSame((string) $order->getKey(), (string) $record->related_id);
+    }
+
+    public function testRelatedHeadersAreStrippedBeforeSending()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        Mail::to('recipient@example.com')->send(new OrderConfirmationMail($order));
+
+        $messages = Mail::getSymfonyTransport()->messages();
+        $this->assertCount(1, $messages);
+
+        $headers = $messages->first()->getOriginalMessage()->getHeaders();
+        $this->assertFalse($headers->has('X-Email-Events-Related-Type'));
+        $this->assertFalse($headers->has('X-Email-Events-Related-Id'));
+    }
+
+    public function testRelatedModelCanLoadItsEmailMessages()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        Mail::to('recipient@example.com')->send(new OrderConfirmationMail($order));
+
+        $this->assertCount(1, $order->emailMessages);
+        $this->assertSame(EmailEvent::EVENT_SENT, $order->emailMessages->first()->status);
+        $this->assertTrue($order->is($order->emailMessages->first()->related));
     }
 
     public function testWebhookEventCreatesARecordWhenNoneExists()

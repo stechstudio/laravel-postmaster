@@ -229,6 +229,59 @@ This creates an `email_messages` table. Each row tracks a message's
 The package still dispatches `EmailEvent` in all modes — persistence is just a
 first-party listener layered on top.
 
+### Relating emails to your models
+
+Recorded emails can be linked back to one of your own models — an `Order`, a
+`User`, anything — so that model can list its own delivery history (great for
+an admin activity feed that highlights bounces and complaints).
+
+Add the `TracksEmailEvents` trait to a Mailable and call `relatedTo()`:
+
+```php
+use Illuminate\Mail\Mailable;
+use STS\EmailEvents\Concerns\TracksEmailEvents;
+
+class OrderConfirmation extends Mailable
+{
+    use TracksEmailEvents;
+
+    public function __construct(public Order $order) {}
+
+    public function build()
+    {
+        return $this->relatedTo($this->order)
+            ->subject('Your order is confirmed')
+            ->view('emails.order-confirmation');
+    }
+}
+```
+
+Add the `HasEmailMessages` trait to the related model:
+
+```php
+use STS\EmailEvents\Concerns\HasEmailMessages;
+
+class Order extends Model
+{
+    use HasEmailMessages;
+}
+```
+
+Now every email's lifecycle is queryable from the model:
+
+```php
+$order->emailMessages;                  // every email sent for this order
+$order->emailMessages()->where('status', 'bounced')->exists();
+```
+
+The association is carried on the message in-process only — written as a
+header, then read and stripped *before* the email is transmitted — so nothing
+about the related model is ever exposed in the outbound email.
+
+> Uses a polymorphic relationship. If your models use UUID/ULID primary keys,
+> change `nullableMorphs('related')` to the matching variant in the published
+> migration.
+
 ## Custom providers
 
 Register your own provider at runtime with a resolver closure:

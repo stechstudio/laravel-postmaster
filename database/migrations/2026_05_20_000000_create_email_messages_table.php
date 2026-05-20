@@ -19,6 +19,11 @@ return new class extends Migration
             $table->string('message_id')->nullable()->index();
             $table->string('recipient')->nullable()->index();
             $table->string('subject')->nullable();
+            // Optional polymorphic link to one of the consuming app's models
+            // (an Order, User, etc.), set via a Mailable's relatedTo() call.
+            // Apps using UUID/ULID primary keys should change related_id to
+            // match (e.g. $table->nullableUuidMorphs('related')).
+            $table->nullableMorphs('related');
             $table->string('status')->nullable();
             $table->string('bounce_type')->nullable();
             $table->timestamp('sent_at')->nullable();

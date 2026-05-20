@@ -216,6 +216,38 @@ EmailMessage::delivered()->where('sent_at', '>', now()->subDay())->get();
 The package still dispatches `EmailEvent` in all modes — persistence is just a
 first-party listener layered on top.
 
+### Storing message content
+
+By default a record holds only delivery metadata. Enable content storage and
+each record also keeps a full representation of the email — sender,
+recipients (to/cc/bcc), subject, HTML and text bodies, and attachment
+filenames. This is captured from the message itself at send time, so it works
+the same for every provider.
+
+```
+MAIL_EVENTS_STORE_CONTENT=true
+```
+
+> Message bodies are large and routinely contain personal data or secrets
+> (password-reset links, magic-login tokens). This is why it's off by default.
+> Attachment **contents** are never stored — only their filenames. And because
+> content is captured before sending, it won't reflect the click-tracking link
+> rewriting some providers apply afterward.
+
+Because of the size and sensitivity, pair it with a retention window. Set the
+number of days to keep content and the package schedules a daily prune
+automatically — the record is kept, only the content columns are cleared:
+
+```
+MAIL_EVENTS_PRUNE_CONTENT_AFTER_DAYS=30
+```
+
+You can also run it on demand:
+
+```bash
+php artisan email-events:prune-content
+```
+
 ### Relating emails to your models
 
 Recorded emails can be linked back to one of your own models — an `Order`, a

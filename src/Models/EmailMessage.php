@@ -19,6 +19,11 @@ use STS\EmailEvents\EmailEvent;
  * @property string|null $message_id
  * @property string|null $recipient
  * @property string|null $subject
+ * @property string|null $from_address
+ * @property array|null $recipients
+ * @property string|null $html_body
+ * @property string|null $text_body
+ * @property array|null $attachments
  * @property string|null $status
  * @property string|null $bounce_type
  * @property string|null $related_type
@@ -32,6 +37,8 @@ class EmailMessage extends Model
     protected $guarded = [];
 
     protected $casts = [
+        'recipients'    => 'array',
+        'attachments'   => 'array',
         'sent_at'       => 'datetime',
         'last_event_at' => 'datetime',
     ];

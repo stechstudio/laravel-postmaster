@@ -9,6 +9,7 @@ use STS\EmailEvents\EmailEvent;
 use STS\EmailEvents\Facades\EmailEvents;
 use STS\EmailEvents\Models\EmailMessage;
 use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
+use STS\EmailEvents\Tests\Stubs\FullMail;
 use STS\EmailEvents\Tests\Stubs\Order;
 use STS\EmailEvents\Tests\Stubs\OrderConfirmationMail;
 use STS\EmailEvents\Tests\Stubs\ScopedEmailMessage;
@@ -220,6 +221,67 @@ class PersistenceTest extends TestCase
         $record = EmailMessage::create(['message_id' => 'a', 'tenant_id' => $tenant->getKey()]);
 
         $this->assertTrue($tenant->is($record->tenant));
+    }
+
+    public function testFullMessageContentIsStoredWhenEnabled()
+    {
+        config(['email-events.persistence.store_content' => true]);
+
+        Mail::to('to@example.com')
+            ->cc('cc@example.com')
+            ->bcc('bcc@example.com')
+            ->send(new FullMail);
+
+        $record = EmailMessage::first();
+
+        $this->assertSame('sender@example.com', $record->from_address);
+        $this->assertSame('<p>Body</p>', $record->html_body);
+        $this->assertSame('Plain body', $record->text_body);
+        $this->assertSame(['to@example.com'], array_column($record->recipients['to'], 'address'));
+        $this->assertSame(['cc@example.com'], array_column($record->recipients['cc'], 'address'));
+        $this->assertSame(['bcc@example.com'], array_column($record->recipients['bcc'], 'address'));
+        $this->assertSame(['invoice.pdf'], $record->attachments);
+    }
+
+    public function testMessageContentIsNotStoredByDefault()
+    {
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $record = EmailMessage::first();
+
+        $this->assertNull($record->html_body);
+        $this->assertNull($record->text_body);
+        $this->assertNull($record->from_address);
+        $this->assertNull($record->recipients);
+        $this->assertNull($record->attachments);
+    }
+
+    public function testPruneContentCommandPurgesOldContentButKeepsTheRecord()
+    {
+        config(['email-events.persistence.prune_content_after_days' => 30]);
+
+        $old = EmailMessage::create([
+            'message_id'   => 'old',
+            'status'       => EmailEvent::EVENT_SENT,
+            'html_body'    => '<p>old</p>',
+            'from_address' => 'sender@example.com',
+        ]);
+        $old->created_at = now()->subDays(60);
+        $old->save();
+
+        $recent = EmailMessage::create([
+            'message_id' => 'recent',
+            'html_body'  => '<p>recent</p>',
+        ]);
+
+        $this->artisan('email-events:prune-content')->assertSuccessful();
+
+        $old->refresh();
+        $this->assertNull($old->html_body);
+        $this->assertNull($old->from_address);
+        $this->assertSame(EmailEvent::EVENT_SENT, $old->status);
+
+        $this->assertSame('<p>recent</p>', $recent->refresh()->html_body);
     }
 
     public function testStatusScopesFilterRecords()

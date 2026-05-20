@@ -2,11 +2,13 @@
 
 namespace STS\EmailEvents;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\ServiceProvider;
 use STS\EmailEvents\Auth\BasicHttpAuth;
 use STS\EmailEvents\Auth\TokenAuth;
+use STS\EmailEvents\Console\PruneEmailContent;
 use STS\EmailEvents\Listeners\RecordOutboundMessage;
 use STS\EmailEvents\Listeners\StashOutboundMetadata;
 use STS\EmailEvents\Listeners\UpdateMessageFromEvent;
@@ -129,5 +131,18 @@ class EmailEventsServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'email-events.migrations');
+
+        if ($this->app['config']->get('email-events.persistence.enabled')) {
+            $this->commands([PruneEmailContent::class]);
+
+            // Auto-schedule content pruning when a retention window is set.
+            if ($this->app['config']->get('email-events.persistence.prune_content_after_days') !== null) {
+                $this->app->booted(function () {
+                    $this->app->make(Schedule::class)
+                        ->command('email-events:prune-content')
+                        ->daily();
+                });
+            }
+        }
     }
 }

@@ -24,6 +24,14 @@ return new class extends Migration
             $table->string('message_id')->nullable()->index();
             $table->string('recipient')->nullable()->index();
             $table->string('subject')->nullable();
+            // Full message representation, captured at send time only when
+            // persistence.store_content is enabled, and purged again by the
+            // email-events:prune-content command per prune_content_after_days.
+            $table->string('from_address')->nullable();
+            $table->json('recipients')->nullable();
+            $table->longText('html_body')->nullable();
+            $table->longText('text_body')->nullable();
+            $table->json('attachments')->nullable();
             // Optional polymorphic link to one of the consuming app's models
             // (an Order, User, etc.), set via a Mailable's relatedTo() call.
             // Apps using UUID/ULID primary keys should change related_id to

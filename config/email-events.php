@@ -107,6 +107,21 @@ return [
          */
         'tenant_column' => 'tenant_id',
         'tenant_model'  => null,
+
+        /*
+         * Store the full message content (sender, recipients, bodies, and
+         * attachment filenames) on each record. Off by default: message
+         * bodies are large and may contain personal data or secrets such as
+         * password-reset links.
+         */
+        'store_content' => env('MAIL_EVENTS_STORE_CONTENT', false),
+
+        /*
+         * Days to retain stored content before the email-events:prune-content
+         * command purges it (the record itself is kept). The command is
+         * scheduled automatically when this is set. Null disables pruning.
+         */
+        'prune_content_after_days' => env('MAIL_EVENTS_PRUNE_CONTENT_AFTER_DAYS'),
     ],
 
 ];

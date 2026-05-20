@@ -4,27 +4,17 @@
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
 
 Your Laravel app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, or
-Resend. Each of those providers can POST webhooks back to you when something
-happens to a message — a delivery, an open, a bounce, a complaint. But every
+Resend. Each of those providers can POST a webhook back to you when something
+happens to a message — a delivery, an open, a bounce, a complaint — but every
 provider authenticates, shapes, and names those events differently.
 
-This package accepts webhooks from any supported provider, **verifies** the
-request, **normalizes** the payload into a single `EmailEvent`, and dispatches
-it as a Laravel event. You listen for one event and react — no provider-specific
-code in your app.
-
-Optionally, it can also **record every outbound email** and keep that record
-up to date as webhook events arrive, giving you a queryable delivery history.
+This package accepts webhooks from any supported provider and normalizes them
+into a single Laravel `EmailEvent`. You listen for one event and react — with
+no provider-specific code in your app.
 
 ## Supported providers
 
-| Provider  | Signature verification |
-| --------- | ---------------------- |
-| SendGrid  | ECDSA (Signed Event Webhook) |
-| Postmark  | — (use basic auth or a token) |
-| Mailgun   | HMAC-SHA256 |
-| Amazon SES| SNS message signature (x509) |
-| Resend    | Svix HMAC-SHA256 |
+SendGrid, Postmark, Mailgun, Amazon SES, and Resend.
 
 ## Requirements
 
@@ -37,28 +27,14 @@ up to date as webhook events arrive, giving you a queryable delivery history.
 composer require stechstudio/laravel-email-events
 ```
 
-Publish the config file:
-
-```bash
-php artisan vendor:publish --tag=email-events.config
-```
+That's all the setup there is — the webhook route is registered automatically.
 
 ## Quick start
 
-### 1. Configure verification
+### 1. Point your provider at the webhook
 
-Each provider verifies inbound webhooks differently. Set the relevant
-credentials in your `.env` (see [Verification](#verification) below). For
-example, for SendGrid:
-
-```
-MAIL_EVENTS_SENDGRID_VERIFICATION_KEY=<your SendGrid verification key>
-```
-
-### 2. Point your provider at the endpoint
-
-The package registers `POST .hooks/email-events/{provider}` automatically. In
-your provider's webhook settings, use:
+The package serves `POST .hooks/email-events/{provider}`. In your email
+provider's dashboard, set the webhook URL to:
 
 ```
 https://your-app.com/.hooks/email-events/{provider}
@@ -66,11 +42,7 @@ https://your-app.com/.hooks/email-events/{provider}
 
 …where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, or `resend`.
 
-To register the route yourself instead — e.g. to apply a custom domain,
-prefix, or middleware — set `MAIL_EVENTS_REGISTER_ROUTE=false` and call
-`EmailEvents::routes()` from your own route file.
-
-### 3. Listen for events
+### 2. Listen for the event
 
 ```php
 namespace App\Listeners;
@@ -89,8 +61,15 @@ class HandleEmailEvent
 }
 ```
 
+That's the whole integration. Every webhook — a delivery, open, bounce, or
+complaint, from any provider — arrives as one normalized `EmailEvent`.
+
 To process webhooks off the request cycle, make your listener implement
 `Illuminate\Contracts\Queue\ShouldQueue` — Laravel will queue it for you.
+
+> **Before going live**, set up [webhook verification](#verifying-webhooks) so
+> the package can trust inbound requests. Unverified webhooks are rejected by
+> default — it's one credential per provider.
 
 ## The EmailEvent
 
@@ -134,12 +113,12 @@ Beyond the action, bounces are normalized into a severity so you can answer
 `getBounceType()` returns one of these (or `null` when the event is not a
 bounce). `isPermanent()` is a shortcut for "hard or block".
 
-## Verification
+## Verifying webhooks
 
-A provider's `auth` setting (in `config/email-events.php`) decides how its
-webhooks are verified. It may name a built-in authorizer (`token`, `basic`,
-`user-agent`) or a fully-qualified authorizer class. Providers default to
-signature verification where the provider supports it.
+The package verifies every inbound webhook and rejects anything it can't
+trust. Each provider authenticates its webhooks differently — configure the
+one credential your provider needs. These are `.env` values; no config file
+needs to be published.
 
 ### SendGrid
 
@@ -178,7 +157,7 @@ MAIL_EVENTS_AUTH_USERNAME=...
 MAIL_EVENTS_AUTH_PASSWORD=...
 ```
 
-### Token / basic auth
+### Token or basic auth
 
 Any provider can instead use a shared URL token or HTTP basic auth by setting
 its `auth` to `token` or `basic`:
@@ -187,6 +166,11 @@ its `auth` to `token` or `basic`:
 MAIL_EVENTS_AUTH_TOKEN=mysecrettoken
 # then append ?auth=mysecrettoken to the webhook URL
 ```
+
+Each provider's verification method is its `auth` key in
+`config/email-events.php` — a built-in authorizer (`token`, `basic`,
+`user-agent`) or a fully-qualified authorizer class. Providers default to
+signature verification where the provider supports it.
 
 ## Invalid payloads
 
@@ -199,9 +183,10 @@ MAIL_EVENTS_ON_INVALID=log
 
 ## Optional persistence
 
-When enabled, the package records every outbound email and updates that record
-as webhook events arrive — correlated by provider message id — giving you a
-queryable delivery lifecycle.
+So far the package is a pure event dispatcher. Enable persistence and it will
+also **record every outbound email** and keep that record up to date as
+webhook events arrive — correlated by provider message id — giving you a
+queryable delivery history.
 
 ```
 MAIL_EVENTS_PERSISTENCE=true
@@ -336,6 +321,19 @@ A few notes for multitenant setups:
 - The tenant column defaults to `tenant_id` (configurable via
   `persistence.tenant_column`) and is an `unsignedBigInteger` — apps with
   UUID/ULID tenant keys should change its type in the published migration.
+
+## Configuration
+
+The defaults work out of the box. To customize them — change the webhook path,
+adjust per-provider settings, tweak persistence — publish the config file:
+
+```bash
+php artisan vendor:publish --tag=email-events.config
+```
+
+The webhook route is registered for you. To register it yourself instead — a
+custom domain, prefix, or middleware — set `MAIL_EVENTS_REGISTER_ROUTE=false`
+and call `EmailEvents::routes()` from your own route file.
 
 ## Custom providers
 

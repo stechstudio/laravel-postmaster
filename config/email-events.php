@@ -75,16 +75,15 @@ return [
     ],
 
     /*
-     * Optional persistence. When enabled, the package stores a record of every
-     * outbound email and updates it as webhook events arrive. Off by default —
-     * the package works as a pure event dispatcher without it.
+     * Optional persistence. When enabled, the package records every outbound
+     * email and updates that record as webhook events arrive, correlated by
+     * provider message id. Off by default — the package works as a pure event
+     * dispatcher without it.
      */
     'persistence' => [
         'enabled' => env('MAIL_EVENTS_PERSISTENCE', false),
         'model'   => \STS\EmailEvents\Models\EmailMessage::class,
         'table'   => 'email_messages',
-        // Custom message header used to correlate a webhook back to its record.
-        'correlation_header' => 'X-Email-Events-Id',
     ],
 
 ];

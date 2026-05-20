@@ -3,8 +3,9 @@
 namespace STS\EmailEvents;
 
 use Closure;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use STS\EmailEvents\Http\Controllers\WebhookController;
+use STS\EmailEvents\Http\Middleware\VerifyWebhook;
 
 class EmailEvents
 {
@@ -64,15 +65,13 @@ class EmailEvents
     }
 
     /**
-     *
+     * Register the webhook route. Call this from the consuming app's route
+     * file. Authorization runs as middleware ahead of the controller.
      */
     public function routes()
     {
-        Route::post($this->config['url'] . '/{provider}', function ( Request $request, $provider ) {
-            $this->provider($provider)
-                ->authorize($request)
-                ->adapt($request->all())
-                ->dispatch();
-        })->name('webhook.email-events');
+        Route::post($this->config['url'] . '/{provider}', WebhookController::class)
+            ->middleware(VerifyWebhook::class)
+            ->name('webhook.email-events');
     }
 }

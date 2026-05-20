@@ -4,7 +4,6 @@ namespace STS\EmailEvents;
 
 use Illuminate\Http\Request;
 use STS\EmailEvents\Exceptions\InvalidEventException;
-use STS\EmailEvents\Exceptions\UnauthorizedException;
 
 /**
  *
@@ -41,17 +40,15 @@ class Provider
     }
 
     /**
+     * Whether the request passes this provider's configured authorizer.
+     *
      * @param Request $request
      *
-     * @return $this
+     * @return bool
      */
-    public function authorize( Request $request )
+    public function passesAuthorization( Request $request )
     {
-        if (!call_user_func($this->authorizer, $request, $this->adapterClass)) {
-            throw new UnauthorizedException($request);
-        }
-
-        return $this;
+        return (bool) call_user_func($this->authorizer, $request, $this->adapterClass);
     }
 
     /**

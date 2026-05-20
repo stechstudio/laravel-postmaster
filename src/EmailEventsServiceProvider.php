@@ -45,6 +45,8 @@ class EmailEventsServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->alias('emailevents', EmailEvents::class);
+
         $this->app->bind(TokenAuth::class, function($app) {
             return new TokenAuth(
                 $app['config']->get('email-events.token'),

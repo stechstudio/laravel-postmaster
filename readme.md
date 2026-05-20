@@ -14,10 +14,6 @@ no provider-specific code in your app. Switch on the optional persistence layer
 and it also records every outbound message, keeping a queryable delivery
 history that stays current as events arrive.
 
-> The name is the job. `postmaster@` is the mailbox the email standards reserve
-> for delivery problems and bounce notifications — Postmaster is that mailbox
-> for your Laravel app.
-
 ## Supported providers
 
 SendGrid, Postmark, Mailgun, Amazon SES, and Resend.

@@ -18,4 +18,14 @@ trait InteractsWithEmailMessages
 
         return new $class;
     }
+
+    /**
+     * The configured tenant column name on the email messages table.
+     *
+     * @return string
+     */
+    protected function tenantColumn()
+    {
+        return config('email-events.persistence.tenant_column', 'tenant_id');
+    }
 }

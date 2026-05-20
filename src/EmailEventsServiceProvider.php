@@ -8,7 +8,7 @@ use Illuminate\Support\ServiceProvider;
 use STS\EmailEvents\Auth\BasicHttpAuth;
 use STS\EmailEvents\Auth\TokenAuth;
 use STS\EmailEvents\Listeners\RecordOutboundMessage;
-use STS\EmailEvents\Listeners\StashRelatedModel;
+use STS\EmailEvents\Listeners\StashOutboundMetadata;
 use STS\EmailEvents\Listeners\UpdateMessageFromEvent;
 use STS\EmailEvents\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
 use STS\EmailEvents\Providers\Resend\SignatureAuth as ResendSignatureAuth;
@@ -40,7 +40,7 @@ class EmailEventsServiceProvider extends ServiceProvider
         if ($this->app['config']->get('email-events.persistence.enabled')) {
             $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
-            $this->app['events']->listen(MessageSending::class, StashRelatedModel::class);
+            $this->app['events']->listen(MessageSending::class, StashOutboundMetadata::class);
             $this->app['events']->listen(MessageSent::class, RecordOutboundMessage::class);
             $this->app['events']->listen(EmailEvent::class, UpdateMessageFromEvent::class);
         }

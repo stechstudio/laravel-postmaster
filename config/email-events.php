@@ -84,6 +84,22 @@ return [
         'enabled' => env('MAIL_EVENTS_PERSISTENCE', false),
         'model'   => \STS\EmailEvents\Models\EmailMessage::class,
         'table'   => 'email_messages',
+
+        /*
+         * Connection for the email messages table. Leave null for the default
+         * connection. Database-per-tenant apps should point this at a shared
+         * connection so tenant-less webhooks can always find the record.
+         */
+        'connection' => env('MAIL_EVENTS_PERSISTENCE_CONNECTION'),
+
+        /*
+         * Multitenancy. The tenant column stores the owning tenant's key.
+         * Populate it per-send with a Mailable's forTenant(), or globally via
+         * EmailEvents::resolveTenantUsing() in a service provider. Set
+         * tenant_model to enable the EmailMessage::tenant() relationship.
+         */
+        'tenant_column' => 'tenant_id',
+        'tenant_model'  => null,
     ],
 
 ];

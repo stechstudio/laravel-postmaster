@@ -38,7 +38,11 @@ class UpdateMessageFromEvent
             $attributes['bounce_type'] = $event->getBounceType();
         }
 
+        // Webhooks arrive with no tenant context, so the correlation lookup
+        // must ignore any tenant (or other) global scope a swapped-in model
+        // may carry — otherwise the update silently misses every row.
         $record = $this->messageModel()->newQuery()
+            ->withoutGlobalScopes()
             ->where('message_id', $messageId)
             ->latest('id')
             ->first();

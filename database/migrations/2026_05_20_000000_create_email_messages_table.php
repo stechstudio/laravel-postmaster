@@ -11,6 +11,11 @@ return new class extends Migration
         return config('email-events.persistence.table', 'email_messages');
     }
 
+    protected function tenantColumn(): string
+    {
+        return config('email-events.persistence.tenant_column', 'tenant_id');
+    }
+
     public function up(): void
     {
         Schema::create($this->table(), function (Blueprint $table) {
@@ -24,6 +29,9 @@ return new class extends Migration
             // Apps using UUID/ULID primary keys should change related_id to
             // match (e.g. $table->nullableUuidMorphs('related')).
             $table->nullableMorphs('related');
+            // Optional owning tenant, for multitenant apps. Apps with
+            // UUID/ULID tenant keys should change this column type to match.
+            $table->unsignedBigInteger($this->tenantColumn())->nullable()->index();
             $table->string('status')->nullable();
             $table->string('bounce_type')->nullable();
             $table->timestamp('sent_at')->nullable();

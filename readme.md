@@ -282,6 +282,68 @@ about the related model is ever exposed in the outbound email.
 > change `nullableMorphs('related')` to the matching variant in the published
 > migration.
 
+### Multitenancy
+
+In a multitenant app you'll often want every recorded email tagged with its
+owning tenant — including emails that aren't tied to any `related` model — so a
+tenant can see all of its delivery activity at once.
+
+Register a tenant resolver, typically in a service provider:
+
+```php
+use STS\EmailEvents\Facades\EmailEvents;
+
+EmailEvents::resolveTenantUsing(fn () => tenant());
+```
+
+The resolver may return a tenant model or its key, and is called lazily when
+each email is recorded — so it resolves correctly per request or queued job.
+
+If tenant context isn't available globally (e.g. inside a queued job that
+doesn't bootstrap tenancy), a Mailable can declare its tenant explicitly with
+`forTenant()`. This always takes precedence over the resolver:
+
+```php
+class OrderConfirmation extends Mailable
+{
+    use TracksEmailEvents;
+
+    public function build()
+    {
+        return $this->relatedTo($this->order)
+            ->forTenant($this->order->tenant)
+            ->subject('Your order is confirmed');
+    }
+}
+```
+
+Query a tenant's activity:
+
+```php
+EmailMessage::forTenant($tenant)->where('status', 'bounced')->get();
+```
+
+To get a `tenant()` relationship on `EmailMessage`, point config at your tenant
+model:
+
+```php
+'persistence' => [
+    'tenant_model' => App\Models\Tenant::class,
+],
+```
+
+A few notes for multitenant setups:
+
+- **Inbound webhooks have no tenant context** — providers POST to one global
+  URL. Correlation runs by provider message id and deliberately ignores global
+  scopes, so a tenant-scoped model is still updated correctly.
+- **Database-per-tenant:** point `persistence.connection` at a shared
+  connection. The webhook handler can't know which tenant database to write to,
+  so the table must live somewhere globally reachable.
+- The tenant column defaults to `tenant_id` (configurable via
+  `persistence.tenant_column`) and is an `unsignedBigInteger` — apps with
+  UUID/ULID tenant keys should change its type in the published migration.
+
 ## Custom providers
 
 Register your own provider at runtime with a resolver closure:

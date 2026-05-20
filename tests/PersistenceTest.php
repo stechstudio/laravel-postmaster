@@ -6,10 +6,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use STS\EmailEvents\EmailEvent;
+use STS\EmailEvents\Facades\EmailEvents;
 use STS\EmailEvents\Models\EmailMessage;
 use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
 use STS\EmailEvents\Tests\Stubs\Order;
 use STS\EmailEvents\Tests\Stubs\OrderConfirmationMail;
+use STS\EmailEvents\Tests\Stubs\ScopedEmailMessage;
+use STS\EmailEvents\Tests\Stubs\Tenant;
+use STS\EmailEvents\Tests\Stubs\TrackedMail;
 
 class PersistenceTest extends TestCase
 {
@@ -150,6 +154,96 @@ class PersistenceTest extends TestCase
         $this->assertCount(1, $order->emailMessages);
         $this->assertSame(EmailEvent::EVENT_SENT, $order->emailMessages->first()->status);
         $this->assertTrue($order->is($order->emailMessages->first()->related));
+    }
+
+    public function testTenantIsRecordedFromMailableForTenant()
+    {
+        Mail::to('recipient@example.com')->send(new TrackedMail(tenant: 42));
+
+        $this->assertSame('42', (string) EmailMessage::first()->tenant_id);
+    }
+
+    public function testTenantForTenantAcceptsAModel()
+    {
+        Schema::create('tenants', fn ($table) => $table->id());
+        $tenant = Tenant::create();
+
+        Mail::to('recipient@example.com')->send(new TrackedMail(tenant: $tenant));
+
+        $this->assertSame((string) $tenant->getKey(), (string) EmailMessage::first()->tenant_id);
+    }
+
+    public function testTenantIsRecordedFromGlobalResolver()
+    {
+        EmailEvents::resolveTenantUsing(fn () => 99);
+
+        Mail::raw('Hello', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        $this->assertSame('99', (string) EmailMessage::first()->tenant_id);
+    }
+
+    public function testExplicitForTenantOverridesTheResolver()
+    {
+        EmailEvents::resolveTenantUsing(fn () => 1);
+
+        Mail::to('recipient@example.com')->send(new TrackedMail(tenant: 2));
+
+        $this->assertSame('2', (string) EmailMessage::first()->tenant_id);
+    }
+
+    public function testTenantHeaderIsStrippedBeforeSending()
+    {
+        Mail::to('recipient@example.com')->send(new TrackedMail(tenant: 42));
+
+        $headers = Mail::getSymfonyTransport()->messages()->first()->getOriginalMessage()->getHeaders();
+        $this->assertFalse($headers->has('X-Email-Events-Tenant'));
+    }
+
+    public function testForTenantScopeFiltersByTenant()
+    {
+        EmailMessage::create(['message_id' => 'a', 'tenant_id' => 1]);
+        EmailMessage::create(['message_id' => 'b', 'tenant_id' => 2]);
+        EmailMessage::create(['message_id' => 'c', 'tenant_id' => 1]);
+
+        $this->assertCount(2, EmailMessage::forTenant(1)->get());
+        $this->assertCount(1, EmailMessage::forTenant(2)->get());
+    }
+
+    public function testTenantRelationResolves()
+    {
+        Schema::create('tenants', fn ($table) => $table->id());
+        config(['email-events.persistence.tenant_model' => Tenant::class]);
+        $tenant = Tenant::create();
+
+        $record = EmailMessage::create(['message_id' => 'a', 'tenant_id' => $tenant->getKey()]);
+
+        $this->assertTrue($tenant->is($record->tenant));
+    }
+
+    public function testWebhookCorrelationIgnoresGlobalScopes()
+    {
+        config(['email-events.persistence.model' => ScopedEmailMessage::class]);
+
+        EmailMessage::create([
+            'message_id' => 'scoped-message-1',
+            'recipient'  => 'recipient@example.com',
+            'status'     => EmailEvent::EVENT_SENT,
+        ]);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'scoped-message-1',
+            'Recipient'   => 'recipient@example.com',
+            'DeliveredAt' => '2021-01-01T00:00:00Z',
+        ])));
+
+        $this->assertDatabaseCount('email_messages', 1);
+        $this->assertSame(
+            EmailEvent::EVENT_DELIVERED,
+            EmailMessage::where('message_id', 'scoped-message-1')->first()->status
+        );
     }
 
     public function testWebhookEventCreatesARecordWhenNoneExists()

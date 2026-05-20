@@ -9,13 +9,10 @@ use Illuminate\Http\Request;
  */
 class BasicHttpAuth
 {
-    /**
-     * @var
-     */
+    /** @var string */
     protected $username;
-    /**
-     * @var
-     */
+
+    /** @var string */
     protected $password;
 
     /**

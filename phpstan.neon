@@ -1,0 +1,10 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - src
+    # Docblocks in this package are intentionally loose (e.g. "@return string"
+    # on accessors that may return null); trust runtime checks over PHPDoc.
+    treatPhpDocTypesAsCertain: false

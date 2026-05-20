@@ -23,5 +23,8 @@ jobs:
       - name: Install dependencies
         run: composer update --prefer-dist --prefer-stable --no-interaction --no-progress
 
+      - name: Static analysis
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=512M
+
       - name: Run tests
         run: vendor/bin/phpunit

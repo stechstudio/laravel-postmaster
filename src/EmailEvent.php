@@ -51,7 +51,7 @@ class EmailEvent
     public static function create( Adapter $adapter )
     {
         return $adapter->isValid()
-            ? new static($adapter)
+            ? new self($adapter)
             : null;
     }
 

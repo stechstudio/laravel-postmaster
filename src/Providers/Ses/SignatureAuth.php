@@ -4,6 +4,7 @@ namespace STS\EmailEvents\Providers\Ses;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -107,18 +108,33 @@ class SignatureAuth
     }
 
     /**
+     * Fetch the SNS signing certificate, cached for a day so that verifying
+     * a webhook does not make an HTTP round-trip every time.
+     *
      * @param string $url
      *
      * @return string|null
      */
     protected function fetchCertificate( $url )
     {
+        $key = 'email-events:sns-cert:' . sha1($url);
+
+        if ($cached = Cache::get($key)) {
+            return $cached;
+        }
+
         try {
             $response = Http::get($url);
         } catch (\Throwable $e) {
             return null;
         }
 
-        return $response->successful() ? $response->body() : null;
+        if (! $response->successful()) {
+            return null;
+        }
+
+        Cache::put($key, $certificate = $response->body(), now()->addDay());
+
+        return $certificate;
     }
 }

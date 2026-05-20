@@ -99,6 +99,32 @@ class PersistenceTest extends TestCase
         $this->assertSame((string) $order->getKey(), (string) $record->related_id);
     }
 
+    public function testUnrelatedMailLeavesRelatedColumnsNull()
+    {
+        Mail::raw('Hello there', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        $record = EmailMessage::first();
+        $this->assertNull($record->related_type);
+        $this->assertNull($record->related_id);
+    }
+
+    public function testEachRelatedEmailGetsItsOwnAssociation()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $first = Order::create();
+        $second = Order::create();
+
+        Mail::to('one@example.com')->send(new OrderConfirmationMail($first));
+        Mail::to('two@example.com')->send(new OrderConfirmationMail($second));
+
+        $this->assertCount(1, $first->emailMessages);
+        $this->assertCount(1, $second->emailMessages);
+        $this->assertSame((string) $first->getKey(), (string) $first->emailMessages->first()->related_id);
+        $this->assertSame((string) $second->getKey(), (string) $second->emailMessages->first()->related_id);
+    }
+
     public function testRelatedHeadersAreStrippedBeforeSending()
     {
         Schema::create('orders', fn ($table) => $table->id());

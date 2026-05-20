@@ -2,7 +2,7 @@
 
 namespace STS\EmailEvents;
 
-use Illuminate\Support\Arr;
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +14,11 @@ class EmailEvents
     protected $config;
 
     /**
+     * @var ProviderRegistry
+     */
+    protected $registry;
+
+    /**
      * EmailEvents constructor.
      *
      * @param $config
@@ -21,6 +26,15 @@ class EmailEvents
     public function __construct( $config )
     {
         $this->config = $config;
+        $this->registry = new ProviderRegistry($config);
+    }
+
+    /**
+     * @return ProviderRegistry
+     */
+    public function registry()
+    {
+        return $this->registry;
     }
 
     /**
@@ -30,41 +44,23 @@ class EmailEvents
      */
     public function provider( $name )
     {
-        return new Provider(
-            $name,
-            Arr::get($this->config, "providers.$name.adapter"),
-            $this->getAuthorizer(Arr::get($this->config, "providers.$name.auth")),
-            Arr::get($this->config, 'on_invalid', 'log')
-        );
+        return $this->registry->get($name);
     }
 
     /**
-     * @param $name
-     * @param $adapter
-     * @param $authorizer
+     * Register a custom provider. The resolver receives the package config
+     * array and must return a Provider instance.
+     *
+     * @param string  $name
+     * @param Closure $resolver
      *
      * @return $this
      */
-    public function extend( $name, $adapter, $authorizer )
+    public function extend( $name, Closure $resolver )
     {
-        $this->config['providers'][$name] = [
-            'adapter' => $adapter,
-            'auth'    => $authorizer
-        ];
+        $this->registry->extend($name, $resolver);
 
         return $this;
-    }
-
-    /**
-     * @param $auth
-     *
-     * @return callable
-     */
-    protected function getAuthorizer( $auth )
-    {
-        return is_callable($auth)
-            ? $auth
-            : app(Arr::get($this->config, "authorizers.$auth"));
     }
 
     /**

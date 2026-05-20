@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Schema;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
+use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
 use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
+use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
 use STS\Postmaster\Tests\Stubs\FullMail;
 use STS\Postmaster\Tests\Stubs\Order;
 use STS\Postmaster\Tests\Stubs\OrderConfirmationMail;
@@ -503,5 +505,174 @@ class PersistenceTest extends TestCase
 
         $this->assertDatabaseMissing('email_message_events', ['id' => $old->getKey()]);
         $this->assertDatabaseHas('email_message_events', ['id' => $recent->getKey()]);
+    }
+
+    public function testAddressesAreNotTrackedByDefault()
+    {
+        Mail::raw('Hello', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        $this->assertDatabaseCount('email_addresses', 0);
+    }
+
+    public function testSendingRecordsAnActiveAddress()
+    {
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        Mail::raw('Hello', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        $address = EmailAddress::first();
+        $this->assertSame('recipient@example.com', $address->address);
+        $this->assertSame(EmailAddress::STATUS_ACTIVE, $address->status);
+        $this->assertNotNull($address->last_event_at);
+    }
+
+    public function testHardBounceSuppressesTheAddress()
+    {
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Bounce',
+            'Type'       => 'HardBounce',
+            'MessageID'  => 'm-suppress-1',
+            'Email'      => 'bounce@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ])));
+
+        $address = EmailAddress::where('address', 'bounce@example.com')->first();
+        $this->assertNotNull($address);
+        $this->assertSame(EmailAddress::STATUS_SUPPRESSED, $address->status);
+        $this->assertSame(EmailEvent::EVENT_BOUNCED, $address->reason);
+        $this->assertNotNull($address->suppressed_at);
+    }
+
+    public function testComplaintSuppressesTheAddress()
+    {
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'SpamComplaint',
+            'MessageID'  => 'm-suppress-2',
+            'Email'      => 'spam@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ])));
+
+        $address = EmailAddress::where('address', 'spam@example.com')->first();
+        $this->assertSame(EmailAddress::STATUS_SUPPRESSED, $address->status);
+        $this->assertSame(EmailEvent::EVENT_COMPLAINED, $address->reason);
+    }
+
+    public function testDroppedSuppressesTheAddress()
+    {
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        event(EmailEvent::create(new SendGrid([
+            'sg_message_id' => 'sg-1',
+            'smtp-id'       => '<sg-1>',
+            'event'         => 'dropped',
+            'email'         => 'dropped@example.com',
+            'timestamp'     => strtotime('2021-01-01T00:00:00Z'),
+        ])));
+
+        $address = EmailAddress::where('address', 'dropped@example.com')->first();
+        $this->assertSame(EmailAddress::STATUS_SUPPRESSED, $address->status);
+        $this->assertSame(EmailEvent::EVENT_DROPPED, $address->reason);
+    }
+
+    public function testSoftBounceDoesNotSuppressTheAddress()
+    {
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Bounce',
+            'Type'       => 'SoftBounce',
+            'MessageID'  => 'm-suppress-3',
+            'Email'      => 'soft@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ])));
+
+        $address = EmailAddress::where('address', 'soft@example.com')->first();
+        $this->assertNotNull($address);
+        $this->assertSame(EmailAddress::STATUS_ACTIVE, $address->status);
+    }
+
+    public function testSuppressionIsStickyAcrossLaterEvents()
+    {
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Bounce',
+            'Type'       => 'HardBounce',
+            'MessageID'  => 'm-sticky-1',
+            'Email'      => 'sticky@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ])));
+
+        // A delivery webhook arriving afterward must not revive the address.
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'm-sticky-2',
+            'Recipient'   => 'sticky@example.com',
+            'DeliveredAt' => '2021-02-01T00:00:00Z',
+        ])));
+
+        $address = EmailAddress::where('address', 'sticky@example.com')->first();
+        $this->assertSame(EmailAddress::STATUS_SUPPRESSED, $address->status);
+        $this->assertSame(EmailEvent::EVENT_BOUNCED, $address->reason);
+    }
+
+    public function testIsSuppressedReportsAddressStatus()
+    {
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Bounce',
+            'Type'       => 'HardBounce',
+            'MessageID'  => 'm-check-1',
+            'Email'      => 'known@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ])));
+
+        $this->assertTrue(Postmaster::isSuppressed('known@example.com'));
+        $this->assertTrue(Postmaster::isSuppressed('KNOWN@EXAMPLE.COM'));
+        $this->assertFalse(Postmaster::isSuppressed('never-seen@example.com'));
+    }
+
+    public function testManualSuppressionCanBeAppliedAndLifted()
+    {
+        Postmaster::suppress('manual@example.com');
+
+        $this->assertTrue(Postmaster::isSuppressed('manual@example.com'));
+        $this->assertSame(
+            EmailAddress::REASON_MANUAL,
+            EmailAddress::where('address', 'manual@example.com')->first()->reason
+        );
+
+        Postmaster::unsuppress('manual@example.com');
+
+        $this->assertFalse(Postmaster::isSuppressed('manual@example.com'));
+    }
+
+    public function testAddressMatchingIsCaseInsensitive()
+    {
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        Mail::raw('Hello', function ($message) {
+            $message->to('Mixed@Example.com')->subject('Greetings');
+        });
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Bounce',
+            'Type'       => 'HardBounce',
+            'MessageID'  => 'm-case-1',
+            'Email'      => 'mixed@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ])));
+
+        $this->assertDatabaseCount('email_addresses', 1);
+        $this->assertSame(EmailAddress::STATUS_SUPPRESSED, EmailAddress::first()->status);
     }
 }

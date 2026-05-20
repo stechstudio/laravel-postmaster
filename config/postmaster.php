@@ -141,6 +141,20 @@ return [
          * pruning.
          */
         'prune_events_after_days' => env('POSTMASTER_PRUNE_EVENTS_AFTER_DAYS'),
+
+        /*
+         * Track per-address deliverability. With this on, the email_addresses
+         * table keeps one row per recipient with a current status — active or
+         * suppressed — so "should I send to this address?" is a single lookup
+         * rather than a scan of message history. An address is suppressed on
+         * a hard bounce, a complaint, or a drop.
+         *
+         * Suppression is global, never per tenant: providers suppress on
+         * their side regardless of which tenant sent the mail.
+         */
+        'track_addresses' => env('POSTMASTER_TRACK_ADDRESSES', false),
+        'addresses_table' => 'email_addresses',
+        'address_model'   => \STS\Postmaster\Models\EmailAddress::class,
     ],
 
 ];

@@ -5,6 +5,7 @@ namespace STS\Postmaster\Listeners;
 use Illuminate\Mail\Events\MessageSent;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Postmaster;
+use STS\Postmaster\Listeners\Concerns\InteractsWithEmailAddresses;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailMessages;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
@@ -15,6 +16,7 @@ use Symfony\Component\Mime\Email;
  */
 class RecordOutboundMessage
 {
+    use InteractsWithEmailAddresses;
     use InteractsWithEmailMessages;
 
     public function __construct( protected Postmaster $events )
@@ -66,6 +68,9 @@ class RecordOutboundMessage
             'status'      => EmailEvent::EVENT_SENT,
             'occurred_at' => $attributes['sent_at'],
         ]);
+
+        // Note the recipient so the address is on record as one we send to.
+        $this->touchAddress($attributes['recipient']);
     }
 
     /**

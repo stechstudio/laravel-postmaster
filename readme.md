@@ -262,6 +262,55 @@ You can also run it on demand:
 php artisan postmaster:prune-events
 ```
 
+### Tracking address suppression
+
+The projections so far answer "what happened to this *message*?". Suppression
+answers a different question — "should I send to this *address* at all?" — one
+the message tables can't answer cleanly, because a bad address poisons every
+future send, not just the message that bounced.
+
+Turn it on and the package keeps an `email_addresses` table: one row per
+recipient with a current `status` of `active` or `suppressed`.
+
+```
+POSTMASTER_TRACK_ADDRESSES=true
+```
+
+An address is suppressed automatically on a hard bounce, a spam complaint, or a
+drop — soft bounces don't count, they're transient. Suppression is sticky: a
+later delivery or open never revives an address, only an explicit unsuppress
+does.
+
+Check it before sending:
+
+```php
+use STS\Postmaster\Facades\Postmaster;
+
+if (! Postmaster::isSuppressed($email)) {
+    Mail::to($email)->send(new Invoice($order));
+}
+```
+
+An address you've never sent to is treated as sendable. You can also manage
+suppression yourself — for unsubscribes, abuse reports, anything:
+
+```php
+Postmaster::suppress($email);     // optional second arg: a reason string
+Postmaster::unsuppress($email);
+```
+
+The `EmailAddress` model carries `active()` / `suppressed()` query scopes and
+the `reason` / `suppressed_at` columns for the rest.
+
+**Suppression is global, never per tenant.** A provider suppresses a
+hard-bouncing address across your whole account regardless of which tenant sent
+the mail — a per-tenant view would simply disagree with reality.
+
+> This table is built from the webhooks you receive, so it reflects
+> suppressions caused by mail sent through this package. Pulling a provider's
+> full suppression list, or clearing suppressions back on the provider's side,
+> would need each provider's API and isn't part of this layer.
+
 ### Storing message content
 
 By default a record holds only delivery metadata. Enable content storage and

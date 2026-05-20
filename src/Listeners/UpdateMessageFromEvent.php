@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Listeners;
 
 use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Listeners\Concerns\InteractsWithEmailAddresses;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailMessages;
 use STS\Postmaster\Models\EmailMessage;
 
@@ -17,6 +18,7 @@ use STS\Postmaster\Models\EmailMessage;
  */
 class UpdateMessageFromEvent
 {
+    use InteractsWithEmailAddresses;
     use InteractsWithEmailMessages;
 
     /**
@@ -35,6 +37,8 @@ class UpdateMessageFromEvent
         $record = $this->findOrCreateMessage($event, $messageId);
 
         $this->refreshSummary($record, $event);
+
+        $this->applyEventToAddress($event);
 
         $this->recordEvent($record, [
             'provider'    => $event->getProvider(),

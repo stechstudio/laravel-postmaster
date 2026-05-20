@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
 use STS\Postmaster\Http\Controllers\WebhookController;
 use STS\Postmaster\Http\Middleware\VerifyWebhook;
+use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
 
@@ -166,5 +167,76 @@ class Postmaster
         Route::post($this->config['url'] . '/{provider}', WebhookController::class)
             ->middleware(VerifyWebhook::class)
             ->name('webhook.postmaster');
+    }
+
+    /**
+     * Whether the given recipient address is currently suppressed. Use this
+     * as a pre-send check. An address never seen is treated as sendable.
+     *
+     * Requires the optional persistence layer.
+     *
+     * @param string $address
+     *
+     * @return bool
+     */
+    public function isSuppressed( string $address )
+    {
+        $model = $this->addressModel();
+
+        $record = $model->newQuery()
+            ->where('address', $model::normalize($address))
+            ->first();
+
+        return $record !== null && $record->isSuppressed();
+    }
+
+    /**
+     * Manually suppress an address — for an unsubscribe, an abuse report, or
+     * any reason of your own. Creates the record if it does not exist yet.
+     *
+     * @param string $address
+     * @param string $reason
+     *
+     * @return EmailAddress
+     */
+    public function suppress( string $address, string $reason = EmailAddress::REASON_MANUAL )
+    {
+        $model = $this->addressModel();
+
+        $record = $model->newQuery()->firstOrNew([
+            'address' => $model::normalize($address),
+        ]);
+
+        return $record->suppress($reason);
+    }
+
+    /**
+     * Lift the suppression on an address, returning it to active.
+     *
+     * @param string $address
+     *
+     * @return EmailAddress
+     */
+    public function unsuppress( string $address )
+    {
+        $model = $this->addressModel();
+
+        $record = $model->newQuery()->firstOrNew([
+            'address' => $model::normalize($address),
+        ]);
+
+        return $record->unsuppress();
+    }
+
+    /**
+     * A fresh instance of the configured (swappable) email address model.
+     *
+     * @return EmailAddress
+     */
+    protected function addressModel()
+    {
+        $class = config('postmaster.persistence.address_model', EmailAddress::class);
+
+        return new $class;
     }
 }

@@ -218,6 +218,50 @@ EmailMessage::delivered()->where('sent_at', '>', now()->subDay())->get();
 The package still dispatches `EmailEvent` in all modes — persistence is just a
 first-party listener layered on top.
 
+### Recording the full timeline
+
+The summary record above keeps only a message's *latest* status. That's enough
+for "is this delivered?" but it can't represent a message that was opened three
+times, and it overwrites the history as new events arrive.
+
+Turn on timeline recording and the package also keeps every event — the
+initial send and each webhook — as its own row, so a message retains its
+complete delivery history:
+
+```
+POSTMASTER_RECORD_EVENTS=true
+```
+
+Each `EmailMessage` then exposes its timeline, oldest first, via the `events()`
+relationship — ideal for an activity feed:
+
+```php
+foreach ($message->events as $event) {
+    // $event->status      — sent, delivered, opened, bounced, ...
+    // $event->occurred_at  — when it happened
+    // $event->bounce_type, $event->response, $event->reason, $event->code
+}
+```
+
+The summary record is still maintained alongside the timeline (and still
+advances only on the newest event, so out-of-order webhooks can't make its
+status regress) — query `EmailMessage` for current state, walk `events()` for
+history.
+
+Timeline rows accumulate one per event, so pair them with a retention window.
+Set the number of days to keep events and the package schedules a daily prune
+automatically — whole rows are deleted, the summary records untouched:
+
+```
+POSTMASTER_PRUNE_EVENTS_AFTER_DAYS=90
+```
+
+You can also run it on demand:
+
+```bash
+php artisan postmaster:prune-events
+```
+
 ### Storing message content
 
 By default a record holds only delivery metadata. Enable content storage and

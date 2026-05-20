@@ -5,6 +5,7 @@ namespace STS\Postmaster\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use RuntimeException;
 use STS\Postmaster\EmailEvent;
@@ -71,6 +72,21 @@ class EmailMessage extends Model
     public function related()
     {
         return $this->morphTo();
+    }
+
+    /**
+     * The full delivery timeline — the send and every webhook event, oldest
+     * first. Only populated when "postmaster.persistence.record_events" is on.
+     *
+     * @return HasMany
+     */
+    public function events()
+    {
+        $model = config('postmaster.persistence.event_model', EmailMessageEvent::class);
+
+        return $this->hasMany($model, 'email_message_id')
+            ->orderBy('occurred_at')
+            ->orderBy('id');
     }
 
     /**

@@ -122,6 +122,25 @@ return [
          * scheduled automatically when this is set. Null disables pruning.
          */
         'prune_content_after_days' => env('POSTMASTER_PRUNE_CONTENT_AFTER_DAYS'),
+
+        /*
+         * Record a full delivery timeline. With this on, the initial send and
+         * every webhook event are also stored as their own rows in the
+         * email_message_events table — so a message keeps its complete
+         * history, including repeated opens and clicks, alongside the latest
+         * status on the summary record.
+         */
+        'record_events' => env('POSTMASTER_RECORD_EVENTS', false),
+        'events_table'  => 'email_message_events',
+        'event_model'   => \STS\Postmaster\Models\EmailMessageEvent::class,
+
+        /*
+         * Days to retain timeline events before the postmaster:prune-events
+         * command deletes them (whole rows, summary records untouched). The
+         * command is scheduled automatically when this is set. Null disables
+         * pruning.
+         */
+        'prune_events_after_days' => env('POSTMASTER_PRUNE_EVENTS_AFTER_DAYS'),
     ],
 
 ];

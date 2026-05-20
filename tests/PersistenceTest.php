@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailMessage;
+use STS\Postmaster\Models\EmailMessageEvent;
 use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
 use STS\Postmaster\Tests\Stubs\FullMail;
 use STS\Postmaster\Tests\Stubs\Order;
@@ -373,5 +374,134 @@ class PersistenceTest extends TestCase
         $this->assertSame('recipient@example.com', $record->recipient);
         $this->assertSame(EmailEvent::EVENT_BOUNCED, $record->status);
         $this->assertSame(EmailEvent::BOUNCE_HARD, $record->bounce_type);
+    }
+
+    public function testTimelineIsNotRecordedByDefault()
+    {
+        Mail::raw('Hello', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        $this->assertDatabaseCount('email_messages', 1);
+        $this->assertDatabaseCount('email_message_events', 0);
+    }
+
+    public function testTheSendSeedsTheTimeline()
+    {
+        config(['postmaster.persistence.record_events' => true]);
+
+        Mail::raw('Hello', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        $record = EmailMessage::first();
+        $this->assertCount(1, $record->events);
+        $this->assertSame(EmailEvent::EVENT_SENT, $record->events->first()->status);
+    }
+
+    public function testWebhookEventsAreAppendedToTheTimeline()
+    {
+        config(['postmaster.persistence.record_events' => true]);
+
+        $record = EmailMessage::create([
+            'message_id' => 'postmark-timeline-1',
+            'recipient'  => 'recipient@example.com',
+            'status'     => EmailEvent::EVENT_SENT,
+        ]);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'postmark-timeline-1',
+            'Recipient'   => 'recipient@example.com',
+            'DeliveredAt' => '2021-01-01T00:00:00Z',
+        ])));
+
+        $this->assertDatabaseCount('email_message_events', 1);
+
+        $entry = $record->events->first();
+        $this->assertSame(EmailEvent::EVENT_DELIVERED, $entry->status);
+        $this->assertSame('Postmark', $entry->provider);
+        $this->assertNotNull($entry->occurred_at);
+    }
+
+    public function testTimelineKeepsRepeatedEventsInChronologicalOrder()
+    {
+        config(['postmaster.persistence.record_events' => true]);
+
+        $record = EmailMessage::create([
+            'message_id' => 'postmark-timeline-2',
+            'recipient'  => 'recipient@example.com',
+            'status'     => EmailEvent::EVENT_SENT,
+        ]);
+
+        foreach (['2021-01-01T12:00:00Z', '2021-01-03T12:00:00Z'] as $at) {
+            event(EmailEvent::create(new Postmark([
+                'RecordType' => 'Open',
+                'MessageID'  => 'postmark-timeline-2',
+                'Recipient'  => 'recipient@example.com',
+                'ReceivedAt' => $at,
+            ])));
+        }
+
+        $events = $record->events;
+        $this->assertCount(2, $events);
+        $this->assertTrue($events->first()->occurred_at->lt($events->last()->occurred_at));
+        $this->assertSame(EmailEvent::EVENT_OPENED, $record->fresh()->status);
+    }
+
+    public function testStaleEventDoesNotRegressTheSummaryButStillJoinsTheTimeline()
+    {
+        config(['postmaster.persistence.record_events' => true]);
+
+        $record = EmailMessage::create([
+            'message_id' => 'postmark-timeline-3',
+            'recipient'  => 'recipient@example.com',
+            'status'     => EmailEvent::EVENT_SENT,
+        ]);
+
+        // The delivery webhook arrives first...
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'postmark-timeline-3',
+            'Recipient'   => 'recipient@example.com',
+            'DeliveredAt' => '2021-01-02T00:00:00Z',
+        ])));
+
+        // ...then an earlier "deferred" webhook arrives late.
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Bounce',
+            'Type'       => 'Transient',
+            'MessageID'  => 'postmark-timeline-3',
+            'Email'      => 'recipient@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ])));
+
+        $record->refresh();
+        $this->assertSame(EmailEvent::EVENT_DELIVERED, $record->status);
+        $this->assertCount(2, $record->events);
+    }
+
+    public function testPruneEventsCommandDeletesOldTimelineEvents()
+    {
+        config(['postmaster.persistence.prune_events_after_days' => 30]);
+
+        $record = EmailMessage::create(['message_id' => 'postmark-timeline-4']);
+
+        $old = EmailMessageEvent::create([
+            'email_message_id' => $record->getKey(),
+            'status'           => EmailEvent::EVENT_DELIVERED,
+            'occurred_at'      => now()->subDays(60),
+        ]);
+
+        $recent = EmailMessageEvent::create([
+            'email_message_id' => $record->getKey(),
+            'status'           => EmailEvent::EVENT_OPENED,
+            'occurred_at'      => now()->subDays(5),
+        ]);
+
+        $this->artisan('postmaster:prune-events')->assertSuccessful();
+
+        $this->assertDatabaseMissing('email_message_events', ['id' => $old->getKey()]);
+        $this->assertDatabaseHas('email_message_events', ['id' => $recent->getKey()]);
     }
 }

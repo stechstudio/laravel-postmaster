@@ -58,7 +58,14 @@ class RecordOutboundMessage
             $attributes += $this->content($message);
         }
 
-        $this->messageModel()->newQuery()->create($attributes);
+        $record = $this->messageModel()->newQuery()->create($attributes);
+
+        // Seed the timeline with the send itself, so the history is complete
+        // rather than starting at the first webhook event.
+        $this->recordEvent($record, [
+            'status'      => EmailEvent::EVENT_SENT,
+            'occurred_at' => $attributes['sent_at'],
+        ]);
     }
 
     /**

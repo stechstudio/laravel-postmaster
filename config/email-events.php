@@ -20,21 +20,21 @@ return [
     'authorizers' => [
         'token' => \STS\EmailEvents\Auth\TokenAuth::class,
         'basic' => \STS\EmailEvents\Auth\BasicHttpAuth::class,
-        'signature' => \STS\EmailEvents\Auth\MailgunSignatureAuth::class,
+        'signature' => \STS\EmailEvents\Providers\Mailgun\SignatureAuth::class,
         'user-agent' => \STS\EmailEvents\Auth\UserAgentAuth::class
     ],
 
     'providers' => [
         'sendgrid' => [
-            'adapter' => \STS\EmailEvents\Adapters\SendGrid::class,
+            'adapter' => \STS\EmailEvents\Providers\SendGrid\Adapter::class,
             'auth' => env('MAIL_EVENTS_SENDGRID_AUTH', 'token')
         ],
         'postmark' => [
-            'adapter' => \STS\EmailEvents\Adapters\Postmark::class,
+            'adapter' => \STS\EmailEvents\Providers\Postmark\Adapter::class,
             'auth' => env('MAIL_EVENTS_POSTMARK_AUTH', 'token')
         ],
         'mailgun' => [
-            'adapter' => \STS\EmailEvents\Adapters\Mailgun::class,
+            'adapter' => \STS\EmailEvents\Providers\Mailgun\Adapter::class,
             'auth' => env('MAIL_EVENTS_MAILGUN_AUTH', 'token')
         ]
     ]

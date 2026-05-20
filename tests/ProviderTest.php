@@ -3,7 +3,7 @@
 namespace STS\EmailEvents\Tests;
 
 use Illuminate\Support\Facades\Log;
-use STS\EmailEvents\Adapters\SendGrid;
+use STS\EmailEvents\Providers\SendGrid\Adapter as SendGrid;
 use STS\EmailEvents\Exceptions\InvalidEventException;
 use STS\EmailEvents\Provider;
 

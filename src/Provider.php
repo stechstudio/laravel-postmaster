@@ -78,7 +78,7 @@ class Provider
     /**
      * Handle a payload that no adapter could turn into a valid event.
      *
-     * @param Adapters\AbstractAdapter $adapter
+     * @param Contracts\Adapter $adapter
      *
      * @return void
      */

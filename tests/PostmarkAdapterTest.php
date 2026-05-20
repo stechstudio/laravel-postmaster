@@ -2,7 +2,7 @@
 
 namespace STS\EmailEvents\Tests;
 
-use STS\EmailEvents\Adapters\Postmark;
+use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
 use STS\EmailEvents\EmailEvent;
 
 class PostmarkAdapterTest extends TestCase

@@ -1,12 +1,13 @@
 <?php
 
-namespace STS\EmailEvents\Adapters;
+namespace STS\EmailEvents\Providers\SendGrid;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use STS\EmailEvents\EmailEvent;
+use STS\EmailEvents\Providers\AbstractAdapter;
 
-class SendGrid extends AbstractAdapter
+class Adapter extends AbstractAdapter
 {
     /**
      * @var string

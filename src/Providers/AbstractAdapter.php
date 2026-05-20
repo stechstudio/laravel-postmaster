@@ -1,12 +1,13 @@
 <?php
 
-namespace STS\EmailEvents\Adapters;
+namespace STS\EmailEvents\Providers;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use STS\EmailEvents\Contracts\Adapter;
 use STS\EmailEvents\EmailEvent;
 
-abstract class AbstractAdapter
+abstract class AbstractAdapter implements Adapter
 {
     /**
      * @var string

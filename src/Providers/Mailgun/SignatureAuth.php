@@ -1,19 +1,17 @@
 <?php
 
-namespace STS\EmailEvents\Auth;
+namespace STS\EmailEvents\Providers\Mailgun;
 
 use Illuminate\Http\Request;
 
 /**
  * Verifies Mailgun webhook signatures.
  *
- * This implements Mailgun's HMAC-SHA256 scheme (timestamp + token signed
- * with a shared secret) and is specific to Mailgun. Other providers use
- * different schemes — e.g. SendGrid signs event webhooks with ECDSA
- * public-key verification — so this authorizer should not be wired to a
- * non-Mailgun provider.
+ * Implements Mailgun's HMAC-SHA256 scheme (timestamp + token signed with a
+ * shared secret). Other providers use different schemes, so each provider
+ * namespace carries its own SignatureAuth.
  */
-class MailgunSignatureAuth
+class SignatureAuth
 {
     /** @var string */
     protected $signatureKey;

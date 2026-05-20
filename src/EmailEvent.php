@@ -4,7 +4,7 @@ namespace STS\EmailEvents;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Support\Collection;
-use STS\EmailEvents\Adapters\AbstractAdapter;
+use STS\EmailEvents\Contracts\Adapter;
 
 /**
  * Class EmailEvent
@@ -29,26 +29,26 @@ class EmailEvent
     const BOUNCE_BLOCK = "block"; // blocked by reputation/policy
 
     /**
-     * @var AbstractAdapter
+     * @var Adapter
      */
     protected $adapter;
 
     /**
      * EmailEvent constructor.
      *
-     * @param AbstractAdapter $adapter
+     * @param Adapter $adapter
      */
-    public function __construct( AbstractAdapter $adapter )
+    public function __construct( Adapter $adapter )
     {
         $this->adapter = $adapter;
     }
 
     /**
-     * @param AbstractAdapter $adapter
+     * @param Adapter $adapter
      *
      * @return EmailEvent|null
      */
-    public static function create( AbstractAdapter $adapter )
+    public static function create( Adapter $adapter )
     {
         return $adapter->isValid()
             ? new static($adapter)
@@ -56,7 +56,7 @@ class EmailEvent
     }
 
     /**
-     * @return AbstractAdapter
+     * @return Adapter
      */
     public function getAdapter()
     {

@@ -2,7 +2,7 @@
 
 namespace STS\EmailEvents\Tests;
 
-use STS\EmailEvents\Adapters\SendGrid;
+use STS\EmailEvents\Providers\SendGrid\Adapter as SendGrid;
 use STS\EmailEvents\EmailEvent;
 
 class SendGridAdapterTest extends TestCase

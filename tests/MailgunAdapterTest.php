@@ -2,7 +2,7 @@
 
 namespace STS\EmailEvents\Tests;
 
-use STS\EmailEvents\Adapters\Mailgun;
+use STS\EmailEvents\Providers\Mailgun\Adapter as Mailgun;
 use STS\EmailEvents\EmailEvent;
 
 class MailgunAdapterTest extends TestCase

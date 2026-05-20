@@ -3,9 +3,9 @@
 namespace STS\EmailEvents\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
-use STS\EmailEvents\Adapters\Mailgun;
-use STS\EmailEvents\Adapters\Postmark;
-use STS\EmailEvents\Adapters\SendGrid;
+use STS\EmailEvents\Providers\Mailgun\Adapter as Mailgun;
+use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
+use STS\EmailEvents\Providers\SendGrid\Adapter as SendGrid;
 use STS\EmailEvents\EmailEvent;
 
 /**

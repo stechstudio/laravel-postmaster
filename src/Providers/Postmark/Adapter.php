@@ -1,12 +1,13 @@
 <?php
 
-namespace STS\EmailEvents\Adapters;
+namespace STS\EmailEvents\Providers\Postmark;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use STS\EmailEvents\EmailEvent;
+use STS\EmailEvents\Providers\AbstractAdapter;
 
-class Postmark extends AbstractAdapter
+class Adapter extends AbstractAdapter
 {
     /**
      * @var string

@@ -4,8 +4,8 @@ namespace STS\EmailEvents;
 
 use Illuminate\Support\ServiceProvider;
 use STS\EmailEvents\Auth\BasicHttpAuth;
-use STS\EmailEvents\Auth\MailgunSignatureAuth;
 use STS\EmailEvents\Auth\TokenAuth;
+use STS\EmailEvents\Providers\Mailgun\SignatureAuth;
 
 class EmailEventsServiceProvider extends ServiceProvider
 {
@@ -59,8 +59,8 @@ class EmailEventsServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->bind(MailgunSignatureAuth::class, function($app) {
-            return new MailgunSignatureAuth(
+        $this->app->bind(SignatureAuth::class, function($app) {
+            return new SignatureAuth(
                 $app['config']->get('email-events.signature_key')
             );
         });

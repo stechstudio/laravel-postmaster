@@ -422,10 +422,6 @@ Postmaster::extend('myprovider', function (array $config) {
 An adapter implements `STS\Postmaster\Contracts\Adapter` (extending
 `STS\Postmaster\Providers\AbstractAdapter` covers most of it).
 
-## Upgrading
-
-Coming from a 0.x release? See [UPGRADE.md](UPGRADE.md).
-
 ## License
 
 MIT. See [LICENSE.md](LICENSE.md).

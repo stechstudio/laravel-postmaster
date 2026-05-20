@@ -59,8 +59,9 @@ Key changes:
 - **`Provider::authorize()`** (which threw on failure) has been replaced by
   **`Provider::passesAuthorization()`**, which returns a `bool`. Authorization
   now runs as the `VerifyWebhook` route middleware.
-- The webhook route is now handled by `WebhookController` instead of an inline
-  closure. If you registered the route yourself, use `EmailEvents::routes()`.
+- The webhook route is now registered automatically by the package and handled
+  by `WebhookController`. Remove your manual `EmailEvents::routes()` call — or
+  set `MAIL_EVENTS_REGISTER_ROUTE=false` to keep registering it yourself.
 - `EmailEvent`'s magic `__call` passthrough was replaced with explicit methods.
   Behavior is identical; static analysis and IDE autocomplete now work.
 

@@ -45,19 +45,7 @@ php artisan vendor:publish --tag=email-events.config
 
 ## Quick start
 
-### 1. Register the route
-
-In `routes/web.php`:
-
-```php
-use STS\EmailEvents\Facades\EmailEvents;
-
-EmailEvents::routes();
-```
-
-This registers `POST .hooks/email-events/{provider}`.
-
-### 2. Configure verification
+### 1. Configure verification
 
 Each provider verifies inbound webhooks differently. Set the relevant
 credentials in your `.env` (see [Verification](#verification) below). For
@@ -67,9 +55,10 @@ example, for SendGrid:
 MAIL_EVENTS_SENDGRID_VERIFICATION_KEY=<your SendGrid verification key>
 ```
 
-### 3. Point your provider at the endpoint
+### 2. Point your provider at the endpoint
 
-In your provider's webhook settings, use:
+The package registers `POST .hooks/email-events/{provider}` automatically. In
+your provider's webhook settings, use:
 
 ```
 https://your-app.com/.hooks/email-events/{provider}
@@ -77,7 +66,11 @@ https://your-app.com/.hooks/email-events/{provider}
 
 …where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, or `resend`.
 
-### 4. Listen for events
+To register the route yourself instead — e.g. to apply a custom domain,
+prefix, or middleware — set `MAIL_EVENTS_REGISTER_ROUTE=false` and call
+`EmailEvents::routes()` from your own route file.
+
+### 3. Listen for events
 
 ```php
 namespace App\Listeners;

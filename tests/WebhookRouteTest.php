@@ -4,8 +4,8 @@ namespace STS\EmailEvents\Tests;
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use STS\EmailEvents\EmailEvent;
-use STS\EmailEvents\Facades\EmailEvents;
 
 class WebhookRouteTest extends TestCase
 {
@@ -14,11 +14,6 @@ class WebhookRouteTest extends TestCase
         $app['config']->set('email-events.token', 'secret-token');
         $app['config']->set('email-events.providers.sendgrid.auth', 'token');
         $app['config']->set('email-events.providers.ses.auth', 'token');
-    }
-
-    protected function defineRoutes($router)
-    {
-        EmailEvents::routes();
     }
 
     protected function sendgridPayload(): array
@@ -30,6 +25,11 @@ class WebhookRouteTest extends TestCase
             'smtp-id'       => '<message-id@example.com>',
             'sg_message_id' => 'sg-message-1',
         ];
+    }
+
+    public function testWebhookRouteIsRegisteredAutomatically()
+    {
+        $this->assertTrue(Route::has('webhook.email-events'));
     }
 
     public function testValidWebhookDispatchesEmailEvent()

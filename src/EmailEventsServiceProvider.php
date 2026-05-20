@@ -28,6 +28,12 @@ class EmailEventsServiceProvider extends ServiceProvider
             $this->bootForConsole();
         }
 
+        // Register the webhook route automatically. Skipped when routes are
+        // cached (the cache already holds it) or disabled via config.
+        if ($this->app['config']->get('email-events.register_route') && ! $this->app->routesAreCached()) {
+            $this->app->make(EmailEvents::class)->routes();
+        }
+
         // For local dev let's debug log all email events
         if($this->app->environment(['local', 'development'])) {
             $this->app['events']->listen(EmailEvent::class, function(EmailEvent $event) {

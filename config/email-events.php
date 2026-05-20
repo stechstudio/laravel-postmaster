@@ -3,10 +3,17 @@
 return [
 
     /*
-     * The path the webhook route is registered at (see EmailEvents::routes()).
-     * The provider name is appended, e.g. ".hooks/email-events/sendgrid".
+     * The path the webhook route is registered at. The provider name is
+     * appended, e.g. ".hooks/email-events/sendgrid".
      */
     'url' => env('MAIL_EVENTS_URL', '.hooks/email-events'),
+
+    /*
+     * Whether the package registers its webhook route automatically. Disable
+     * this to register the route yourself with EmailEvents::routes() — for
+     * example to apply a custom domain, prefix, or middleware.
+     */
+    'register_route' => env('MAIL_EVENTS_REGISTER_ROUTE', true),
 
     /*
      * What to do with a webhook payload that no adapter can turn into a valid

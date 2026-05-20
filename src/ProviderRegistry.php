@@ -114,14 +114,29 @@ class ProviderRegistry
     }
 
     /**
+     * Resolve a provider's authorizer. The "auth" value may be a callable, a
+     * fully-qualified authorizer class, or the name of a registered authorizer.
+     *
      * @param callable|string $auth
      *
      * @return callable
      */
     protected function resolveAuthorizer( $auth )
     {
-        return is_callable($auth)
-            ? $auth
-            : app(Arr::get($this->config, "authorizers.$auth"));
+        if (is_callable($auth)) {
+            return $auth;
+        }
+
+        if (is_string($auth) && class_exists($auth)) {
+            return app($auth);
+        }
+
+        $class = Arr::get($this->config, "authorizers.$auth");
+
+        if ($class === null) {
+            throw new InvalidArgumentException("Unknown email event authorizer [$auth].");
+        }
+
+        return app($class);
     }
 }

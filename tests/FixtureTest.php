@@ -5,7 +5,9 @@ namespace STS\EmailEvents\Tests;
 use PHPUnit\Framework\Attributes\DataProvider;
 use STS\EmailEvents\Providers\Mailgun\Adapter as Mailgun;
 use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
+use STS\EmailEvents\Providers\Resend\Adapter as Resend;
 use STS\EmailEvents\Providers\SendGrid\Adapter as SendGrid;
+use STS\EmailEvents\Providers\Ses\Adapter as Ses;
 use STS\EmailEvents\EmailEvent;
 
 /**
@@ -28,6 +30,10 @@ class FixtureTest extends TestCase
             'postmark bounce'    => [Postmark::class, 'postmark/bounce.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
             'mailgun delivered'  => [Mailgun::class, 'mailgun/delivered.json', EmailEvent::EVENT_DELIVERED, null],
             'mailgun failed'     => [Mailgun::class, 'mailgun/failed.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'resend delivered'   => [Resend::class, 'resend/delivered.json', EmailEvent::EVENT_DELIVERED, null],
+            'resend bounced'     => [Resend::class, 'resend/bounced.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'ses delivery'       => [Ses::class, 'ses/delivery.json', EmailEvent::EVENT_DELIVERED, null],
+            'ses bounce'         => [Ses::class, 'ses/bounce.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
         ];
     }
 

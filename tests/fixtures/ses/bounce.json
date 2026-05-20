@@ -1,0 +1,7 @@
+{
+    "Type": "Notification",
+    "MessageId": "sns-message-2",
+    "TopicArn": "arn:aws:sns:us-east-1:123456789012:ses-events",
+    "Timestamp": "2021-01-01T00:00:00.000Z",
+    "Message": "{\"eventType\":\"Bounce\",\"mail\":{\"timestamp\":\"2021-01-01T00:00:00.000Z\",\"messageId\":\"ses-message-2\",\"destination\":[\"recipient@example.com\"]},\"bounce\":{\"bounceType\":\"Permanent\",\"bounceSubType\":\"General\",\"bouncedRecipients\":[{\"emailAddress\":\"recipient@example.com\",\"diagnosticCode\":\"smtp; 550 5.1.1 user unknown\",\"status\":\"5.1.1\"}]}}"
+}

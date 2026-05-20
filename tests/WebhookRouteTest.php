@@ -11,6 +11,7 @@ class WebhookRouteTest extends TestCase
     protected function defineEnvironment($app)
     {
         $app['config']->set('email-events.token', 'secret-token');
+        $app['config']->set('email-events.providers.sendgrid.auth', 'token');
     }
 
     protected function defineRoutes($router)

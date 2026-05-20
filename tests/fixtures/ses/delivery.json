@@ -1,0 +1,7 @@
+{
+    "Type": "Notification",
+    "MessageId": "sns-message-1",
+    "TopicArn": "arn:aws:sns:us-east-1:123456789012:ses-events",
+    "Timestamp": "2021-01-01T00:00:00.000Z",
+    "Message": "{\"eventType\":\"Delivery\",\"mail\":{\"timestamp\":\"2021-01-01T00:00:00.000Z\",\"messageId\":\"ses-message-1\",\"destination\":[\"recipient@example.com\"],\"tags\":{\"campaign\":[\"welcome\"]}},\"delivery\":{\"recipients\":[\"recipient@example.com\"]}}"
+}

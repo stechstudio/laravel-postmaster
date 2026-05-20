@@ -5,7 +5,9 @@ namespace STS\EmailEvents;
 use Illuminate\Support\ServiceProvider;
 use STS\EmailEvents\Auth\BasicHttpAuth;
 use STS\EmailEvents\Auth\TokenAuth;
-use STS\EmailEvents\Providers\Mailgun\SignatureAuth;
+use STS\EmailEvents\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
+use STS\EmailEvents\Providers\Resend\SignatureAuth as ResendSignatureAuth;
+use STS\EmailEvents\Providers\SendGrid\SignatureAuth as SendGridSignatureAuth;
 
 class EmailEventsServiceProvider extends ServiceProvider
 {
@@ -61,9 +63,21 @@ class EmailEventsServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->bind(SignatureAuth::class, function($app) {
-            return new SignatureAuth(
-                $app['config']->get('email-events.signature_key')
+        $this->app->bind(MailgunSignatureAuth::class, function($app) {
+            return new MailgunSignatureAuth(
+                $app['config']->get('email-events.providers.mailgun.signing_key')
+            );
+        });
+
+        $this->app->bind(SendGridSignatureAuth::class, function($app) {
+            return new SendGridSignatureAuth(
+                $app['config']->get('email-events.providers.sendgrid.verification_key')
+            );
+        });
+
+        $this->app->bind(ResendSignatureAuth::class, function($app) {
+            return new ResendSignatureAuth(
+                $app['config']->get('email-events.providers.resend.signing_secret')
             );
         });
     }

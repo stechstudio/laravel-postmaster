@@ -1,0 +1,11 @@
+{
+    "type": "email.delivered",
+    "created_at": "2021-01-01T00:00:00.000Z",
+    "data": {
+        "email_id": "resend-message-1",
+        "from": "sender@example.com",
+        "to": ["recipient@example.com"],
+        "subject": "Test",
+        "tags": ["welcome"]
+    }
+}

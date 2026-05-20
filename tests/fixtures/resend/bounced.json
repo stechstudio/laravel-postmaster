@@ -1,0 +1,13 @@
+{
+    "type": "email.bounced",
+    "created_at": "2021-01-01T00:00:00.000Z",
+    "data": {
+        "email_id": "resend-message-2",
+        "to": ["recipient@example.com"],
+        "bounce": {
+            "type": "Permanent",
+            "subType": "General",
+            "message": "The recipient mailbox does not exist"
+        }
+    }
+}

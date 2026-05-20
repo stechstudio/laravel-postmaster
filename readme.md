@@ -301,6 +301,30 @@ about the related model is ever exposed in the outbound email.
 > change `nullableMorphs('related')` to the matching variant in the published
 > migration.
 
+### From a notification
+
+Notifications send through the same mailer, so recording, content capture, and
+status correlation all work for notification emails with no extra setup. To
+*associate* one, a notification's `toMail()` returns a `MailMessage` rather
+than a Mailable — pass the `EmailEvents` builders to `withSymfonyMessage()`:
+
+```php
+use STS\EmailEvents\Facades\EmailEvents;
+
+public function toMail($notifiable)
+{
+    return (new MailMessage)
+        ->subject('Your order shipped')
+        ->line('Your order is on its way.')
+        ->withSymfonyMessage(EmailEvents::relatedTo($this->order))
+        ->withSymfonyMessage(EmailEvents::forTenant($this->order->tenant));
+}
+```
+
+Prefer the fluent `->relatedTo()` call? The `TracksEmailEvents` trait works on
+anything exposing `withSymfonyMessage()` — add it to your own `MailMessage`
+subclass and use that in place of Laravel's.
+
 ### Multitenancy
 
 In a multitenant app you'll often want every recorded email tagged with its

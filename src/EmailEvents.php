@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
 use STS\EmailEvents\Http\Controllers\WebhookController;
 use STS\EmailEvents\Http\Middleware\VerifyWebhook;
+use STS\EmailEvents\Support\OutboundMetadata;
+use Symfony\Component\Mime\Email;
 
 class EmailEvents
 {
@@ -111,6 +113,48 @@ class EmailEvents
         }
 
         return $tenant;
+    }
+
+    /**
+     * Build a callback that associates a message with the given model.
+     *
+     * Pass it to any message exposing withSymfonyMessage() — a Mailable or a
+     * notification's MailMessage. The TracksEmailEvents trait's relatedTo()
+     * uses this under the hood.
+     *
+     * @param Model $model
+     *
+     * @return Closure
+     */
+    public function relatedTo( Model $model )
+    {
+        return function (Email $message) use ($model) {
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_RELATED_TYPE, $model->getMorphClass()
+            );
+
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_RELATED_ID, (string) $model->getKey()
+            );
+        };
+    }
+
+    /**
+     * Build a callback that associates a message with the given tenant.
+     *
+     * @param Model|int|string $tenant A tenant model or its key.
+     *
+     * @return Closure
+     */
+    public function forTenant( $tenant )
+    {
+        $key = $tenant instanceof Model ? $tenant->getKey() : $tenant;
+
+        return function (Email $message) use ($key) {
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_TENANT, (string) $key
+            );
+        };
     }
 
     /**

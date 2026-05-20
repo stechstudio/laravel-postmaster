@@ -4,6 +4,7 @@ namespace STS\EmailEvents\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Schema;
 use STS\EmailEvents\EmailEvent;
 use STS\EmailEvents\Facades\EmailEvents;
@@ -12,9 +13,12 @@ use STS\EmailEvents\Providers\Postmark\Adapter as Postmark;
 use STS\EmailEvents\Tests\Stubs\FullMail;
 use STS\EmailEvents\Tests\Stubs\Order;
 use STS\EmailEvents\Tests\Stubs\OrderConfirmationMail;
+use STS\EmailEvents\Tests\Stubs\RelatedNotification;
 use STS\EmailEvents\Tests\Stubs\ScopedEmailMessage;
 use STS\EmailEvents\Tests\Stubs\Tenant;
 use STS\EmailEvents\Tests\Stubs\TrackedMail;
+use STS\EmailEvents\Tests\Stubs\TrackedMailMessage;
+use Symfony\Component\Mime\Email;
 
 class PersistenceTest extends TestCase
 {
@@ -192,6 +196,39 @@ class PersistenceTest extends TestCase
         Mail::to('recipient@example.com')->send(new TrackedMail(tenant: 2));
 
         $this->assertSame('2', (string) EmailMessage::first()->tenant_id);
+    }
+
+    public function testNotificationCanAssociateViaTheFactoryHelpers()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        NotificationFacade::route('mail', 'recipient@example.com')
+            ->notify(new RelatedNotification($order));
+
+        $record = EmailMessage::first();
+        $this->assertNotNull($record);
+        $this->assertSame($order->getMorphClass(), $record->related_type);
+        $this->assertSame((string) $order->getKey(), (string) $record->related_id);
+        $this->assertSame('7', (string) $record->tenant_id);
+    }
+
+    public function testTracksEmailEventsTraitWorksOnAMailMessageSubclass()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        $message = (new TrackedMailMessage)->relatedTo($order);
+
+        $email = new Email;
+        foreach ($message->callbacks as $callback) {
+            $callback($email);
+        }
+
+        $this->assertSame(
+            $order->getMorphClass(),
+            $email->getHeaders()->get('X-Email-Events-Related-Type')->getBodyAsString()
+        );
     }
 
     public function testTenantHeaderIsStrippedBeforeSending()

@@ -118,6 +118,36 @@ a { color: inherit; text-decoration: none; }
 .pm-link { font-size: 12.5px; font-weight: 500; color: var(--pm-muted-fg); }
 .pm-link:hover { color: var(--pm-fg); }
 
+/* Compact two-line feed rows — the overview's recent-messages /
+   recent-activity cards. Stacked text that truncates; badge top-right. */
+.pm-feed-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-feed-row:last-child { border-bottom: 0; }
+.pm-feed-row.pm-row-link:hover { background: var(--pm-muted); }
+.pm-feed-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+}
+.pm-feed-primary,
+.pm-feed-secondary {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pm-feed-primary { font-weight: 500; }
+.pm-feed-secondary { color: var(--pm-muted-fg); font-size: 12.5px; }
+.pm-feed-meta { flex-shrink: 0; color: var(--pm-muted-fg); font-size: 12px; white-space: nowrap; }
+.pm-feed-line .pm-badge { flex-shrink: 0; }
+
 /* Equal-height stat cards: flex column with the value pinned to the bottom,
    so labels that wrap to two lines don't shift anything. */
 .pm-stat { display: flex; flex-direction: column; }

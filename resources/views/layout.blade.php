@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Postmaster — @yield('title', 'Dashboard')</title>
+    <link rel="stylesheet" href="{{ route('postmaster.css') }}">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+</head>
+<body class="pm-body">
+<div class="pm-layout">
+    <aside class="pm-sidebar">
+        <div class="pm-brand">✉&nbsp; Postmaster</div>
+        <nav class="pm-nav">
+            <a href="{{ route('postmaster.overview') }}" class="{{ request()->routeIs('postmaster.overview') ? 'is-active' : '' }}">Overview</a>
+            <a href="{{ route('postmaster.messages') }}" class="{{ request()->routeIs('postmaster.messages*') ? 'is-active' : '' }}">Messages</a>
+            <a href="{{ route('postmaster.activity') }}" class="{{ request()->routeIs('postmaster.activity') ? 'is-active' : '' }}">Activity</a>
+            <a href="{{ route('postmaster.addresses') }}" class="{{ request()->routeIs('postmaster.addresses') ? 'is-active' : '' }}">Addresses</a>
+        </nav>
+    </aside>
+    <main class="pm-main">
+        <header class="pm-header">
+            <h1>@yield('title', 'Dashboard')</h1>
+        </header>
+        <div class="pm-content">
+            @yield('content')
+        </div>
+    </main>
+</div>
+@yield('scripts')
+</body>
+</html>

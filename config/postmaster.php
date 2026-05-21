@@ -157,4 +157,16 @@ return [
         'address_model'   => \STS\Postmaster\Models\EmailAddress::class,
     ],
 
+    /*
+     * The superadmin dashboard — a gated, cross-tenant view of all recorded
+     * email activity. Off by default. When enabled, also register an
+     * authorization gate with Postmaster::auth() in a service provider;
+     * without one, access is allowed only in the local environment.
+     */
+    'dashboard' => [
+        'enabled'    => env('POSTMASTER_DASHBOARD', false),
+        'path'       => env('POSTMASTER_DASHBOARD_PATH', 'postmaster'),
+        'middleware' => ['web'],
+    ],
+
 ];

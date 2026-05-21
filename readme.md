@@ -499,6 +499,50 @@ A few notes for multitenant setups:
   `persistence.tenant_column`) and is an `unsignedBigInteger` — apps with
   UUID/ULID tenant keys should change its type in the published migration.
 
+## Dashboard
+
+A gated, cross-tenant superadmin view of all recorded email activity — browse
+and search messages, watch events stream in live, and manage suppression. It's
+built for support: every screen is a linkable URL.
+
+It's off by default. Enable it, and it mounts at `/postmaster`:
+
+```
+POSTMASTER_DASHBOARD=true
+```
+
+The dashboard reads the persistence tables, so it requires the
+[persistence layer](#optional-persistence) to be enabled.
+
+### Authorization
+
+The dashboard deliberately shows email across *every* tenant — it's the one
+place tenant isolation is bypassed by design — so access must be gated.
+Register an authorization callback, Telescope-style, in a service provider:
+
+```php
+use STS\Postmaster\Facades\Postmaster;
+
+Postmaster::auth(fn ($request) => $request->user()?->isSuperAdmin());
+```
+
+With no callback registered, access is allowed **only in the `local`
+environment** — the dashboard is never unguarded in production by accident.
+
+### Screens
+
+- **Overview** — headline counts and a 14-day activity chart.
+- **Messages** — a filterable inbox (status, provider, tenant, recipient,
+  date); each message opens to its delivery timeline and stored content
+  (rendered in a sandboxed frame).
+- **Activity** — every event, newest first, polling live so you can watch
+  mail flow in real time. Needs `POSTMASTER_RECORD_EVENTS`.
+- **Addresses** — the suppression list, with suppress / unsuppress actions.
+
+No assets to publish — the dashboard serves its own stylesheet, and the only
+client-side dependency (Alpine, for the live activity feed) loads from a CDN.
+The path and middleware are configurable under the `dashboard` config key.
+
 ## Configuration
 
 The defaults work out of the box. To customize them — change the webhook path,

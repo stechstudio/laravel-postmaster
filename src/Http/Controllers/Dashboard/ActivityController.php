@@ -28,6 +28,14 @@ class ActivityController extends Controller
             });
         }
 
+        $tenant = $request->query('tenant');
+
+        if ($tenant !== null && $tenant !== '') {
+            $query->whereHas('emailMessage', function ($q) use ($tenant) {
+                $q->withoutGlobalScopes()->where($this->tenantColumn(), $tenant);
+            });
+        }
+
         if ($from = $request->query('from')) {
             $query->where('occurred_at', '>=', $from);
         }
@@ -40,6 +48,7 @@ class ActivityController extends Controller
             'events'   => $query->paginate(50)->withQueryString(),
             'filters'  => $request->query(),
             'statuses' => $this->statuses(),
+            'tenants'  => $this->tenantLabels($this->tenantKeysInUse()),
             'enabled'  => (bool) config('postmaster.persistence.record_events', false),
         ]);
     }

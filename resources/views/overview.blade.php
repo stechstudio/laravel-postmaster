@@ -37,18 +37,23 @@
             $slot = 48; $barW = 26; $plotH = 100;
             $width = max(count($chart), 1) * $slot;
         @endphp
-        <svg class="pm-chart" viewBox="0 0 {{ $width }} 130" preserveAspectRatio="none">
-            @foreach ($chart as $i => $bar)
-                @php
-                    $h = round($bar['count'] / $max * $plotH, 1);
-                    $x = $i * $slot + ($slot - $barW) / 2;
-                    $label = $bar['interval'] === 1 ? $bar['date']->format('j') : $bar['date']->format('M j');
-                @endphp
-                <rect x="{{ $x }}" y="{{ $plotH - $h }}" width="{{ $barW }}" height="{{ max($h, 1) }}" rx="3">
-                    <title>{{ $bar['date']->format('M j') }} — {{ $bar['count'] }}</title>
-                </rect>
-                <text class="pm-chart-axis" x="{{ $x + $barW / 2 }}" y="120" text-anchor="middle">{{ $label }}</text>
-            @endforeach
-        </svg>
+        <div class="pm-chart">
+            <svg class="pm-chart-bars" viewBox="0 0 {{ $width }} {{ $plotH }}" preserveAspectRatio="none">
+                @foreach ($chart as $i => $bar)
+                    @php
+                        $h = max(round($bar['count'] / $max * $plotH, 1), 1);
+                        $x = $i * $slot + ($slot - $barW) / 2;
+                    @endphp
+                    <rect x="{{ $x }}" y="{{ $plotH - $h }}" width="{{ $barW }}" height="{{ $h }}" rx="3">
+                        <title>{{ $bar['date']->format('M j') }} — {{ $bar['count'] }}</title>
+                    </rect>
+                @endforeach
+            </svg>
+            <div class="pm-chart-labels">
+                @foreach ($chart as $bar)
+                    <span>{{ $bar['interval'] === 1 ? $bar['date']->format('j') : $bar['date']->format('M j') }}</span>
+                @endforeach
+            </div>
+        </div>
     </div>
 @endsection

@@ -122,11 +122,21 @@ a { color: inherit; text-decoration: none; }
 
 .pm-section-title { font-size: 13px; font-weight: 600; margin: 0 0 12px; }
 
-/* Chart */
-.pm-chart { width: 100%; height: 140px; display: block; }
-.pm-chart rect { fill: var(--pm-primary); }
-.pm-chart rect:hover { fill: var(--pm-ring); }
-.pm-chart-axis { fill: var(--pm-muted-fg); font-size: 9px; }
+/* Chart — bars in a stretch-to-fit SVG, labels as HTML so text never
+   distorts (the SVG scales non-uniformly; HTML text does not). */
+.pm-chart-bars { width: 100%; height: 120px; display: block; }
+.pm-chart-bars rect { fill: var(--pm-primary); }
+.pm-chart-bars rect:hover { fill: var(--pm-ring); }
+.pm-chart-labels { display: flex; margin-top: 6px; }
+.pm-chart-labels span {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 10px;
+    color: var(--pm-muted-fg);
+}
 
 /* Tables */
 .pm-table { width: 100%; border-collapse: collapse; }

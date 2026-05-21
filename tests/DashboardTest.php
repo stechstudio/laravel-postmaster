@@ -97,6 +97,42 @@ class DashboardTest extends TestCase
             ->assertDontSee('<script>alert(1)</script>', false);
     }
 
+    public function testStoredEmailContentIsRenderedWithARestrictiveCsp()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create(['message_id' => 'm1', 'html_body' => '<p>Hello</p>']);
+
+        // The preview iframe carries a CSP so remote subresources (tracking
+        // pixels, remote images) can't fire when a message is opened.
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSee('Content-Security-Policy', false);
+    }
+
+    public function testShortContainsFilterTermsAreIgnored()
+    {
+        Postmaster::auth(fn () => true);
+        EmailMessage::create(['message_id' => 'a1', 'recipient' => 'alice@example.com']);
+        EmailMessage::create(['message_id' => 'b1', 'recipient' => 'bob@example.com']);
+
+        // A two-character term is below the minimum — the filter is skipped
+        // rather than running an unindexed scan, so every row still shows.
+        $this->get('/postmaster/messages?recipient=al')
+            ->assertOk()
+            ->assertSee('alice@example.com')
+            ->assertSee('bob@example.com');
+    }
+
+    public function testAlpineIsServed()
+    {
+        Postmaster::auth(fn () => true);
+
+        $response = $this->get('/postmaster/assets/alpine.js');
+
+        $response->assertOk();
+        $this->assertStringContainsString('javascript', (string) $response->headers->get('Content-Type'));
+    }
+
     public function testMessageDetailLoads()
     {
         Postmaster::auth(fn () => true);

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Postmaster — @yield('title', 'Dashboard')</title>
     <link rel="stylesheet" href="{{ route('postmaster.css') }}">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+    <script defer src="{{ route('postmaster.alpine') }}"></script>
 </head>
 <body class="pm-body">
 <div class="pm-layout">

@@ -15,6 +15,7 @@ use STS\Postmaster\Http\Controllers\Dashboard\OverviewController;
 
 Route::get('assets/postmaster.css', [AssetController::class, 'css'])->name('postmaster.css');
 Route::get('assets/hat.svg', [AssetController::class, 'logo'])->name('postmaster.logo');
+Route::get('assets/alpine.js', [AssetController::class, 'alpine'])->name('postmaster.alpine');
 
 Route::get('/', OverviewController::class)->name('postmaster.overview');
 

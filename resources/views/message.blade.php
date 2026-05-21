@@ -5,6 +5,16 @@
 @section('title', e($message->subject ?: '(no subject)'))
 
 @section('content')
+    @php
+        // Stored email HTML is rendered inert: the iframe sandbox blocks
+        // scripts, and this CSP blocks remote subresources — so opening a
+        // message never fires the sender's tracking pixels or leaks the
+        // viewer's IP to third parties. Inline styles and data: images
+        // (which most HTML emails rely on) still render.
+        $previewCsp = '<meta http-equiv="Content-Security-Policy" '
+            ."content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:;\">";
+    @endphp
+
     <div>
         <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">← Back to messages</a>
     </div>
@@ -12,7 +22,7 @@
     <div class="pm-detail-grid">
         <div>
             @if ($message->html_body)
-                <iframe class="pm-frame" sandbox srcdoc="{{ $message->html_body }}" title="Message body"></iframe>
+                <iframe class="pm-frame" sandbox srcdoc="{{ $previewCsp.$message->html_body }}" title="Message body"></iframe>
             @elseif ($message->text_body)
                 <div class="pm-pre">{{ $message->text_body }}</div>
             @else

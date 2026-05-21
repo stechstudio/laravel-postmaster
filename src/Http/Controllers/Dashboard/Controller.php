@@ -153,8 +153,8 @@ abstract class Controller
     /**
      * Add a case-insensitive "contains" filter on a column. lower() keeps it
      * portable across the database engines the package supports. A no-op for
-     * an empty term. The column name is supplied by the controller, never by
-     * the request.
+     * a term under three characters. The column name is supplied by the
+     * controller, never by the request.
      *
      * @param Builder $query
      * @param string  $column
@@ -164,11 +164,16 @@ abstract class Controller
      */
     protected function applyContains( Builder $query, $column, $term )
     {
-        if ($term === null || $term === '') {
+        $term = trim((string) ($term ?? ''));
+
+        // Ignore terms under three characters: they barely narrow the result
+        // set yet still force an unindexed full-table scan. The filter inputs
+        // enforce the same minimum; a hand-typed URL would otherwise skip it.
+        if (strlen($term) < 3) {
             return;
         }
 
-        $query->whereRaw("lower({$column}) like ?", ['%'.strtolower((string) $term).'%']);
+        $query->whereRaw("lower({$column}) like ?", ['%'.strtolower($term).'%']);
     }
 
     /**
@@ -202,6 +207,7 @@ abstract class Controller
     {
         return [
             EmailEvent::EVENT_SENT,
+            EmailEvent::EVENT_SANDBOX,
             EmailEvent::EMAIL_ACCEPTED,
             EmailEvent::EVENT_DEFERRED,
             EmailEvent::EVENT_DELIVERED,

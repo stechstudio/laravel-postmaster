@@ -38,4 +38,19 @@ class AssetController
                 'Content-Type' => 'image/svg+xml',
             ]);
     }
+
+    /**
+     * Alpine.js, vendored and served from the package — the dashboard pulls
+     * in no third-party JavaScript, so it works offline and behind strict
+     * networks, with no CDN supply-chain surface on a sensitive admin page.
+     *
+     * @return BinaryFileResponse
+     */
+    public function alpine()
+    {
+        return response()
+            ->file(__DIR__.'/../../../../resources/dist/alpine.js', [
+                'Content-Type' => 'text/javascript',
+            ]);
+    }
 }

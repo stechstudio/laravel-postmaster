@@ -7,7 +7,7 @@ use STS\Postmaster\Support\OutboundMetadata;
 
 /**
  * Runs just before an email is handed to the transport. If the message
- * carries metadata headers (set via the TracksEmailEvents trait), the
+ * carries metadata headers (set via relatedTo() / forTenant()), the
  * values are moved into an in-process stash and the headers are stripped
  * so they never travel on the wire. RecordOutboundMessage then reads the
  * stash when MessageSent fires.

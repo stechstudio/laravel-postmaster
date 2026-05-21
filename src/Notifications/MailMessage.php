@@ -3,11 +3,11 @@
 namespace STS\Postmaster\Notifications;
 
 use Illuminate\Notifications\Messages\MailMessage as BaseMailMessage;
-use STS\Postmaster\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksMailMessage;
 
 /**
  * A drop-in replacement for Laravel's notification MailMessage that carries the
- * TracksEmailEvents trait, so a notification's toMail() can associate the email
+ * TracksMailMessage trait, so a notification's toMail() can associate the email
  * with one of your models or a tenant using the fluent relatedTo()/forTenant()
  * methods — without having to reach for withSymfonyMessage() by hand.
  *
@@ -28,5 +28,5 @@ use STS\Postmaster\Concerns\TracksEmailEvents;
  */
 class MailMessage extends BaseMailMessage
 {
-    use TracksEmailEvents;
+    use TracksMailMessage;
 }

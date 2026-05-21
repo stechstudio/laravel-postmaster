@@ -385,26 +385,43 @@ Recorded emails can be linked back to one of your own models — an `Order`, a
 `User`, anything — so that model can list its own delivery history (great for
 an admin activity feed that highlights bounces and complaints).
 
-Add the `TracksEmailEvents` trait to a Mailable and call `relatedTo()`:
+Add the `TracksMailable` trait to a Mailable and declare what the email is
+about — a `related()` method, and optionally a `tenant()` — the same shape as
+Laravel's own `envelope()` / `content()`:
 
 ```php
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Mailable;
-use STS\Postmaster\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksMailable;
 
 class OrderConfirmation extends Mailable
 {
-    use TracksEmailEvents;
+    use TracksMailable;
 
     public function __construct(public Order $order) {}
 
-    public function build()
+    public function related(): Model
     {
-        return $this->relatedTo($this->order)
-            ->subject('Your order is confirmed')
-            ->view('emails.order-confirmation');
+        return $this->order;
     }
+
+    // Optional — most apps let the tenant come from resolveTenantUsing().
+    public function tenant(): mixed
+    {
+        return $this->order->account_id;
+    }
+
+    public function envelope(): Envelope { /* ... */ }
+    public function content(): Content { /* ... */ }
 }
 ```
+
+Postmaster reads `related()` / `tenant()` when the mailable is sent — after a
+queued job is dequeued, so it's queue-safe — and records the association.
+
+> Need to set the association dynamically instead? `TracksMailable` also
+> exposes `relatedTo($model)` / `forTenant($tenant)`; call them anywhere before
+> the mailable is sent.
 
 Add the `HasEmailMessages` trait to the related model:
 
@@ -456,12 +473,11 @@ public function toMail($notifiable)
 ```
 
 Only the import changes — Postmaster's `MailMessage` is Laravel's with the
-`TracksEmailEvents` trait applied, so every notification builder method
+`TracksMailMessage` trait applied, so every notification builder method
 (`line()`, `action()`, …) works unchanged.
 
-Already maintain your own `MailMessage` subclass? Add the `TracksEmailEvents`
-trait to it directly — the trait works on anything exposing
-`withSymfonyMessage()`.
+Already maintain your own `MailMessage` subclass? Add the `TracksMailMessage`
+trait to it directly — it works on anything exposing `withSymfonyMessage()`.
 
 Or, to skip subclassing entirely, pass the `Postmaster` builders straight to
 `withSymfonyMessage()` on a plain `MailMessage`:
@@ -494,19 +510,22 @@ The resolver may return a tenant model or its key, and is called lazily when
 each email is recorded — so it resolves correctly per request or queued job.
 
 If tenant context isn't available globally (e.g. inside a queued job that
-doesn't bootstrap tenancy), a Mailable can declare its tenant explicitly with
-`forTenant()`. This always takes precedence over the resolver:
+doesn't bootstrap tenancy), a Mailable can declare its tenant explicitly with a
+`tenant()` method. This always takes precedence over the resolver:
 
 ```php
 class OrderConfirmation extends Mailable
 {
-    use TracksEmailEvents;
+    use TracksMailable;
 
-    public function build()
+    public function related(): Model
     {
-        return $this->relatedTo($this->order)
-            ->forTenant($this->order->tenant)
-            ->subject('Your order is confirmed');
+        return $this->order;
+    }
+
+    public function tenant(): mixed
+    {
+        return $this->order->tenant;
     }
 }
 ```

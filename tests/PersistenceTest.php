@@ -16,6 +16,7 @@ use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
 use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
 use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
+use STS\Postmaster\Tests\Stubs\DeclaredMail;
 use STS\Postmaster\Tests\Stubs\DropInMailMessageNotification;
 use STS\Postmaster\Tests\Stubs\FullMail;
 use STS\Postmaster\Tests\Stubs\Order;
@@ -170,6 +171,28 @@ class PersistenceTest extends TestCase
         $this->assertSame((string) $order->getKey(), (string) $record->related_id);
     }
 
+    public function testDeclaredAssociationsAreRecordedFromAMailable()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        Mail::to('recipient@example.com')->send(new DeclaredMail(order: $order, account: 42));
+
+        $record = EmailMessage::first();
+        $this->assertSame($order->getMorphClass(), $record->related_type);
+        $this->assertSame((string) $order->getKey(), (string) $record->related_id);
+        $this->assertSame('42', (string) $record->tenant_id);
+    }
+
+    public function testDeclaredAssociationsAreOptional()
+    {
+        Mail::to('recipient@example.com')->send(new DeclaredMail);
+
+        $record = EmailMessage::first();
+        $this->assertNull($record->related_type);
+        $this->assertNull($record->tenant_id);
+    }
+
     public function testUnrelatedMailLeavesRelatedColumnsNull()
     {
         Mail::raw('Hello there', function ($message) {
@@ -290,7 +313,7 @@ class PersistenceTest extends TestCase
         $this->assertSame('7', (string) $record->tenant_id);
     }
 
-    public function testTracksEmailEventsTraitWorksOnAMailMessageSubclass()
+    public function testTracksMailMessageTraitWorksOnAMailMessageSubclass()
     {
         Schema::create('orders', fn ($table) => $table->id());
         $order = Order::create();

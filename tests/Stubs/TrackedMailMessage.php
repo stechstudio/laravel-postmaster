@@ -3,13 +3,13 @@
 namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Notifications\Messages\MailMessage;
-use STS\Postmaster\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksMailMessage;
 
 /**
- * A MailMessage subclass with the TracksEmailEvents trait — proving the trait
- * works on anything exposing withSymfonyMessage(), not just Mailables.
+ * A custom MailMessage subclass with the TracksMailMessage trait — proving the
+ * trait works on a notification message, not just Mailables.
  */
 class TrackedMailMessage extends MailMessage
 {
-    use TracksEmailEvents;
+    use TracksMailMessage;
 }

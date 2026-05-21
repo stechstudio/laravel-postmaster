@@ -16,9 +16,9 @@ namespace STS\Postmaster\Support;
 class OutboundMetadata
 {
     /**
-     * Headers used purely as an in-process courier. Set by the
-     * TracksEmailEvents trait, read and removed by StashOutboundMetadata
-     * before the message is handed to the transport.
+     * Headers used purely as an in-process courier. Set by relatedTo() /
+     * forTenant(), read and removed by StashOutboundMetadata before the
+     * message is handed to the transport.
      */
     const HEADER_RELATED_TYPE = 'X-Postmaster-Related-Type';
     const HEADER_RELATED_ID   = 'X-Postmaster-Related-Id';

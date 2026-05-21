@@ -59,7 +59,10 @@
                     @endforeach
                     <dt>Provider</dt><dd>{{ $message->provider ?? '—' }}</dd>
                     <dt>Message ID</dt><dd class="pm-mono pm-truncate">{{ $message->message_id ?? '—' }}</dd>
-                    <dt>Tenant</dt><dd>{{ $message->{$tenantColumn} ?? '—' }}</dd>
+                    @if ($message->{$tenantColumn})
+                        <dt>Tenant</dt>
+                        <dd>{{ $tenants[$message->{$tenantColumn}] ?? $message->{$tenantColumn} }}</dd>
+                    @endif
                     @if ($message->related_type)
                         <dt>Related</dt><dd class="pm-mono">{{ class_basename($message->related_type) }} #{{ $message->related_id }}</dd>
                     @endif

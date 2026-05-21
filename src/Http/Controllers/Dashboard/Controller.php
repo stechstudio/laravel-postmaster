@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
@@ -67,6 +68,86 @@ abstract class Controller
         }
 
         return $query->get();
+    }
+
+    /**
+     * The configured tenant column name.
+     *
+     * @return string
+     */
+    protected function tenantColumn()
+    {
+        return config('postmaster.persistence.tenant_column', 'tenant_id');
+    }
+
+    /**
+     * The configured tenant model class, or null when tenancy is not in use.
+     *
+     * @return string|null
+     */
+    protected function tenantModel()
+    {
+        return config('postmaster.persistence.tenant_model');
+    }
+
+    /**
+     * Distinct tenant keys that appear in the messages table.
+     *
+     * @return array
+     */
+    protected function tenantKeysInUse()
+    {
+        return $this->messageQuery()
+            ->whereNotNull($this->tenantColumn())
+            ->distinct()
+            ->pluck($this->tenantColumn())
+            ->all();
+    }
+
+    /**
+     * Resolve a [key => label] map for the given tenant keys. Labels come
+     * from the tenant model — its "name", then "label", then its key — when
+     * one is configured; otherwise the keys stand in for themselves.
+     *
+     * @param array $keys
+     *
+     * @return array<int|string, string>
+     */
+    protected function tenantLabels( array $keys )
+    {
+        $keys = array_values(array_unique(array_filter(
+            array_map(fn ($key) => $key === null ? null : (string) $key, $keys),
+            fn ($key) => $key !== null && $key !== ''
+        )));
+
+        if (empty($keys)) {
+            return [];
+        }
+
+        if ($this->tenantModel() === null) {
+            return array_combine($keys, $keys);
+        }
+
+        return $this->messageQuery()->getModel()->tenant()->getRelated()->newQuery()
+            ->withoutGlobalScopes()
+            ->whereKey($keys)
+            ->get()
+            ->mapWithKeys(fn (Model $tenant) => [$tenant->getKey() => $this->tenantLabel($tenant)])
+            ->all();
+    }
+
+    /**
+     * A human label for a tenant model: "name", then "label", then its key.
+     *
+     * @param Model $tenant
+     *
+     * @return string
+     */
+    protected function tenantLabel( Model $tenant )
+    {
+        return (string) ($tenant->getAttribute('name')
+            ?? $tenant->getAttribute('label')
+            ?? $tenant->getKey());
     }
 
     /**

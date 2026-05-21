@@ -3,7 +3,11 @@
 @section('title', 'Messages')
 
 @section('content')
-    @php $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id'); @endphp
+    @php
+        $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
+        $hasTenants = ! empty($tenants);
+        $columns = $hasTenants ? 6 : 5;
+    @endphp
 
     <div class="pm-card">
         {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
@@ -38,11 +42,17 @@
                        value="{{ $filters['subject'] ?? '' }}"
                        x-on:input.debounce.400ms="($el.value.length >= 3 || $el.value.length === 0) && $el.form.requestSubmit()">
             </div>
-            <div class="pm-field">
-                <label>Tenant</label>
-                <input type="text" name="tenant" class="pm-input" value="{{ $filters['tenant'] ?? '' }}"
-                       x-on:input.debounce.400ms="$el.form.requestSubmit()">
-            </div>
+            @if ($hasTenants)
+                <div class="pm-field">
+                    <label>Tenant</label>
+                    <select name="tenant" class="pm-select" onchange="this.form.requestSubmit()">
+                        <option value="">Any</option>
+                        @foreach ($tenants as $key => $label)
+                            <option value="{{ $key }}" @selected((string) ($filters['tenant'] ?? '') === (string) $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
             <div class="pm-field">
                 <label>From</label>
                 <input type="date" name="from" class="pm-input" value="{{ $filters['from'] ?? '' }}"
@@ -67,7 +77,7 @@
                     <th>Subject</th>
                     <th>Status</th>
                     <th>Provider</th>
-                    <th>Tenant</th>
+                    @if ($hasTenants)<th>Tenant</th>@endif
                     <th>Sent</th>
                 </tr>
             </thead>
@@ -78,11 +88,13 @@
                         <td class="pm-truncate">{{ $message->subject ?? '—' }}</td>
                         <td>@include('postmaster::partials.badge', ['status' => $message->status])</td>
                         <td class="pm-dim">{{ $message->provider ?? '—' }}</td>
-                        <td class="pm-dim">{{ $message->{$tenantColumn} ?? '—' }}</td>
+                        @if ($hasTenants)
+                            <td class="pm-dim">{{ $tenants[$message->{$tenantColumn}] ?? '—' }}</td>
+                        @endif
                         <td class="pm-dim">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="6"><div class="pm-empty">No messages match these filters.</div></td></tr>
+                    <tr><td colspan="{{ $columns }}"><div class="pm-empty">No messages match these filters.</div></td></tr>
                 @endforelse
             </tbody>
         </table>

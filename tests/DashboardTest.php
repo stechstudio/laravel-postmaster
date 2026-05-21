@@ -3,11 +3,13 @@
 namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
+use STS\Postmaster\Tests\Stubs\Tenant;
 
 class DashboardTest extends TestCase
 {
@@ -72,6 +74,28 @@ class DashboardTest extends TestCase
         $this->get('/postmaster/messages/'.$message->getKey())
             ->assertOk()
             ->assertSee('Welcome aboard');
+    }
+
+    public function testTenantColumnShowsLabelsFromTheTenantModel()
+    {
+        Postmaster::auth(fn () => true);
+        config(['postmaster.persistence.tenant_model' => Tenant::class]);
+
+        Schema::create('tenants', function ($table) {
+            $table->id();
+            $table->string('name');
+        });
+        $tenant = Tenant::create(['name' => 'Acme Corp']);
+
+        EmailMessage::create([
+            'message_id' => 'm1',
+            'recipient'  => 'r@example.com',
+            'tenant_id'  => $tenant->getKey(),
+        ]);
+
+        $this->get('/postmaster/messages')
+            ->assertOk()
+            ->assertSee('Acme Corp');
     }
 
     public function testActivityListLoads()

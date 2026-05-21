@@ -51,6 +51,7 @@ class MessageController extends Controller
             'filters'   => $request->query(),
             'statuses'  => $this->statuses(),
             'providers' => array_keys(config('postmaster.providers', [])),
+            'tenants'   => $this->tenantLabels($this->tenantKeysInUse()),
         ]);
     }
 
@@ -61,6 +62,7 @@ class MessageController extends Controller
         return response()->view('postmaster::message', [
             'message' => $record,
             'events'  => $record->events()->get(),
+            'tenants' => $this->tenantLabels([$record->{$this->tenantColumn()}]),
         ]);
     }
 }

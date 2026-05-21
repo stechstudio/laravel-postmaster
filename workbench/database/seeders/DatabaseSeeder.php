@@ -7,6 +7,7 @@ use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
+use Workbench\App\Models\Tenant;
 
 /**
  * Sample data so the dashboard has something to show under `composer serve`.
@@ -30,6 +31,10 @@ class DatabaseSeeder extends Seeder
         $names   = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'grace', 'heidi', 'ivan', 'judy'];
         $domains = ['example.com', 'acme.test', 'mail.dev', 'fastmail.example'];
 
+        $tenantIds = collect(['Acme Corp', 'Globex', 'Initech', 'Umbrella Co'])
+            ->map(fn ($name) => Tenant::create(['name' => $name])->getKey())
+            ->all();
+
         foreach (range(1, 90) as $i) {
             $sentAt = now()->subDays(rand(0, 13))->subMinutes(rand(0, 1439));
             $status = $statuses[array_rand($statuses)];
@@ -45,7 +50,7 @@ class DatabaseSeeder extends Seeder
                 'from_address'  => 'hello@acme.test',
                 'status'        => $status,
                 'bounce_type'   => $isBounce ? EmailEvent::BOUNCE_HARD : null,
-                'tenant_id'     => rand(1, 4),
+                'tenant_id'     => $tenantIds[array_rand($tenantIds)],
                 'sent_at'       => $sentAt,
                 'last_event_at' => $status === EmailEvent::EVENT_SENT ? null : $sentAt->copy()->addMinutes(rand(2, 240)),
                 'html_body'     => '<h1 style="font-family:sans-serif">'.$subject.'</h1>'

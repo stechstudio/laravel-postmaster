@@ -22,10 +22,11 @@ class WorkbenchServiceProvider extends ServiceProvider
 
         config([
             'app.key' => 'base64:'.base64_encode('postmaster-workbench-local-key!!'),
-            'postmaster.persistence.enabled'        => true,
-            'postmaster.persistence.record_events'  => true,
+            'postmaster.persistence.enabled'         => true,
+            'postmaster.persistence.record_events'   => true,
             'postmaster.persistence.track_addresses' => true,
-            'postmaster.dashboard.enabled'          => true,
+            'postmaster.persistence.tenant_model'    => \Workbench\App\Models\Tenant::class,
+            'postmaster.dashboard.enabled'           => true,
         ]);
     }
 

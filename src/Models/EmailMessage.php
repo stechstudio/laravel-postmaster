@@ -142,6 +142,17 @@ class EmailMessage extends Model
         return $query->where('status', EmailEvent::EVENT_SENT);
     }
 
+    /**
+     * Scope to messages intercepted by sandbox delivery — recorded but never
+     * actually sent.
+     *
+     * @return Builder
+     */
+    public function scopeSandbox( Builder $query )
+    {
+        return $query->where('status', EmailEvent::EVENT_SANDBOX);
+    }
+
     /** @return Builder */
     public function scopeAccepted( Builder $query )
     {

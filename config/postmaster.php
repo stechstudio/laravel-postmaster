@@ -22,6 +22,23 @@ return [
     'on_invalid' => env('POSTMASTER_ON_INVALID', 'log'),
 
     /*
+     * Outbound delivery mode:
+     *
+     *   "normal"   — mail is delivered as usual.
+     *   "sandbox"  — mail is intercepted and never handed to the transport,
+     *                but (with persistence enabled) is still recorded with a
+     *                "sandbox" status, so it shows up in your app's email
+     *                history without anything actually being sent. Handy in a
+     *                staging environment.
+     *   "redirect" — reserved for a future release.
+     *
+     * Sandbox is most useful with persistence (POSTMASTER_PERSISTENCE=true);
+     * without it the package can still intercept the send, but nothing is
+     * recorded — at which point Laravel's "log" mailer is the simpler tool.
+     */
+    'delivery' => env('POSTMASTER_DELIVERY', 'normal'),
+
+    /*
      * Shared credentials for the "token" and "basic" authorizers below.
      */
     'token' => env('POSTMASTER_AUTH_TOKEN'),

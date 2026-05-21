@@ -517,6 +517,44 @@ A few notes for multitenant setups:
   `persistence.tenant_column`) and is an `unsignedBigInteger` — apps with
   UUID/ULID tenant keys should change its type in the published migration.
 
+## Sandbox delivery
+
+In a staging environment you often want emails to *appear* in your app — so you
+can see what was sent, to whom, with what content — without anything actually
+landing in a real inbox. Sandbox delivery does exactly that:
+
+```dotenv
+POSTMASTER_DELIVERY=sandbox
+```
+
+With this set, every outbound email is intercepted before it reaches the mail
+transport and **never sent**. With persistence enabled it is still recorded —
+with a `sandbox` status — so it shows up in your app's email history exactly
+like a real send, including its related model, tenant, and (if content storage
+is on) its rendered body.
+
+```php
+EmailMessage::sandbox()->get();   // everything intercepted in sandbox mode
+```
+
+A sandboxed message is **terminal**: it never reached a provider, so no
+delivery/open/bounce webhooks will ever follow. Render the `sandbox` status
+distinctly in your UI rather than as a pending send.
+
+> Sandbox is provider-agnostic — it works the same whether you send through
+> SES, Mailgun, Postmark, SendGrid, or Resend. It needs persistence
+> (`POSTMASTER_PERSISTENCE=true`) to record anything; without it, mail is still
+> suppressed but nothing is stored — at which point Laravel's `log` mailer is
+> the simpler tool.
+
+Because sandbox silently drops *all* mail, enabling it in `production` is almost
+never intended — Postmaster logs a warning at boot if it sees that, and
+`postmaster:verify` reports it rather than attempting a round-trip check.
+
+The `POSTMASTER_DELIVERY` setting is an enum (`normal` is the default); a
+`redirect` mode — send every email to a single catch-all address — is reserved
+for a future release.
+
 ## Configuration
 
 The defaults work out of the box. To customize them — change the webhook path,

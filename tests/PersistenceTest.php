@@ -4,6 +4,7 @@ namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Schema;
@@ -15,6 +16,7 @@ use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
 use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
 use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
+use STS\Postmaster\Tests\Stubs\DropInMailMessageNotification;
 use STS\Postmaster\Tests\Stubs\FullMail;
 use STS\Postmaster\Tests\Stubs\Order;
 use STS\Postmaster\Tests\Stubs\OrderConfirmationMail;
@@ -80,6 +82,59 @@ class PersistenceTest extends TestCase
         $this->assertSame(EmailEvent::EVENT_DELIVERED, $record->status);
         $this->assertSame('Postmark', $record->provider);
         $this->assertNotNull($record->last_event_at);
+    }
+
+    public function testEmailEventCarriesTheCorrelatedMessageRecord()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        $record = EmailMessage::create([
+            'message_id'   => 'postmark-message-9',
+            'recipient'    => 'recipient@example.com',
+            'status'       => EmailEvent::EVENT_SENT,
+            'related_type' => $order->getMorphClass(),
+            'related_id'   => $order->getKey(),
+        ]);
+
+        $captured = null;
+
+        Event::listen(EmailEvent::class, function (EmailEvent $event) use (&$captured) {
+            $captured = $event->emailMessage;
+        });
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'postmark-message-9',
+            'Recipient'   => 'recipient@example.com',
+            'DeliveredAt' => '2021-01-01T00:00:00Z',
+        ])));
+
+        $this->assertNotNull($captured);
+        $this->assertTrue($captured->is($record));
+
+        // The headline use case: walk back to the originating app model.
+        $this->assertTrue($captured->related->is($order));
+
+        // The record handed to the listener already reflects this event.
+        $this->assertSame(EmailEvent::EVENT_DELIVERED, $captured->status);
+    }
+
+    public function testEmailEventMessageIsNullWhenNoRecordCorrelates()
+    {
+        $captured = 'unset';
+
+        Event::listen(EmailEvent::class, function (EmailEvent $event) use (&$captured) {
+            $captured = $event->emailMessage;
+        });
+
+        // No message id on the payload — nothing to correlate to.
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Delivery',
+            'Recipient'  => 'recipient@example.com',
+        ])));
+
+        $this->assertNull($captured);
     }
 
     public function testBounceEventRecordsTheBounceType()
@@ -212,6 +267,21 @@ class PersistenceTest extends TestCase
 
         NotificationFacade::route('mail', 'recipient@example.com')
             ->notify(new RelatedNotification($order));
+
+        $record = EmailMessage::first();
+        $this->assertNotNull($record);
+        $this->assertSame($order->getMorphClass(), $record->related_type);
+        $this->assertSame((string) $order->getKey(), (string) $record->related_id);
+        $this->assertSame('7', (string) $record->tenant_id);
+    }
+
+    public function testNotificationCanAssociateViaTheDropInMailMessage()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        NotificationFacade::route('mail', 'recipient@example.com')
+            ->notify(new DropInMailMessageNotification($order));
 
         $record = EmailMessage::first();
         $this->assertNotNull($record);

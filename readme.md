@@ -235,6 +235,24 @@ EmailMessage::delivered()->where('sent_at', '>', now()->subDay())->get();
 The package still dispatches `EmailEvent` in all modes — persistence is just a
 first-party listener layered on top.
 
+With persistence on, each `EmailEvent` also carries the record it was
+correlated to, so a listener can walk straight back to the originating
+message — and, through it, to your own model:
+
+```php
+use Illuminate\Support\Facades\Event;
+use STS\Postmaster\EmailEvent;
+
+Event::listen(function (EmailEvent $event) {
+    $order = $event->emailMessage?->related;   // the Order, User, ... it was sent for
+});
+```
+
+`$event->emailMessage` is set by the package's own listener, which is
+registered first — so it is populated for any listener of your own. It is null
+when persistence is disabled or the webhook carries no message id to correlate
+on.
+
 ### Recording the full timeline
 
 The summary record above keeps only a message's *latest* status. That's enough
@@ -416,26 +434,44 @@ about the related model is ever exposed in the outbound email.
 ### From a notification
 
 Notifications send through the same mailer, so recording, content capture, and
-status correlation all work for notification emails with no extra setup. To
-*associate* one, a notification's `toMail()` returns a `MailMessage` rather
-than a Mailable — pass the `Postmaster` builders to `withSymfonyMessage()`:
+status correlation all work for notification emails with no extra setup. A
+notification's `toMail()` returns a `MailMessage` rather than a Mailable, so to
+*associate* one, swap Laravel's `MailMessage` for Postmaster's — a drop-in
+subclass with the same fluent `relatedTo()` / `forTenant()` methods:
 
 ```php
-use STS\Postmaster\Facades\Postmaster;
+use STS\Postmaster\Notifications\MailMessage;
 
 public function toMail($notifiable)
 {
     return (new MailMessage)
         ->subject('Your order shipped')
         ->line('Your order is on its way.')
-        ->withSymfonyMessage(Postmaster::relatedTo($this->order))
-        ->withSymfonyMessage(Postmaster::forTenant($this->order->tenant));
+        ->relatedTo($this->order)
+        ->forTenant($this->order->tenant);
 }
 ```
 
-Prefer the fluent `->relatedTo()` call? The `TracksEmailEvents` trait works on
-anything exposing `withSymfonyMessage()` — add it to your own `MailMessage`
-subclass and use that in place of Laravel's.
+Only the import changes — Postmaster's `MailMessage` is Laravel's with the
+`TracksEmailEvents` trait applied, so every notification builder method
+(`line()`, `action()`, …) works unchanged.
+
+Already maintain your own `MailMessage` subclass? Add the `TracksEmailEvents`
+trait to it directly — the trait works on anything exposing
+`withSymfonyMessage()`.
+
+Or, to skip subclassing entirely, pass the `Postmaster` builders straight to
+`withSymfonyMessage()` on a plain `MailMessage`:
+
+```php
+use STS\Postmaster\Facades\Postmaster;
+
+return (new MailMessage)
+    ->subject('Your order shipped')
+    ->line('Your order is on its way.')
+    ->withSymfonyMessage(Postmaster::relatedTo($this->order))
+    ->withSymfonyMessage(Postmaster::forTenant($this->order->tenant));
+```
 
 ### Multitenancy
 
@@ -542,6 +578,44 @@ environment** — the dashboard is never unguarded in production by accident.
 No assets to publish — the dashboard serves its own stylesheet, and the only
 client-side dependency (Alpine, for the live activity feed) loads from a CDN.
 The path and middleware are configurable under the `dashboard` config key.
+
+## Sandbox delivery
+
+In a staging environment you often want emails to *appear* in your app — so you
+can see what was sent, to whom, with what content — without anything actually
+landing in a real inbox. Sandbox delivery does exactly that:
+
+```dotenv
+POSTMASTER_DELIVERY=sandbox
+```
+
+With this set, every outbound email is intercepted before it reaches the mail
+transport and **never sent**. With persistence enabled it is still recorded —
+with a `sandbox` status — so it shows up in your app's email history exactly
+like a real send, including its related model, tenant, and (if content storage
+is on) its rendered body.
+
+```php
+EmailMessage::sandbox()->get();   // everything intercepted in sandbox mode
+```
+
+A sandboxed message is **terminal**: it never reached a provider, so no
+delivery/open/bounce webhooks will ever follow. Render the `sandbox` status
+distinctly in your UI rather than as a pending send.
+
+> Sandbox is provider-agnostic — it works the same whether you send through
+> SES, Mailgun, Postmark, SendGrid, or Resend. It needs persistence
+> (`POSTMASTER_PERSISTENCE=true`) to record anything; without it, mail is still
+> suppressed but nothing is stored — at which point Laravel's `log` mailer is
+> the simpler tool.
+
+Because sandbox silently drops *all* mail, enabling it in `production` is almost
+never intended — Postmaster logs a warning at boot if it sees that, and
+`postmaster:verify` reports it rather than attempting a round-trip check.
+
+The `POSTMASTER_DELIVERY` setting is an enum (`normal` is the default); a
+`redirect` mode — send every email to a single catch-all address — is reserved
+for a future release.
 
 ## Configuration
 

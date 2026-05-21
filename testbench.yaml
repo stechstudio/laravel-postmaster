@@ -1,6 +1,7 @@
 laravel: '@testbench'
 
 providers:
+  - STS\Postmaster\PostmasterServiceProvider
   - Workbench\App\Providers\WorkbenchServiceProvider
 
 migrations:

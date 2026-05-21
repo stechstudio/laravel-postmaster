@@ -13,6 +13,7 @@ use STS\Postmaster\Console\PruneEmailContent;
 use STS\Postmaster\Console\PruneEmailMessageEvents;
 use STS\Postmaster\Console\VerifySetup;
 use STS\Postmaster\Http\Middleware\AuthorizeDashboard;
+use STS\Postmaster\Listeners\InterceptSandboxMail;
 use STS\Postmaster\Listeners\RecordOutboundMessage;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Listeners\StashOutboundMetadata;
@@ -69,6 +70,23 @@ class PostmasterServiceProvider extends ServiceProvider
             // so it is only available alongside persistence.
             if ($this->app['config']->get('postmaster.dashboard.enabled')) {
                 $this->registerDashboard();
+            }
+        }
+
+        // Sandbox delivery: intercept and suppress all outbound mail. Listed
+        // after StashOutboundMetadata so relatedTo()/forTenant() metadata is
+        // stashed before InterceptSandboxMail records the message.
+        if ($this->app['config']->get('postmaster.delivery') === 'sandbox') {
+            $this->app['events']->listen(MessageSending::class, InterceptSandboxMail::class);
+
+            // Sandbox silently drops every email — almost never what you want
+            // in production. Surface it loudly rather than refusing to boot.
+            if ($this->app->environment('production')) {
+                logger()->warning(
+                    'Postmaster sandbox delivery is enabled in production: all outbound '
+                    .'email is being intercepted and suppressed. Set POSTMASTER_DELIVERY=normal '
+                    .'unless this is intentional.'
+                );
             }
         }
     }

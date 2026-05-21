@@ -30,14 +30,30 @@ class RecordOutboundMessage
      */
     public function handle( MessageSent $event )
     {
-        $message = $event->message;
+        $this->record($event->message, $event->sent->getMessageId(), EmailEvent::EVENT_SENT);
+    }
+
+    /**
+     * Write the email_messages row for an outbound message. Shared by the
+     * normal send path (MessageSent) and sandbox delivery, which records the
+     * message before suppressing the send.
+     *
+     * @param Email       $message
+     * @param string|null $messageId Provider message id, or a synthetic id for
+     *                               a sandboxed message that was never sent.
+     * @param string      $status    The lifecycle status to record.
+     *
+     * @return \Illuminate\Database\Eloquent\Model
+     */
+    public function record( Email $message, $messageId, $status = EmailEvent::EVENT_SENT )
+    {
         $to = $message->getTo();
 
         $attributes = [
-            'message_id' => $event->sent->getMessageId(),
+            'message_id' => $messageId,
             'recipient'  => $to ? $to[0]->getAddress() : null,
             'subject'    => $message->getSubject(),
-            'status'     => EmailEvent::EVENT_SENT,
+            'status'     => $status,
             'sent_at'    => now(),
         ];
 
@@ -65,12 +81,14 @@ class RecordOutboundMessage
         // Seed the timeline with the send itself, so the history is complete
         // rather than starting at the first webhook event.
         $this->recordEvent($record, [
-            'status'      => EmailEvent::EVENT_SENT,
+            'status'      => $status,
             'occurred_at' => $attributes['sent_at'],
         ]);
 
         // Note the recipient so the address is on record as one we send to.
         $this->touchAddress($attributes['recipient']);
+
+        return $record;
     }
 
     /**

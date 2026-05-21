@@ -50,6 +50,24 @@ class VerifySetup extends Command
     {
         $this->components->info('Verifying your Postmaster setup.');
 
+        if (config('postmaster.delivery') === 'sandbox') {
+            $this->newLine();
+            $this->components->warn(
+                'Sandbox delivery is enabled (POSTMASTER_DELIVERY=sandbox), so outbound mail '
+                .'is intercepted and never sent — a test email cannot produce a delivery '
+                .'webhook. Set POSTMASTER_DELIVERY=normal to run the full round-trip check.'
+            );
+
+            if (! config('postmaster.persistence.enabled')) {
+                $this->components->warn(
+                    'Sandbox is also running without persistence (POSTMASTER_PERSISTENCE=false), '
+                    .'so intercepted mail is suppressed but recorded nowhere.'
+                );
+            }
+
+            return self::FAILURE;
+        }
+
         $provider = $this->resolveProvider();
 
         if ($provider === null) {

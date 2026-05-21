@@ -16,6 +16,9 @@ class EmailEvent
 
     const EMAIL_ACCEPTED = "accepted";
     const EVENT_SENT = "sent";
+    // Terminal status for a message intercepted by sandbox delivery mode: it
+    // was recorded but never handed to a provider, so no webhooks will follow.
+    const EVENT_SANDBOX = "sandbox";
     const EVENT_DEFERRED = "deferred";
     const EVENT_DELIVERED = "delivered";
     const EVENT_BOUNCED = "bounced";
@@ -32,6 +35,22 @@ class EmailEvent
      * @var Adapter
      */
     protected $adapter;
+
+    /**
+     * The persisted email record this event was correlated to, by provider
+     * message id. Set by the package's UpdateMessageFromEvent listener, so it
+     * gives any listener of your own a path back to the originating message —
+     * and, through its related() relation, to the model it was sent for:
+     *
+     *     $event->emailMessage?->related
+     *
+     * Null when persistence is disabled, when the event carries no message id,
+     * or for a listener that runs before UpdateMessageFromEvent (the package's
+     * listener is registered first, so a normal app listener runs after it).
+     *
+     * @var \STS\Postmaster\Models\EmailMessage|null
+     */
+    public $emailMessage;
 
     /**
      * EmailEvent constructor.

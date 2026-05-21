@@ -30,7 +30,9 @@ class MessageController extends Controller
         }
 
         if ($recipient = $request->query('recipient')) {
-            $query->where('recipient', 'like', $recipient.'%');
+            // Case-insensitive "contains" — lower() is portable across the
+            // database engines the package supports.
+            $query->whereRaw('lower(recipient) like ?', ['%'.strtolower((string) $recipient).'%']);
         }
 
         if ($from = $request->query('from')) {

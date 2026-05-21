@@ -56,4 +56,40 @@
             </div>
         </div>
     </div>
+
+    <div class="pm-grid pm-grid--halves">
+        <div class="pm-card" style="padding: 0;">
+            <div class="pm-card-head">
+                <h2 class="pm-section-title" style="margin: 0;">Recent messages</h2>
+                <a href="{{ route('postmaster.messages') }}" class="pm-link">View all →</a>
+            </div>
+            <table class="pm-table">
+                <tbody>
+                    @forelse ($recentMessages as $message)
+                        <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $message) }}'">
+                            <td class="pm-mono">{{ $message->recipient ?? '—' }}</td>
+                            <td class="pm-truncate">{{ $message->subject ?? '—' }}</td>
+                            <td>@include('postmaster::partials.badge', ['status' => $message->status])</td>
+                            <td class="pm-dim" style="text-align: right;">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td><div class="pm-empty">No messages yet.</div></td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pm-card" style="padding: 0;">
+            <div class="pm-card-head">
+                <h2 class="pm-section-title" style="margin: 0;">Recent activity</h2>
+                <a href="{{ route('postmaster.activity') }}" class="pm-link">View all →</a>
+            </div>
+            @include('postmaster::partials.activity-table', [
+                'events'  => $recentEvents,
+                'lastId'  => $recentLastId,
+                'compact' => true,
+                'limit'   => 8,
+            ])
+        </div>
+    </div>
 @endsection

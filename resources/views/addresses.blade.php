@@ -15,7 +15,7 @@
             </div>
             <div class="pm-field">
                 <label>Address</label>
-                <input type="text" name="address" class="pm-input" placeholder="starts with…"
+                <input type="text" name="address" class="pm-input" placeholder="contains…"
                        value="{{ $filters['address'] ?? '' }}"
                        x-on:input.debounce.400ms="($el.value.length >= 3 || $el.value.length === 0) && $el.form.requestSubmit()">
             </div>

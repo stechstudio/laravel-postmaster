@@ -30,13 +30,18 @@ class OverviewController extends Controller
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
+        $recentEvents = $this->recentEvents(0, 8);
+
         return response()->view('postmaster::overview', [
-            'total'      => $this->messageQuery()->count(),
-            'byStatus'   => $byStatus,
-            'suppressed' => $this->addressQuery()->where('status', EmailAddress::STATUS_SUPPRESSED)->count(),
-            'chart'      => $this->activity($days),
-            'days'       => $days,
-            'ranges'     => $this->ranges,
+            'total'          => $this->messageQuery()->count(),
+            'byStatus'       => $byStatus,
+            'suppressed'     => $this->addressQuery()->where('status', EmailAddress::STATUS_SUPPRESSED)->count(),
+            'chart'          => $this->activity($days),
+            'days'           => $days,
+            'ranges'         => $this->ranges,
+            'recentMessages' => $this->messageQuery()->latest()->limit(8)->get(),
+            'recentEvents'   => $recentEvents->map(fn ($event) => $this->presentEvent($event))->values(),
+            'recentLastId'   => $recentEvents->max('id') ?? 0,
         ]);
     }
 

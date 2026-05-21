@@ -43,4 +43,47 @@ abstract class Controller
 
         return (new $class)->newQuery()->withoutGlobalScopes();
     }
+
+    /**
+     * The most recent timeline events, newest first, each with its message
+     * eager-loaded across tenants. Shared by the activity stream and the
+     * overview's recent-activity card.
+     *
+     * @param int $after Only events with a higher id (for the live feed).
+     * @param int $limit
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, EmailMessageEvent>
+     */
+    protected function recentEvents( $after = 0, $limit = 100 )
+    {
+        $query = $this->eventQuery()
+            ->with(['emailMessage' => fn ($q) => $q->withoutGlobalScopes()])
+            ->orderByDesc('id')
+            ->limit($limit);
+
+        if ($after > 0) {
+            $query->where('id', '>', $after);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Flatten a timeline event for the JSON feed and the Alpine table.
+     *
+     * @param EmailMessageEvent $event
+     *
+     * @return array<string, mixed>
+     */
+    protected function presentEvent( $event )
+    {
+        return [
+            'id'        => $event->id,
+            'status'    => $event->status,
+            'provider'  => $event->provider,
+            'recipient' => $event->emailMessage?->getAttribute('recipient'),
+            'messageId' => $event->email_message_id,
+            'at'        => $event->occurred_at?->format('M j, g:ia'),
+        ];
+    }
 }

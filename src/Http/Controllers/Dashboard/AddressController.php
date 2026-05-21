@@ -21,7 +21,9 @@ class AddressController extends Controller
         }
 
         if ($address = $request->query('address')) {
-            $query->where('address', 'like', $address.'%');
+            // Case-insensitive "contains" — lower() is portable across the
+            // database engines the package supports.
+            $query->whereRaw('lower(address) like ?', ['%'.strtolower((string) $address).'%']);
         }
 
         return response()->view('postmaster::addresses', [

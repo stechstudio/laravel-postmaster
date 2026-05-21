@@ -99,8 +99,20 @@ a { color: inherit; text-decoration: none; }
 
 .pm-grid { display: grid; gap: 14px; }
 .pm-grid--stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.pm-grid--halves { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
 /* Grid items space themselves with `gap`; cancel the stacked-card margin. */
 .pm-grid .pm-card + .pm-card { margin-top: 0; }
+
+/* Card with a titled header strip (title + a "view all" link). */
+.pm-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-link { font-size: 12.5px; font-weight: 500; color: var(--pm-muted-fg); }
+.pm-link:hover { color: var(--pm-fg); }
 
 /* Equal-height stat cards: flex column with the value pinned to the bottom,
    so labels that wrap to two lines don't shift anything. */

@@ -223,7 +223,8 @@ This creates an `email_messages` table. Each row tracks a message's
 
 It ships query scopes for the common lookups — `delivered()`, `bounced()`,
 `complained()`, `opened()`, `clicked()`, `sent()`, `accepted()`, `deferred()`,
-`dropped()`, and the generic `withStatus()`:
+`dropped()`, the aggregate `failed()` (bounced, dropped, or complained), and
+the generic `withStatus()`:
 
 ```php
 use STS\Postmaster\Models\EmailMessage;
@@ -419,8 +420,10 @@ class Order extends Model
 Now every email's lifecycle is queryable from the model:
 
 ```php
-$order->emailMessages;                  // every email sent for this order
-$order->emailMessages()->bounced()->exists();
+$order->emailMessages;                        // every email sent for this order
+$order->emailMessages()->failed()->exists();  // did any fail to land?
+$order->latestEmailMessage();                 // the most recent send, or null
+$order->emailDeliveryFailed();                // did the latest one fail?
 ```
 
 The association is carried on the message in-process only — written as a
@@ -567,17 +570,18 @@ environment** — the dashboard is never unguarded in production by accident.
 
 ### Screens
 
-- **Overview** — headline counts and a 14-day activity chart.
+- **Overview** — headline counts and an activity chart over a selectable
+  timeframe, plus recent-messages and live recent-activity cards.
 - **Messages** — a filterable inbox (status, provider, tenant, recipient,
-  date); each message opens to its delivery timeline and stored content
-  (rendered in a sandboxed frame).
-- **Activity** — every event, newest first, polling live so you can watch
-  mail flow in real time. Needs `POSTMASTER_RECORD_EVENTS`.
-- **Addresses** — the suppression list, with suppress / unsuppress actions.
+  subject, date range); each message opens to its delivery timeline and
+  stored content (rendered in a sandboxed, CSP-restricted frame).
+- **Activity** — a filterable, paginated stream of every recorded event.
+  Needs `POSTMASTER_RECORD_EVENTS`.
+- **Addresses** — the suppression list.
 
-No assets to publish — the dashboard serves its own stylesheet, and the only
-client-side dependency (Alpine, for the live activity feed) loads from a CDN.
-The path and middleware are configurable under the `dashboard` config key.
+No assets to publish and no CDN — the dashboard serves its own stylesheet and
+its one client-side dependency (Alpine) straight from the package. The path
+and middleware are configurable under the `dashboard` config key.
 
 ## Sandbox delivery
 

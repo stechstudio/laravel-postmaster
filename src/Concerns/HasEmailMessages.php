@@ -26,4 +26,28 @@ trait HasEmailMessages
             'related'
         );
     }
+
+    /**
+     * The most recent recorded email for this model, if any.
+     *
+     * @return EmailMessage|null
+     */
+    public function latestEmailMessage()
+    {
+        return $this->emailMessages()->latest('id')->first();
+    }
+
+    /**
+     * Whether this model's most recent email failed to reach the recipient
+     * (bounced, dropped, or complained). False when nothing is recorded yet.
+     *
+     * @return bool
+     */
+    public function emailDeliveryFailed()
+    {
+        $latest = $this->latestEmailMessage();
+
+        return $latest !== null
+            && in_array($latest->getAttribute('status'), EmailMessage::FAILED_STATUSES, true);
+    }
 }

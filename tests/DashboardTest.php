@@ -90,15 +90,14 @@ class DashboardTest extends TestCase
             ->assertJsonFragment(['status' => EmailEvent::EVENT_DELIVERED]);
     }
 
-    public function testAddressCanBeSuppressedFromTheDashboard()
+    public function testAddressesListLoads()
     {
         Postmaster::auth(fn () => true);
-        $address = EmailAddress::create(['address' => 'user@example.com']);
+        EmailAddress::create(['address' => 'suppressed@example.com', 'status' => EmailAddress::STATUS_SUPPRESSED]);
 
-        $this->post('/postmaster/addresses/'.$address->getKey().'/suppress')
-            ->assertRedirect();
-
-        $this->assertSame(EmailAddress::STATUS_SUPPRESSED, $address->fresh()->status);
+        $this->get('/postmaster/addresses')
+            ->assertOk()
+            ->assertSee('suppressed@example.com');
     }
 
     public function testTheStylesheetIsServed()

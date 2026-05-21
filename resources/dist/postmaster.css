@@ -99,7 +99,12 @@ a { color: inherit; text-decoration: none; }
 
 .pm-grid { display: grid; gap: 14px; }
 .pm-grid--stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+/* Grid items space themselves with `gap`; cancel the stacked-card margin. */
+.pm-grid .pm-card + .pm-card { margin-top: 0; }
 
+/* Equal-height stat cards: flex column with the value pinned to the bottom,
+   so labels that wrap to two lines don't shift anything. */
+.pm-stat { display: flex; flex-direction: column; }
 .pm-stat .pm-stat-label {
     color: var(--pm-muted-fg);
     font-size: 12px;
@@ -110,7 +115,8 @@ a { color: inherit; text-decoration: none; }
 .pm-stat .pm-stat-value {
     font-size: 26px;
     font-weight: 600;
-    margin-top: 6px;
+    margin-top: auto;
+    padding-top: 6px;
     letter-spacing: -0.02em;
 }
 
@@ -187,6 +193,10 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     height: 34px;
     padding: 0 14px;
     background: var(--pm-primary);
@@ -196,6 +206,8 @@ a { color: inherit; text-decoration: none; }
     font-size: 13px;
     font-weight: 500;
     font-family: inherit;
+    line-height: 1;
+    white-space: nowrap;
     cursor: pointer;
 }
 .pm-btn:hover { opacity: 0.9; }
@@ -221,6 +233,7 @@ a { color: inherit; text-decoration: none; }
 }
 .pm-pre {
     background: var(--pm-muted);
+    border: 1px solid var(--pm-border);
     border-radius: var(--pm-radius);
     padding: 14px;
     overflow: auto;
@@ -228,6 +241,20 @@ a { color: inherit; text-decoration: none; }
     font-size: 12.5px;
     white-space: pre-wrap;
 }
+
+/* Timeframe pills */
+.pm-pills { display: inline-flex; gap: 4px; }
+.pm-pills a {
+    padding: 5px 12px;
+    border-radius: var(--pm-radius);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--pm-muted-fg);
+}
+.pm-pills a:hover { background: var(--pm-muted); color: var(--pm-fg); }
+.pm-pills a.is-active { background: var(--pm-primary); color: var(--pm-primary-fg); }
+
+.pm-toolbar { display: flex; justify-content: space-between; align-items: center; }
 
 /* Timeline */
 .pm-timeline { display: flex; flex-direction: column; gap: 0; }

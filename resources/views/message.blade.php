@@ -1,24 +1,24 @@
 @extends('postmaster::layout')
 
-@section('title', 'Message')
+@section('title', $message->subject ?: '(no subject)')
 
 @section('content')
     <div>
-        <a href="{{ url()->previous() }}" class="pm-btn pm-btn--ghost pm-btn--sm">← Back</a>
+        <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">← Back to messages</a>
     </div>
 
     <div class="pm-detail-grid">
-        <div class="pm-card">
-            <h2 class="pm-section-title">{{ $message->subject ?? '(no subject)' }}</h2>
-
+        <div>
             @if ($message->html_body)
                 <iframe class="pm-frame" sandbox srcdoc="{{ $message->html_body }}" title="Message body"></iframe>
             @elseif ($message->text_body)
                 <div class="pm-pre">{{ $message->text_body }}</div>
             @else
-                <div class="pm-empty">
-                    Message content was not stored.<br>
-                    Enable <span class="pm-mono">POSTMASTER_STORE_CONTENT</span> to capture it.
+                <div class="pm-card">
+                    <div class="pm-empty">
+                        Message content was not stored.<br>
+                        Enable <span class="pm-mono">POSTMASTER_STORE_CONTENT</span> to capture it.
+                    </div>
                 </div>
             @endif
 
@@ -63,8 +63,8 @@
                     @if ($message->related_type)
                         <dt>Related</dt><dd class="pm-mono">{{ class_basename($message->related_type) }} #{{ $message->related_id }}</dd>
                     @endif
-                    <dt>Sent</dt><dd>{{ optional($message->sent_at)->format('M j, Y H:i:s') ?? '—' }}</dd>
-                    <dt>Last event</dt><dd>{{ optional($message->last_event_at)->format('M j, Y H:i:s') ?? '—' }}</dd>
+                    <dt>Sent</dt><dd>{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</dd>
+                    <dt>Last event</dt><dd>{{ $message->last_event_at?->format('M j, g:ia') ?? '—' }}</dd>
                 </dl>
             </div>
 
@@ -79,7 +79,7 @@
                                     <span class="pm-dim">— {{ $event->reason }}</span>
                                 @endif
                             </div>
-                            <div class="pm-timeline-when">{{ optional($event->occurred_at)->format('M j, H:i:s') }}</div>
+                            <div class="pm-timeline-when">{{ $event->occurred_at?->format('M j, g:ia') }}</div>
                         </div>
                     @empty
                         <div class="pm-dim">No timeline events recorded.</div>

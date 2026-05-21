@@ -5,8 +5,10 @@ namespace STS\Postmaster\Http\Controllers\Dashboard;
 use Illuminate\Http\Request;
 
 /**
- * The suppression list — every tracked recipient address and its status,
- * with suppress / unsuppress actions for handling support requests.
+ * The suppression list — every tracked recipient address and its status.
+ *
+ * Read-only for now: clearing a suppression has to be synced with the
+ * provider to mean anything, which waits on provider-API integration.
  */
 class AddressController extends Controller
 {
@@ -26,19 +28,5 @@ class AddressController extends Controller
             'addresses' => $query->paginate(50)->withQueryString(),
             'filters'   => $request->query(),
         ]);
-    }
-
-    public function suppress( Request $request, $address )
-    {
-        $this->addressQuery()->findOrFail($address)->suppress();
-
-        return redirect()->route('postmaster.addresses', $request->query());
-    }
-
-    public function unsuppress( Request $request, $address )
-    {
-        $this->addressQuery()->findOrFail($address)->unsuppress();
-
-        return redirect()->route('postmaster.addresses', $request->query());
     }
 }

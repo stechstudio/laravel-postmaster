@@ -68,7 +68,7 @@ class ActivityController extends Controller
             'provider'  => $event->provider,
             'recipient' => $event->emailMessage?->getAttribute('recipient'),
             'messageId' => $event->email_message_id,
-            'at'        => $event->occurred_at?->toDateTimeString(),
+            'at'        => $event->occurred_at?->format('M j, g:ia'),
         ];
     }
 }

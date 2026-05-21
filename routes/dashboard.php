@@ -24,5 +24,3 @@ Route::get('activity', [ActivityController::class, 'index'])->name('postmaster.a
 Route::get('activity/feed', [ActivityController::class, 'feed'])->name('postmaster.activity.feed');
 
 Route::get('addresses', [AddressController::class, 'index'])->name('postmaster.addresses');
-Route::post('addresses/{address}/suppress', [AddressController::class, 'suppress'])->name('postmaster.addresses.suppress');
-Route::post('addresses/{address}/unsuppress', [AddressController::class, 'unsuppress'])->name('postmaster.addresses.unsuppress');

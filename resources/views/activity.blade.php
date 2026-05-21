@@ -17,8 +17,8 @@
             <thead>
                 <tr>
                     <th>Time</th>
-                    <th>Status</th>
                     <th>Recipient</th>
+                    <th>Status</th>
                     <th>Provider</th>
                     <th>Message ID</th>
                 </tr>
@@ -27,8 +27,8 @@
                 <template x-for="event in events" :key="event.id">
                     <tr>
                         <td class="pm-dim" x-text="event.at"></td>
-                        <td><span class="pm-badge" :class="'pm-badge--' + tone(event.status)" x-text="event.status"></span></td>
                         <td class="pm-mono" x-text="event.recipient || '—'"></td>
+                        <td><span class="pm-badge" :class="'pm-badge--' + tone(event.status)" x-text="event.status"></span></td>
                         <td class="pm-dim" x-text="event.provider || '—'"></td>
                         <td class="pm-mono pm-truncate" x-text="event.messageId || '—'"></td>
                     </tr>

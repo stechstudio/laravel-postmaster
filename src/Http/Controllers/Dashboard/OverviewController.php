@@ -5,12 +5,26 @@ namespace STS\Postmaster\Http\Controllers\Dashboard;
 use STS\Postmaster\Models\EmailAddress;
 
 /**
- * The dashboard landing page: headline counts and a recent-activity chart.
+ * The dashboard landing page: headline counts and an activity chart over a
+ * selectable time window.
  */
 class OverviewController extends Controller
 {
+    /**
+     * Selectable chart windows, in days.
+     *
+     * @var array<int, int>
+     */
+    protected $ranges = [7, 30, 90, 365];
+
     public function __invoke()
     {
+        $days = (int) request()->query('days', 30);
+
+        if (! in_array($days, $this->ranges, true)) {
+            $days = 30;
+        }
+
         $byStatus = $this->messageQuery()
             ->selectRaw('status, count(*) as aggregate')
             ->groupBy('status')
@@ -20,35 +34,44 @@ class OverviewController extends Controller
             'total'      => $this->messageQuery()->count(),
             'byStatus'   => $byStatus,
             'suppressed' => $this->addressQuery()->where('status', EmailAddress::STATUS_SUPPRESSED)->count(),
-            'chart'      => $this->dailyCounts(14),
+            'chart'      => $this->activity($days),
+            'days'       => $days,
+            'ranges'     => $this->ranges,
         ]);
     }
 
     /**
-     * Messages recorded per day over the trailing window, as a single
-     * conditional-aggregation query — one table scan, and portable across
-     * database engines (no engine-specific date functions).
+     * Message counts bucketed across the window — daily for short ranges,
+     * weekly or monthly for longer ones so the bar count stays readable.
+     * One conditional-aggregation query, portable across database engines.
      *
      * @param int $days
      *
-     * @return array<int, array{date: \Illuminate\Support\Carbon, count: int}>
+     * @return array<int, array{date: \Illuminate\Support\Carbon, count: int, interval: int}>
      */
-    protected function dailyCounts( $days )
+    protected function activity( $days )
     {
-        $start = now()->subDays($days - 1)->startOfDay();
+        $interval = match (true) {
+            $days <= 31  => 1,
+            $days <= 182 => 7,
+            default      => 30,
+        };
+
+        $count = (int) ceil($days / $interval);
+        $start = now()->subDays(($count * $interval) - 1)->startOfDay();
         $query = $this->messageQuery()->where('created_at', '>=', $start);
 
         $buckets = [];
 
-        for ($i = 0; $i < $days; $i++) {
-            $day = $start->copy()->addDays($i);
+        for ($i = 0; $i < $count; $i++) {
+            $from = $start->copy()->addDays($i * $interval);
 
             $query->selectRaw(
                 "sum(case when created_at >= ? and created_at < ? then 1 else 0 end) as d{$i}",
-                [$day, $day->copy()->addDay()]
+                [$from, $from->copy()->addDays($interval)]
             );
 
-            $buckets[$i] = ['date' => $day, 'count' => 0];
+            $buckets[$i] = ['date' => $from, 'count' => 0, 'interval' => $interval];
         }
 
         $row = $query->first();

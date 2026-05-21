@@ -6,10 +6,11 @@
     @php $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id'); @endphp
 
     <div class="pm-card">
-        <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters">
+        {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
+        <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" x-data>
             <div class="pm-field">
                 <label>Status</label>
-                <select name="status" class="pm-select">
+                <select name="status" class="pm-select" onchange="this.form.requestSubmit()">
                     <option value="">Any</option>
                     @foreach ($statuses as $status)
                         <option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>{{ ucfirst($status) }}</option>
@@ -18,7 +19,7 @@
             </div>
             <div class="pm-field">
                 <label>Provider</label>
-                <select name="provider" class="pm-select">
+                <select name="provider" class="pm-select" onchange="this.form.requestSubmit()">
                     <option value="">Any</option>
                     @foreach ($providers as $provider)
                         <option value="{{ $provider }}" @selected(($filters['provider'] ?? '') === $provider)>{{ ucfirst($provider) }}</option>
@@ -27,24 +28,30 @@
             </div>
             <div class="pm-field">
                 <label>Recipient</label>
-                <input type="text" name="recipient" class="pm-input" placeholder="starts with…" value="{{ $filters['recipient'] ?? '' }}">
+                <input type="text" name="recipient" class="pm-input" placeholder="starts with…"
+                       value="{{ $filters['recipient'] ?? '' }}"
+                       x-on:input.debounce.400ms="($el.value.length >= 3 || $el.value.length === 0) && $el.form.requestSubmit()">
             </div>
             <div class="pm-field">
                 <label>Tenant</label>
-                <input type="text" name="tenant" class="pm-input" value="{{ $filters['tenant'] ?? '' }}">
+                <input type="text" name="tenant" class="pm-input" value="{{ $filters['tenant'] ?? '' }}"
+                       x-on:input.debounce.400ms="$el.form.requestSubmit()">
             </div>
             <div class="pm-field">
                 <label>From</label>
-                <input type="date" name="from" class="pm-input" value="{{ $filters['from'] ?? '' }}">
+                <input type="date" name="from" class="pm-input" value="{{ $filters['from'] ?? '' }}"
+                       onchange="this.form.requestSubmit()">
             </div>
             <div class="pm-field">
                 <label>To</label>
-                <input type="date" name="to" class="pm-input" value="{{ $filters['to'] ?? '' }}">
+                <input type="date" name="to" class="pm-input" value="{{ $filters['to'] ?? '' }}"
+                       onchange="this.form.requestSubmit()">
             </div>
-            <button type="submit" class="pm-btn">Filter</button>
             <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">Clear</a>
         </form>
     </div>
+
+    @include('postmaster::partials.pager', ['paginator' => $messages, 'label' => 'messages'])
 
     <div class="pm-card" style="padding: 0;">
         <table class="pm-table">
@@ -66,7 +73,7 @@
                         <td>@include('postmaster::partials.badge', ['status' => $message->status])</td>
                         <td class="pm-dim">{{ $message->provider ?? '—' }}</td>
                         <td class="pm-dim">{{ $message->{$tenantColumn} ?? '—' }}</td>
-                        <td class="pm-dim">{{ optional($message->sent_at)->format('M j, H:i') ?? '—' }}</td>
+                        <td class="pm-dim">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="6"><div class="pm-empty">No messages match these filters.</div></td></tr>
@@ -75,15 +82,5 @@
         </table>
     </div>
 
-    <div class="pm-pager">
-        <span class="pm-dim">{{ number_format($messages->total()) }} messages</span>
-        <span class="pm-tabs">
-            @if ($messages->previousPageUrl())
-                <a class="pm-btn pm-btn--ghost pm-btn--sm" href="{{ $messages->previousPageUrl() }}">← Prev</a>
-            @endif
-            @if ($messages->nextPageUrl())
-                <a class="pm-btn pm-btn--ghost pm-btn--sm" href="{{ $messages->nextPageUrl() }}">Next →</a>
-            @endif
-        </span>
-    </div>
+    @include('postmaster::partials.pager', ['paginator' => $messages, 'label' => 'messages'])
 @endsection

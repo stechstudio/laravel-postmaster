@@ -33,6 +33,12 @@
                        x-on:input.debounce.400ms="($el.value.length >= 3 || $el.value.length === 0) && $el.form.requestSubmit()">
             </div>
             <div class="pm-field">
+                <label>Subject</label>
+                <input type="text" name="subject" class="pm-input" placeholder="contains…"
+                       value="{{ $filters['subject'] ?? '' }}"
+                       x-on:input.debounce.400ms="($el.value.length >= 3 || $el.value.length === 0) && $el.form.requestSubmit()">
+            </div>
+            <div class="pm-field">
                 <label>Tenant</label>
                 <input type="text" name="tenant" class="pm-input" value="{{ $filters['tenant'] ?? '' }}"
                        x-on:input.debounce.400ms="$el.form.requestSubmit()">

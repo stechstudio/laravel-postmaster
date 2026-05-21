@@ -3,14 +3,22 @@
 @section('title', 'Overview')
 
 @section('content')
+    {{-- Timeframe applies to the stat cards and the chart below. --}}
+    <div class="pm-pills">
+        @foreach (['7' => '7 days', '30' => '30 days', '90' => '90 days', '365' => '1 year'] as $value => $label)
+            <a href="{{ route('postmaster.overview', ['days' => $value]) }}"
+               class="{{ (int) $value === $days ? 'is-active' : '' }}">{{ $label }}</a>
+        @endforeach
+    </div>
+
     <div class="pm-grid pm-grid--stats">
         @php
             $tiles = [
-                ['Total messages', $total],
+                ['Messages sent', $total],
                 ['Delivered', $byStatus->get('delivered', 0)],
                 ['Bounced', $byStatus->get('bounced', 0)],
                 ['Complained', $byStatus->get('complained', 0)],
-                ['Suppressed addresses', $suppressed],
+                ['Newly suppressed', $suppressed],
             ];
         @endphp
         @foreach ($tiles as [$label, $value])
@@ -22,16 +30,7 @@
     </div>
 
     <div class="pm-card">
-        <div class="pm-toolbar" style="margin-bottom: 16px;">
-            <h2 class="pm-section-title" style="margin: 0;">Messages sent</h2>
-            <div class="pm-pills">
-                @foreach (['7' => '7 days', '30' => '30 days', '90' => '90 days', '365' => '1 year'] as $value => $label)
-                    <a href="{{ route('postmaster.overview', ['days' => $value]) }}"
-                       class="{{ (int) $value === $days ? 'is-active' : '' }}">{{ $label }}</a>
-                @endforeach
-            </div>
-        </div>
-
+        <h2 class="pm-section-title">Messages sent</h2>
         @php
             $max = max(1, collect($chart)->max('count'));
             $slot = 48; $barW = 26; $plotH = 100;

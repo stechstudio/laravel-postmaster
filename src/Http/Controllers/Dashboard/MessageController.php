@@ -3,7 +3,6 @@
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
 use Illuminate\Http\Request;
-use STS\Postmaster\EmailEvent;
 
 /**
  * The inbox: a filterable, cross-tenant list of recorded messages, and the
@@ -29,10 +28,14 @@ class MessageController extends Controller
             $query->where(config('postmaster.persistence.tenant_column', 'tenant_id'), $tenant);
         }
 
+        // Case-insensitive "contains" matches — lower() is portable across the
+        // database engines the package supports.
         if ($recipient = $request->query('recipient')) {
-            // Case-insensitive "contains" — lower() is portable across the
-            // database engines the package supports.
             $query->whereRaw('lower(recipient) like ?', ['%'.strtolower((string) $recipient).'%']);
+        }
+
+        if ($subject = $request->query('subject')) {
+            $query->whereRaw('lower(subject) like ?', ['%'.strtolower((string) $subject).'%']);
         }
 
         if ($from = $request->query('from')) {
@@ -59,25 +62,5 @@ class MessageController extends Controller
             'message' => $record,
             'events'  => $record->events()->get(),
         ]);
-    }
-
-    /**
-     * The lifecycle statuses, for the filter dropdown.
-     *
-     * @return array<int, string>
-     */
-    protected function statuses()
-    {
-        return [
-            EmailEvent::EVENT_SENT,
-            EmailEvent::EMAIL_ACCEPTED,
-            EmailEvent::EVENT_DEFERRED,
-            EmailEvent::EVENT_DELIVERED,
-            EmailEvent::EVENT_BOUNCED,
-            EmailEvent::EVENT_DROPPED,
-            EmailEvent::EVENT_COMPLAINED,
-            EmailEvent::EVENT_OPENED,
-            EmailEvent::EVENT_CLICKED,
-        ];
     }
 }

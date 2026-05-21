@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
 use Illuminate\Database\Eloquent\Builder;
+use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
@@ -66,6 +67,26 @@ abstract class Controller
         }
 
         return $query->get();
+    }
+
+    /**
+     * The lifecycle statuses, for filter dropdowns.
+     *
+     * @return array<int, string>
+     */
+    protected function statuses()
+    {
+        return [
+            EmailEvent::EVENT_SENT,
+            EmailEvent::EMAIL_ACCEPTED,
+            EmailEvent::EVENT_DEFERRED,
+            EmailEvent::EVENT_DELIVERED,
+            EmailEvent::EVENT_BOUNCED,
+            EmailEvent::EVENT_DROPPED,
+            EmailEvent::EVENT_COMPLAINED,
+            EmailEvent::EVENT_OPENED,
+            EmailEvent::EVENT_CLICKED,
+        ];
     }
 
     /**

@@ -74,6 +74,21 @@ class DashboardTest extends TestCase
             ->assertSee('Welcome aboard');
     }
 
+    public function testActivityListLoads()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create(['message_id' => 'm1', 'recipient' => 'seen@example.com']);
+        EmailMessageEvent::create([
+            'email_message_id' => $message->getKey(),
+            'status'           => EmailEvent::EVENT_DELIVERED,
+            'occurred_at'      => now(),
+        ]);
+
+        $this->get('/postmaster/activity')
+            ->assertOk()
+            ->assertSee('seen@example.com');
+    }
+
     public function testActivityFeedReturnsJson()
     {
         Postmaster::auth(fn () => true);

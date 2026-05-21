@@ -25,7 +25,11 @@ class OverviewController extends Controller
             $days = 30;
         }
 
+        // The headline stats are constrained to the selected window.
+        $since = now()->subDays($days - 1)->startOfDay();
+
         $byStatus = $this->messageQuery()
+            ->where('created_at', '>=', $since)
             ->selectRaw('status, count(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status');
@@ -33,9 +37,12 @@ class OverviewController extends Controller
         $recentEvents = $this->recentEvents(0, 8);
 
         return response()->view('postmaster::overview', [
-            'total'          => $this->messageQuery()->count(),
+            'total'          => $this->messageQuery()->where('created_at', '>=', $since)->count(),
             'byStatus'       => $byStatus,
-            'suppressed'     => $this->addressQuery()->where('status', EmailAddress::STATUS_SUPPRESSED)->count(),
+            'suppressed'     => $this->addressQuery()
+                ->where('status', EmailAddress::STATUS_SUPPRESSED)
+                ->where('suppressed_at', '>=', $since)
+                ->count(),
             'chart'          => $this->activity($days),
             'days'           => $days,
             'ranges'         => $this->ranges,

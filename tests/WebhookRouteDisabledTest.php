@@ -8,6 +8,8 @@ class WebhookRouteDisabledTest extends TestCase
 {
     protected function defineEnvironment($app)
     {
+        parent::defineEnvironment($app);
+
         $app['config']->set('postmaster.register_route', false);
     }
 

@@ -11,6 +11,8 @@ class WebhookRouteTest extends TestCase
 {
     protected function defineEnvironment($app)
     {
+        parent::defineEnvironment($app);
+
         $app['config']->set('postmaster.token', 'secret-token');
         $app['config']->set('postmaster.providers.sendgrid.auth', 'token');
         $app['config']->set('postmaster.providers.ses.auth', 'token');

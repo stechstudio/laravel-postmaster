@@ -15,6 +15,8 @@ class DashboardTest extends TestCase
 
     protected function defineEnvironment($app)
     {
+        parent::defineEnvironment($app);
+
         $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
         $app['config']->set('postmaster.persistence.enabled', true);
         $app['config']->set('postmaster.dashboard.enabled', true);

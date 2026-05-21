@@ -6,7 +6,7 @@
     @php
         $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
         $hasTenants = ! empty($tenants);
-        $columns = $hasTenants ? 5 : 4;
+        $columns = $hasTenants ? 6 : 5;
     @endphp
 
     @unless ($enabled)
@@ -36,6 +36,7 @@
                 <tr>
                     <th>Time</th>
                     <th>Recipient</th>
+                    <th>Subject</th>
                     <th>Status</th>
                     <th>Provider</th>
                     @if ($hasTenants)<th>Tenant</th>@endif
@@ -46,6 +47,7 @@
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $event->email_message_id) }}'">
                         <td class="pm-dim">{{ $event->occurred_at?->format('M j, g:ia') ?? '—' }}</td>
                         <td class="pm-mono">{{ $event->emailMessage?->recipient ?? '—' }}</td>
+                        <td class="pm-truncate">{{ $event->emailMessage?->subject ?? '—' }}</td>
                         <td>@include('postmaster::partials.badge', ['status' => $event->status])</td>
                         <td class="pm-dim">{{ $event->provider ?? '—' }}</td>
                         @if ($hasTenants)

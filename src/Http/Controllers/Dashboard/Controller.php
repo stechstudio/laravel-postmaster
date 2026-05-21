@@ -227,6 +227,7 @@ abstract class Controller
             'status'    => $event->status,
             'provider'  => $event->provider,
             'recipient' => $event->emailMessage?->getAttribute('recipient'),
+            'subject'   => $event->emailMessage?->getAttribute('subject'),
             'messageId' => $event->email_message_id,
             'at'        => $event->occurred_at?->format('M j, g:ia'),
         ];

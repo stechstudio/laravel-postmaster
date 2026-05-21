@@ -3,10 +3,11 @@
     <template x-for="event in events" :key="event.id">
         <div class="pm-feed-row pm-row-link" @click="window.location = messageUrl(event.messageId)">
             <div class="pm-feed-line">
-                <span class="pm-feed-primary pm-mono" x-text="event.recipient || '—'"></span>
+                <span class="pm-feed-primary" x-text="event.subject || '(no subject)'"></span>
                 <span class="pm-badge" :class="'pm-badge--' + tone(event.status)" x-text="event.status"></span>
             </div>
             <div class="pm-feed-line">
+                <span class="pm-feed-secondary pm-mono" x-text="event.recipient || '—'"></span>
                 <span class="pm-feed-meta" x-text="event.at"></span>
             </div>
         </div>

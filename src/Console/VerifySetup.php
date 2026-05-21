@@ -64,6 +64,15 @@ class VerifySetup extends Command
         $this->components->twoColumnDetail('Webhook URL', $url);
         $this->newLine();
 
+        if ($this->looksLocal($url)) {
+            $this->components->warn(
+                'That webhook URL points at a local address your provider cannot reach. '
+                .'Expose your app with a public tunnel (herd share, ngrok, Expose, ...) and '
+                .'register that public URL instead — set APP_URL so it shows correctly here.'
+            );
+            $this->newLine();
+        }
+
         if (! $this->confirm("Have you set that webhook URL in your {$provider} dashboard?")) {
             $this->components->warn("Add the webhook URL above in your {$provider} dashboard, then run this command again.");
 
@@ -201,6 +210,41 @@ class VerifySetup extends Command
 
             return "{$base}/{$path}/{$provider}";
         }
+    }
+
+    /**
+     * Whether a URL's host is a local/private address a provider's servers
+     * could not POST a webhook to.
+     *
+     * @param string $url
+     *
+     * @return bool
+     */
+    protected function looksLocal( $url )
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            return true;
+        }
+
+        $host = strtolower($host);
+
+        if (in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)) {
+            return true;
+        }
+
+        foreach (['.test', '.local', '.localhost', '.example', '.invalid'] as $tld) {
+            if (str_ends_with($host, $tld)) {
+                return true;
+            }
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return ! filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        }
+
+        return false;
     }
 
     /**

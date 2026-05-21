@@ -687,6 +687,7 @@ class PersistenceTest extends TestCase
 
         $this->artisan('postmaster:verify')
             ->expectsConfirmation('Detected the "postmark" provider from the "postmark" mail transport. Verify that one?', 'yes')
+            ->expectsOutputToContain('local address')
             ->expectsConfirmation('Have you set that webhook URL in your postmark dashboard?', 'no')
             ->assertExitCode(1);
 

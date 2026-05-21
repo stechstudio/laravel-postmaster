@@ -235,6 +235,24 @@ EmailMessage::delivered()->where('sent_at', '>', now()->subDay())->get();
 The package still dispatches `EmailEvent` in all modes — persistence is just a
 first-party listener layered on top.
 
+With persistence on, each `EmailEvent` also carries the record it was
+correlated to, so a listener can walk straight back to the originating
+message — and, through it, to your own model:
+
+```php
+use Illuminate\Support\Facades\Event;
+use STS\Postmaster\EmailEvent;
+
+Event::listen(function (EmailEvent $event) {
+    $order = $event->emailMessage?->related;   // the Order, User, ... it was sent for
+});
+```
+
+`$event->emailMessage` is set by the package's own listener, which is
+registered first — so it is populated for any listener of your own. It is null
+when persistence is disabled or the webhook carries no message id to correlate
+on.
+
 ### Recording the full timeline
 
 The summary record above keeps only a message's *latest* status. That's enough

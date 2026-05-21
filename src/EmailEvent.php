@@ -37,6 +37,22 @@ class EmailEvent
     protected $adapter;
 
     /**
+     * The persisted email record this event was correlated to, by provider
+     * message id. Set by the package's UpdateMessageFromEvent listener, so it
+     * gives any listener of your own a path back to the originating message —
+     * and, through its related() relation, to the model it was sent for:
+     *
+     *     $event->emailMessage?->related
+     *
+     * Null when persistence is disabled, when the event carries no message id,
+     * or for a listener that runs before UpdateMessageFromEvent (the package's
+     * listener is registered first, so a normal app listener runs after it).
+     *
+     * @var \STS\Postmaster\Models\EmailMessage|null
+     */
+    public $emailMessage;
+
+    /**
      * EmailEvent constructor.
      *
      * @param Adapter $adapter

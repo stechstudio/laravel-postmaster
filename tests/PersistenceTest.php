@@ -15,6 +15,7 @@ use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
 use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
 use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
+use STS\Postmaster\Tests\Stubs\DropInMailMessageNotification;
 use STS\Postmaster\Tests\Stubs\FullMail;
 use STS\Postmaster\Tests\Stubs\Order;
 use STS\Postmaster\Tests\Stubs\OrderConfirmationMail;
@@ -210,6 +211,21 @@ class PersistenceTest extends TestCase
 
         NotificationFacade::route('mail', 'recipient@example.com')
             ->notify(new RelatedNotification($order));
+
+        $record = EmailMessage::first();
+        $this->assertNotNull($record);
+        $this->assertSame($order->getMorphClass(), $record->related_type);
+        $this->assertSame((string) $order->getKey(), (string) $record->related_id);
+        $this->assertSame('7', (string) $record->tenant_id);
+    }
+
+    public function testNotificationCanAssociateViaTheDropInMailMessage()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        NotificationFacade::route('mail', 'recipient@example.com')
+            ->notify(new DropInMailMessageNotification($order));
 
         $record = EmailMessage::first();
         $this->assertNotNull($record);

@@ -416,26 +416,44 @@ about the related model is ever exposed in the outbound email.
 ### From a notification
 
 Notifications send through the same mailer, so recording, content capture, and
-status correlation all work for notification emails with no extra setup. To
-*associate* one, a notification's `toMail()` returns a `MailMessage` rather
-than a Mailable — pass the `Postmaster` builders to `withSymfonyMessage()`:
+status correlation all work for notification emails with no extra setup. A
+notification's `toMail()` returns a `MailMessage` rather than a Mailable, so to
+*associate* one, swap Laravel's `MailMessage` for Postmaster's — a drop-in
+subclass with the same fluent `relatedTo()` / `forTenant()` methods:
 
 ```php
-use STS\Postmaster\Facades\Postmaster;
+use STS\Postmaster\Notifications\MailMessage;
 
 public function toMail($notifiable)
 {
     return (new MailMessage)
         ->subject('Your order shipped')
         ->line('Your order is on its way.')
-        ->withSymfonyMessage(Postmaster::relatedTo($this->order))
-        ->withSymfonyMessage(Postmaster::forTenant($this->order->tenant));
+        ->relatedTo($this->order)
+        ->forTenant($this->order->tenant);
 }
 ```
 
-Prefer the fluent `->relatedTo()` call? The `TracksEmailEvents` trait works on
-anything exposing `withSymfonyMessage()` — add it to your own `MailMessage`
-subclass and use that in place of Laravel's.
+Only the import changes — Postmaster's `MailMessage` is Laravel's with the
+`TracksEmailEvents` trait applied, so every notification builder method
+(`line()`, `action()`, …) works unchanged.
+
+Already maintain your own `MailMessage` subclass? Add the `TracksEmailEvents`
+trait to it directly — the trait works on anything exposing
+`withSymfonyMessage()`.
+
+Or, to skip subclassing entirely, pass the `Postmaster` builders straight to
+`withSymfonyMessage()` on a plain `MailMessage`:
+
+```php
+use STS\Postmaster\Facades\Postmaster;
+
+return (new MailMessage)
+    ->subject('Your order shipped')
+    ->line('Your order is on its way.')
+    ->withSymfonyMessage(Postmaster::relatedTo($this->order))
+    ->withSymfonyMessage(Postmaster::forTenant($this->order->tenant));
+```
 
 ### Multitenancy
 

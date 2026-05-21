@@ -11,11 +11,14 @@ use STS\Postmaster\Postmaster;
  * email_messages row is linked back accordingly, so a model can list its
  * delivery history and a tenant's email activity can be queried as a whole.
  *
- * Add it to a Mailable, or to your own MailMessage subclass — the trait only
- * depends on withSymfonyMessage(), which both Laravel Mailables and
- * Illuminate\Notifications\Messages\MailMessage expose. (For a plain
- * MailMessage, call Postmaster::relatedTo()/forTenant() via
- * withSymfonyMessage() instead — the trait delegates to those same builders.)
+ * Add it to a Mailable, or to a MailMessage subclass — the trait only depends
+ * on withSymfonyMessage(), which both Laravel Mailables and
+ * Illuminate\Notifications\Messages\MailMessage expose. For notifications, the
+ * package ships STS\Postmaster\Notifications\MailMessage with this trait
+ * already applied; return that from toMail() to get relatedTo()/forTenant()
+ * with no extra wiring. (To skip subclassing entirely, call
+ * Postmaster::relatedTo()/forTenant() and pass the result to
+ * withSymfonyMessage() yourself — the trait delegates to those same builders.)
  *
  * The associations are carried on the message only in-process: each is
  * written as a header, then read and stripped before the email is

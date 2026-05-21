@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Postmaster — @yield('title', 'Dashboard')</title>
+    <link rel="icon" type="image/svg+xml" href="{{ route('postmaster.logo') }}">
     <link rel="stylesheet" href="{{ route('postmaster.css') }}">
     <script defer src="{{ route('postmaster.alpine') }}"></script>
 </head>

@@ -313,7 +313,7 @@ class PersistenceTest extends TestCase
         $this->assertSame('7', (string) $record->tenant_id);
     }
 
-    public function testTracksEmailEventsTraitWorksOnAMailMessageSubclass()
+    public function testTracksMailMessageTraitWorksOnAMailMessageSubclass()
     {
         Schema::create('orders', fn ($table) => $table->id());
         $order = Order::create();

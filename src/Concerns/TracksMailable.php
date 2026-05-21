@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 trait TracksMailable
 {
-    use TracksEmailEvents;
+    use TracksMailMessage;
 
     /**
      * Apply any declared associations, then hand off to the Mailable's own

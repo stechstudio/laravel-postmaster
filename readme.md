@@ -473,12 +473,11 @@ public function toMail($notifiable)
 ```
 
 Only the import changes — Postmaster's `MailMessage` is Laravel's with the
-`TracksEmailEvents` trait applied, so every notification builder method
+`TracksMailMessage` trait applied, so every notification builder method
 (`line()`, `action()`, …) works unchanged.
 
-Already maintain your own `MailMessage` subclass? Add the `TracksEmailEvents`
-trait to it directly — the trait works on anything exposing
-`withSymfonyMessage()`.
+Already maintain your own `MailMessage` subclass? Add the `TracksMailMessage`
+trait to it directly — it works on anything exposing `withSymfonyMessage()`.
 
 Or, to skip subclassing entirely, pass the `Postmaster` builders straight to
 `withSymfonyMessage()` on a plain `MailMessage`:

@@ -128,8 +128,8 @@ class Postmaster
      * Build a callback that associates a message with the given model.
      *
      * Pass it to any message exposing withSymfonyMessage() — a Mailable or a
-     * notification's MailMessage. The TracksEmailEvents trait's relatedTo()
-     * uses this under the hood.
+     * notification's MailMessage. The relatedTo() trait methods use this
+     * under the hood.
      *
      * @param Model $model
      *

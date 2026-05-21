@@ -4,11 +4,11 @@ namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Mailable;
-use STS\Postmaster\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksMailable;
 
 class TrackedMail extends Mailable
 {
-    use TracksEmailEvents;
+    use TracksMailable;
 
     public function __construct( public ?Model $related = null, public mixed $tenant = null )
     {

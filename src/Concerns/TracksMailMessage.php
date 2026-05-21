@@ -6,19 +6,21 @@ use Illuminate\Database\Eloquent\Model;
 use STS\Postmaster\Postmaster;
 
 /**
- * Associates an outbound email with one of your models (an Order, User, etc.)
- * and/or the tenant it belongs to. When persistence is enabled, the recorded
- * email_messages row is linked back accordingly, so a model can list its
- * delivery history and a tenant's email activity can be queried as a whole.
+ * Adds relatedTo() / forTenant() to a notification's MailMessage, associating
+ * the outbound email with one of your models (an Order, User, etc.) and/or the
+ * tenant it belongs to. When persistence is enabled, the recorded
+ * email_messages row is linked back accordingly.
  *
- * Add it to a Mailable, or to a MailMessage subclass — the trait only depends
- * on withSymfonyMessage(), which both Laravel Mailables and
- * Illuminate\Notifications\Messages\MailMessage expose. For notifications, the
- * package ships STS\Postmaster\Notifications\MailMessage with this trait
- * already applied; return that from toMail() to get relatedTo()/forTenant()
- * with no extra wiring. (To skip subclassing entirely, call
+ * For notifications, the package ships STS\Postmaster\Notifications\MailMessage
+ * with this trait already applied — return that from toMail() and chain
+ * relatedTo()/forTenant(), no extra wiring. Add the trait directly only if you
+ * maintain your own MailMessage subclass. (To skip subclassing entirely, call
  * Postmaster::relatedTo()/forTenant() and pass the result to
  * withSymfonyMessage() yourself — the trait delegates to those same builders.)
+ *
+ * For Mailables, use TracksMailable instead — it carries these same methods and
+ * additionally lets a Mailable declare related()/tenant() the way it declares
+ * envelope()/content().
  *
  * The associations are carried on the message only in-process: each is
  * written as a header, then read and stripped before the email is
@@ -27,7 +29,7 @@ use STS\Postmaster\Postmaster;
  *
  * Requires the optional persistence layer (POSTMASTER_PERSISTENCE=true).
  */
-trait TracksEmailEvents
+trait TracksMailMessage
 {
     /**
      * Associate this email with the given model.

@@ -3,11 +3,11 @@
 namespace STS\Postmaster\Tests\Stubs;
 
 use Illuminate\Mail\Mailable;
-use STS\Postmaster\Concerns\TracksEmailEvents;
+use STS\Postmaster\Concerns\TracksMailable;
 
 class OrderConfirmationMail extends Mailable
 {
-    use TracksEmailEvents;
+    use TracksMailable;
 
     public function __construct( public Order $order )
     {

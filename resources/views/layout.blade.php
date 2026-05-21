@@ -10,7 +10,10 @@
 <body class="pm-body">
 <div class="pm-layout">
     <aside class="pm-sidebar">
-        <div class="pm-brand">✉&nbsp; Postmaster</div>
+        <div class="pm-brand">
+            <img src="{{ route('postmaster.logo') }}" alt="" class="pm-brand-mark">
+            Postmaster
+        </div>
         <nav class="pm-nav">
             <a href="{{ route('postmaster.overview') }}" class="{{ request()->routeIs('postmaster.overview') ? 'is-active' : '' }}">Overview</a>
             <a href="{{ route('postmaster.messages') }}" class="{{ request()->routeIs('postmaster.messages*') ? 'is-active' : '' }}">Messages</a>

@@ -170,6 +170,16 @@ class DashboardTest extends TestCase
             ->assertSee('suppressed@example.com');
     }
 
+    public function testTheLogoIsServed()
+    {
+        Postmaster::auth(fn () => true);
+
+        $response = $this->get('/postmaster/assets/hat.svg');
+
+        $response->assertOk();
+        $this->assertStringContainsString('image/svg+xml', (string) $response->headers->get('Content-Type'));
+    }
+
     public function testTheStylesheetIsServed()
     {
         Postmaster::auth(fn () => true);

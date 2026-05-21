@@ -25,4 +25,17 @@ class AssetController
                 'Content-Type' => 'text/css',
             ]);
     }
+
+    /**
+     * The logo mark, served straight from the package.
+     *
+     * @return BinaryFileResponse
+     */
+    public function logo()
+    {
+        return response()
+            ->file(__DIR__.'/../../../../resources/svg/hat.svg', [
+                'Content-Type' => 'image/svg+xml',
+            ]);
+    }
 }

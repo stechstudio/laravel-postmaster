@@ -5,12 +5,14 @@ namespace STS\Postmaster;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use STS\Postmaster\Auth\BasicHttpAuth;
 use STS\Postmaster\Auth\TokenAuth;
 use STS\Postmaster\Console\PruneEmailContent;
 use STS\Postmaster\Console\PruneEmailMessageEvents;
 use STS\Postmaster\Console\VerifySetup;
+use STS\Postmaster\Http\Middleware\AuthorizeDashboard;
 use STS\Postmaster\Listeners\InterceptSandboxMail;
 use STS\Postmaster\Listeners\RecordOutboundMessage;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
@@ -33,6 +35,10 @@ class PostmasterServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->bootForConsole();
         }
+
+        // The dashboard's views are always registered (cheap, and harmless
+        // when the dashboard is off); only its routes are gated.
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'postmaster');
 
         // Register the webhook route automatically. Skipped when routes are
         // cached (the cache already holds it) or disabled via config.
@@ -59,6 +65,12 @@ class PostmasterServiceProvider extends ServiceProvider
             $this->app['events']->listen(MessageSending::class, StashOutboundMetadata::class);
             $this->app['events']->listen(MessageSent::class, RecordOutboundMessage::class);
             $this->app['events']->listen(EmailEvent::class, UpdateMessageFromEvent::class);
+
+            // The optional superadmin dashboard reads the persistence tables,
+            // so it is only available alongside persistence.
+            if ($this->app['config']->get('postmaster.dashboard.enabled')) {
+                $this->registerDashboard();
+            }
         }
 
         // Sandbox delivery: intercept and suppress all outbound mail. Listed
@@ -77,6 +89,28 @@ class PostmasterServiceProvider extends ServiceProvider
                 );
             }
         }
+    }
+
+    /**
+     * Register the dashboard's gated route group.
+     *
+     * @return void
+     */
+    protected function registerDashboard()
+    {
+        if ($this->app->routesAreCached()) {
+            return;
+        }
+
+        Route::group([
+            'prefix'     => $this->app['config']->get('postmaster.dashboard.path', 'postmaster'),
+            'middleware' => array_merge(
+                (array) $this->app['config']->get('postmaster.dashboard.middleware', ['web']),
+                [AuthorizeDashboard::class]
+            ),
+        ], function () {
+            $this->loadRoutesFrom(__DIR__.'/../routes/dashboard.php');
+        });
     }
 
     /**

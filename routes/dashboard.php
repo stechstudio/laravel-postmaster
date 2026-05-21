@@ -1,0 +1,28 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use STS\Postmaster\Http\Controllers\Dashboard\ActivityController;
+use STS\Postmaster\Http\Controllers\Dashboard\AddressController;
+use STS\Postmaster\Http\Controllers\Dashboard\AssetController;
+use STS\Postmaster\Http\Controllers\Dashboard\MessageController;
+use STS\Postmaster\Http\Controllers\Dashboard\OverviewController;
+
+/*
+ * Dashboard routes. Loaded only when postmaster.dashboard.enabled is true,
+ * inside a group that applies the configured path, middleware, and the
+ * AuthorizeDashboard gate.
+ */
+
+Route::get('assets/postmaster.css', [AssetController::class, 'css'])->name('postmaster.css');
+Route::get('assets/hat.svg', [AssetController::class, 'logo'])->name('postmaster.logo');
+Route::get('assets/alpine.js', [AssetController::class, 'alpine'])->name('postmaster.alpine');
+
+Route::get('/', OverviewController::class)->name('postmaster.overview');
+
+Route::get('messages', [MessageController::class, 'index'])->name('postmaster.messages');
+Route::get('messages/{message}', [MessageController::class, 'show'])->name('postmaster.messages.show');
+
+Route::get('activity', [ActivityController::class, 'index'])->name('postmaster.activity');
+Route::get('activity/feed', [ActivityController::class, 'feed'])->name('postmaster.activity.feed');
+
+Route::get('addresses', [AddressController::class, 'index'])->name('postmaster.addresses');

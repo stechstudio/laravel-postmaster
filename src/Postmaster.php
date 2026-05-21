@@ -32,6 +32,14 @@ class Postmaster
     protected $tenantResolver;
 
     /**
+     * Authorizes access to the dashboard. Registered by the consuming app,
+     * typically in a service provider.
+     *
+     * @var Closure|null
+     */
+    protected $authCallback;
+
+    /**
      * Postmaster constructor.
      *
      * @param $config
@@ -238,5 +246,36 @@ class Postmaster
         $class = config('postmaster.persistence.address_model', EmailAddress::class);
 
         return new $class;
+    }
+
+    /**
+     * Register the gate that decides who may view the dashboard. The callback
+     * receives the request and must return true to allow access.
+     *
+     * @param Closure $callback
+     *
+     * @return $this
+     */
+    public function auth( Closure $callback )
+    {
+        $this->authCallback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Whether the given request may access the dashboard. With no gate
+     * registered, access is allowed only in the local environment — so the
+     * dashboard is never unguarded in production by accident.
+     *
+     * @param \Illuminate\Http\Request $request
+     *
+     * @return bool
+     */
+    public function authorize( $request )
+    {
+        return $this->authCallback === null
+            ? app()->environment('local')
+            : (bool) call_user_func($this->authCallback, $request);
     }
 }

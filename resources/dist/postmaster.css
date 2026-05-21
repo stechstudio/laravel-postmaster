@@ -1,0 +1,342 @@
+/* Postmaster dashboard — hand-written, shadcn-flavoured. No build step. */
+
+:root {
+    --pm-bg: #ffffff;
+    --pm-fg: #09090b;
+    --pm-muted: #f4f4f5;
+    --pm-muted-fg: #71717a;
+    --pm-border: #e4e4e7;
+    --pm-card: #ffffff;
+    --pm-accent: #f4f4f5;
+    --pm-primary: #18181b;
+    --pm-primary-fg: #fafafa;
+    --pm-ring: #a1a1aa;
+    --pm-radius: 0.5rem;
+    --pm-ok-bg: #dcfce7;     --pm-ok-fg: #15803d;
+    --pm-info-bg: #dbeafe;   --pm-info-fg: #1d4ed8;
+    --pm-warn-bg: #fef9c3;   --pm-warn-fg: #a16207;
+    --pm-bad-bg: #fee2e2;    --pm-bad-fg: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --pm-bg: #09090b;
+        --pm-fg: #fafafa;
+        --pm-muted: #18181b;
+        --pm-muted-fg: #a1a1aa;
+        --pm-border: #27272a;
+        --pm-card: #0c0c0e;
+        --pm-accent: #1c1c1f;
+        --pm-primary: #fafafa;
+        --pm-primary-fg: #18181b;
+        --pm-ring: #52525b;
+        --pm-ok-bg: #052e16;     --pm-ok-fg: #4ade80;
+        --pm-info-bg: #172554;   --pm-info-fg: #60a5fa;
+        --pm-warn-bg: #422006;   --pm-warn-fg: #fbbf24;
+        --pm-bad-bg: #450a0a;    --pm-bad-fg: #f87171;
+    }
+}
+
+* { box-sizing: border-box; }
+
+.pm-body {
+    margin: 0;
+    background: var(--pm-bg);
+    color: var(--pm-fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.pm-layout { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.pm-sidebar {
+    width: 224px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--pm-border);
+    padding: 20px 12px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
+.pm-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 6px 10px 18px;
+    letter-spacing: -0.01em;
+}
+.pm-brand-mark { height: 22px; width: auto; display: block; }
+.pm-nav { display: flex; flex-direction: column; gap: 2px; }
+.pm-nav a {
+    padding: 7px 10px;
+    border-radius: var(--pm-radius);
+    color: var(--pm-muted-fg);
+    font-weight: 500;
+}
+.pm-nav a:hover { background: var(--pm-muted); color: var(--pm-fg); }
+.pm-nav a.is-active { background: var(--pm-muted); color: var(--pm-fg); }
+
+/* Main */
+.pm-main { flex: 1; min-width: 0; }
+.pm-header {
+    border-bottom: 1px solid var(--pm-border);
+    padding: 18px 28px;
+}
+.pm-header h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.pm-content { padding: 28px; max-width: 1200px; }
+
+/* Cards */
+.pm-card {
+    background: var(--pm-card);
+    border: 1px solid var(--pm-border);
+    border-radius: var(--pm-radius);
+    padding: 18px;
+}
+.pm-card + .pm-card, .pm-content > * + * { margin-top: 18px; }
+
+.pm-grid { display: grid; gap: 14px; }
+.pm-grid--stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.pm-grid--halves { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+/* Grid items space themselves with `gap`; cancel the stacked-card margin. */
+.pm-grid .pm-card + .pm-card { margin-top: 0; }
+
+/* Card with a titled header strip (title + a "view all" link). */
+.pm-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-link { font-size: 12.5px; font-weight: 500; color: var(--pm-muted-fg); }
+.pm-link:hover { color: var(--pm-fg); }
+
+/* Compact two-line feed rows — the overview's recent-messages /
+   recent-activity cards. Stacked text that truncates; badge top-right. */
+.pm-feed-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-feed-row:last-child { border-bottom: 0; }
+.pm-feed-row.pm-row-link:hover { background: var(--pm-muted); }
+.pm-feed-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+}
+.pm-feed-primary,
+.pm-feed-secondary {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pm-feed-primary { font-weight: 500; }
+.pm-feed-secondary { color: var(--pm-muted-fg); font-size: 12.5px; }
+.pm-feed-meta { flex-shrink: 0; color: var(--pm-muted-fg); font-size: 12px; white-space: nowrap; }
+.pm-feed-line .pm-badge { flex-shrink: 0; }
+
+/* Equal-height stat cards: flex column with the value pinned to the bottom,
+   so labels that wrap to two lines don't shift anything. */
+.pm-stat { display: flex; flex-direction: column; }
+.pm-stat .pm-stat-label {
+    color: var(--pm-muted-fg);
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.pm-stat .pm-stat-value {
+    font-size: 26px;
+    font-weight: 600;
+    margin-top: auto;
+    padding-top: 6px;
+    letter-spacing: -0.02em;
+}
+
+.pm-section-title { font-size: 13px; font-weight: 600; margin: 0 0 12px; }
+
+/* Chart — bars in a stretch-to-fit SVG, labels as HTML so text never
+   distorts (the SVG scales non-uniformly; HTML text does not). */
+.pm-chart-bars { width: 100%; height: 120px; display: block; }
+.pm-chart-bars rect { fill: var(--pm-primary); }
+.pm-chart-bars rect:hover { fill: var(--pm-ring); }
+.pm-chart-labels { display: flex; margin-top: 6px; }
+.pm-chart-labels span {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 10px;
+    color: var(--pm-muted-fg);
+}
+
+/* Tables */
+.pm-table { width: 100%; border-collapse: collapse; }
+.pm-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--pm-muted-fg);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--pm-border);
+    vertical-align: middle;
+}
+.pm-table tbody tr:hover { background: var(--pm-muted); }
+.pm-table tr:last-child td { border-bottom: 0; }
+.pm-row-link { cursor: pointer; }
+.pm-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.pm-dim { color: var(--pm-muted-fg); }
+.pm-truncate { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Badges */
+.pm-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+.pm-badge--ok   { background: var(--pm-ok-bg);   color: var(--pm-ok-fg); }
+.pm-badge--info { background: var(--pm-info-bg); color: var(--pm-info-fg); }
+.pm-badge--warn { background: var(--pm-warn-bg); color: var(--pm-warn-fg); }
+.pm-badge--bad  { background: var(--pm-bad-bg);  color: var(--pm-bad-fg); }
+.pm-badge--muted { background: var(--pm-muted); color: var(--pm-muted-fg); }
+
+/* Forms */
+.pm-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.pm-field { display: flex; flex-direction: column; gap: 4px; }
+.pm-field label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--pm-muted-fg);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.pm-input, .pm-select {
+    height: 34px;
+    padding: 0 10px;
+    background: var(--pm-bg);
+    color: var(--pm-fg);
+    border: 1px solid var(--pm-border);
+    border-radius: var(--pm-radius);
+    font-size: 13px;
+    font-family: inherit;
+}
+.pm-input:focus, .pm-select:focus {
+    outline: 2px solid var(--pm-ring);
+    outline-offset: -1px;
+}
+
+.pm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    background: var(--pm-primary);
+    color: var(--pm-primary-fg);
+    border: 1px solid var(--pm-primary);
+    border-radius: var(--pm-radius);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.pm-btn:hover { opacity: 0.9; }
+.pm-btn--ghost {
+    background: transparent;
+    color: var(--pm-fg);
+    border-color: var(--pm-border);
+}
+.pm-btn--sm { height: 28px; padding: 0 10px; font-size: 12px; }
+
+/* Detail layout */
+.pm-detail-grid { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
+.pm-meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
+.pm-meta dt { color: var(--pm-muted-fg); font-size: 12px; }
+.pm-meta dd { margin: 0; }
+
+.pm-frame {
+    width: 100%;
+    height: 480px;
+    border: 1px solid var(--pm-border);
+    border-radius: var(--pm-radius);
+    background: #fff;
+}
+.pm-pre {
+    background: var(--pm-muted);
+    border: 1px solid var(--pm-border);
+    border-radius: var(--pm-radius);
+    padding: 14px;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    white-space: pre-wrap;
+}
+
+/* Timeframe pills */
+.pm-pills { display: inline-flex; gap: 4px; }
+.pm-pills a {
+    padding: 5px 12px;
+    border-radius: var(--pm-radius);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--pm-muted-fg);
+}
+.pm-pills a:hover { background: var(--pm-muted); color: var(--pm-fg); }
+.pm-pills a.is-active { background: var(--pm-primary); color: var(--pm-primary-fg); }
+
+.pm-toolbar { display: flex; justify-content: space-between; align-items: center; }
+
+/* Timeline */
+.pm-timeline { display: flex; flex-direction: column; gap: 0; }
+.pm-timeline-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-timeline-item:last-child { border-bottom: 0; }
+.pm-timeline-when { color: var(--pm-muted-fg); font-size: 12px; white-space: nowrap; }
+
+/* Pagination + empty states */
+.pm-pager { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+.pm-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--pm-muted-fg);
+}
+.pm-tabs { display: flex; gap: 6px; align-items: center; }
+.pm-page-of { font-size: 12px; color: var(--pm-muted-fg); padding: 0 6px; }
+
+.pm-flash {
+    background: var(--pm-ok-bg);
+    color: var(--pm-ok-fg);
+    border-radius: var(--pm-radius);
+    padding: 10px 14px;
+    font-size: 13px;
+}

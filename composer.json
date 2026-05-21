@@ -10,7 +10,18 @@
         }
     ],
     "homepage": "https://github.com/stechstudio/laravel-postmaster",
-    "keywords": ["Laravel", "Postmaster", "Email", "Email Events", "Webhooks", "SendGrid", "Postmark", "Mailgun", "SES", "Resend"],
+    "keywords": [
+        "Laravel",
+        "Postmaster",
+        "Email",
+        "Email Events",
+        "Webhooks",
+        "SendGrid",
+        "Postmark",
+        "Mailgun",
+        "SES",
+        "Resend"
+    ],
     "replace": {
         "stechstudio/laravel-email-events": "self.version"
     },
@@ -31,7 +42,10 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "STS\\Postmaster\\Tests\\": "tests"
+            "STS\\Postmaster\\Tests\\": "tests",
+            "Workbench\\App\\": "workbench/app/",
+            "Workbench\\Database\\Factories\\": "workbench/database/factories/",
+            "Workbench\\Database\\Seeders\\": "workbench/database/seeders/"
         }
     },
     "extra": {
@@ -43,5 +57,26 @@
                 "Postmaster": "STS\\Postmaster\\Facades\\Postmaster"
             }
         }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@clear",
+            "@prepare"
+        ],
+        "clear": "@php vendor/bin/testbench package:purge-skeleton --ansi",
+        "prepare": "@php vendor/bin/testbench package:discover --ansi",
+        "build": "@php vendor/bin/testbench workbench:build --ansi",
+        "serve": [
+            "Composer\\Config::disableProcessTimeout",
+            "@build",
+            "@php vendor/bin/testbench serve --ansi"
+        ],
+        "lint": [
+            "@php vendor/bin/phpstan analyse --verbose --ansi"
+        ],
+        "test": [
+            "@clear",
+            "@php vendor/bin/phpunit"
+        ]
     }
 }

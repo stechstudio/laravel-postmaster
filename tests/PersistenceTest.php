@@ -33,6 +33,8 @@ class PersistenceTest extends TestCase
 
     protected function defineEnvironment($app)
     {
+        parent::defineEnvironment($app);
+
         $app['config']->set('postmaster.persistence.enabled', true);
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [

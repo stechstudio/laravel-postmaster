@@ -409,6 +409,45 @@ class PersistenceTest extends TestCase
         $this->assertCount(1, EmailMessage::withStatus(EmailEvent::EVENT_BOUNCED)->get());
     }
 
+    public function testFailedScopeCoversBouncedDroppedAndComplained()
+    {
+        EmailMessage::create(['message_id' => 'a', 'status' => EmailEvent::EVENT_DELIVERED]);
+        EmailMessage::create(['message_id' => 'b', 'status' => EmailEvent::EVENT_BOUNCED]);
+        EmailMessage::create(['message_id' => 'c', 'status' => EmailEvent::EVENT_DROPPED]);
+        EmailMessage::create(['message_id' => 'd', 'status' => EmailEvent::EVENT_COMPLAINED]);
+        EmailMessage::create(['message_id' => 'e', 'status' => EmailEvent::EVENT_SENT]);
+
+        $failed = EmailMessage::failed()->pluck('message_id')->all();
+
+        sort($failed);
+        $this->assertSame(['b', 'c', 'd'], $failed);
+    }
+
+    public function testRelatedModelReadsItsLatestEmailAndFailureState()
+    {
+        Schema::create('orders', fn ($table) => $table->id());
+        $order = Order::create();
+
+        $this->assertNull($order->latestEmailMessage());
+        $this->assertFalse($order->emailDeliveryFailed());
+
+        EmailMessage::create([
+            'message_id'   => 'first',
+            'status'       => EmailEvent::EVENT_DELIVERED,
+            'related_type' => $order->getMorphClass(),
+            'related_id'   => $order->getKey(),
+        ]);
+        $latest = EmailMessage::create([
+            'message_id'   => 'reminder',
+            'status'       => EmailEvent::EVENT_BOUNCED,
+            'related_type' => $order->getMorphClass(),
+            'related_id'   => $order->getKey(),
+        ]);
+
+        $this->assertTrue($latest->is($order->latestEmailMessage()));
+        $this->assertTrue($order->emailDeliveryFailed());
+    }
+
     public function testWebhookCorrelationIgnoresGlobalScopes()
     {
         config(['postmaster.persistence.model' => ScopedEmailMessage::class]);

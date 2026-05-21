@@ -35,6 +35,18 @@ use STS\Postmaster\EmailEvent;
  */
 class EmailMessage extends Model
 {
+    /**
+     * Statuses that mean the email did not reach the recipient. Exposed so a
+     * caller can test an already-loaded record without re-deriving the set.
+     *
+     * @var array<int, string>
+     */
+    public const FAILED_STATUSES = [
+        EmailEvent::EVENT_BOUNCED,
+        EmailEvent::EVENT_DROPPED,
+        EmailEvent::EVENT_COMPLAINED,
+    ];
+
     protected $guarded = [];
 
     protected $casts = [
@@ -187,6 +199,19 @@ class EmailMessage extends Model
     public function scopeComplained( Builder $query )
     {
         return $query->where('status', EmailEvent::EVENT_COMPLAINED);
+    }
+
+    /**
+     * Scope to messages that did not reach the recipient — bounced, dropped,
+     * or complained. The complement of delivered().
+     *
+     * @param Builder $query
+     *
+     * @return Builder
+     */
+    public function scopeFailed( Builder $query )
+    {
+        return $query->whereIn('status', self::FAILED_STATUSES);
     }
 
     /** @return Builder */

@@ -10,6 +10,7 @@ use STS\Postmaster\Auth\BasicHttpAuth;
 use STS\Postmaster\Auth\TokenAuth;
 use STS\Postmaster\Console\PruneEmailContent;
 use STS\Postmaster\Console\PruneEmailMessageEvents;
+use STS\Postmaster\Console\VerifySetup;
 use STS\Postmaster\Listeners\RecordOutboundMessage;
 use STS\Postmaster\Listeners\StashOutboundMetadata;
 use STS\Postmaster\Listeners\UpdateMessageFromEvent;
@@ -132,6 +133,9 @@ class PostmasterServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'postmaster.migrations');
+
+        // The setup check is useful regardless of persistence.
+        $this->commands([VerifySetup::class]);
 
         if ($this->app['config']->get('postmaster.persistence.enabled')) {
             $this->commands([PruneEmailContent::class, PruneEmailMessageEvents::class]);

@@ -71,6 +71,19 @@ to process webhooks off the request cycle.
 > the package can trust inbound requests. Unverified webhooks are rejected by
 > default — it's one credential per provider.
 
+## Checking your setup
+
+To confirm the whole round trip, run:
+
+```bash
+php artisan postmaster:verify
+```
+
+It detects your provider from the mail config, shows the exact webhook URL to
+register, sends a real test email to an address you supply, and then — if
+[persistence](#optional-persistence) is enabled — watches live for the
+delivery webhook to come back, reporting each event the instant it lands.
+
 ## The EmailEvent
 
 Every webhook becomes an `EmailEvent` with a normalized API:

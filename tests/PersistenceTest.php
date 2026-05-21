@@ -675,4 +675,43 @@ class PersistenceTest extends TestCase
         $this->assertDatabaseCount('email_addresses', 1);
         $this->assertSame(EmailAddress::STATUS_SUPPRESSED, EmailAddress::first()->status);
     }
+
+    public function testVerifyDetectsProviderFromMailTransport()
+    {
+        config([
+            'mail.default'           => 'postmark',
+            'mail.mailers.postmark'  => ['transport' => 'postmark'],
+        ]);
+
+        $this->artisan('postmaster:verify')
+            ->expectsConfirmation('Detected the "postmark" provider from the "postmark" mail transport. Verify that one?', 'yes')
+            ->expectsConfirmation('Have you set that webhook URL in your postmark dashboard?', 'no')
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('email_messages', 0);
+    }
+
+    public function testVerifyGuessesProviderFromSmtpHost()
+    {
+        config([
+            'mail.default'      => 'smtp',
+            'mail.mailers.smtp' => ['transport' => 'smtp', 'host' => 'smtp.sendgrid.net'],
+        ]);
+
+        $this->artisan('postmaster:verify')
+            ->expectsConfirmation('Detected the "sendgrid" provider from the SMTP host "smtp.sendgrid.net". Verify that one?', 'yes')
+            ->expectsConfirmation('Have you set that webhook URL in your sendgrid dashboard?', 'no')
+            ->assertExitCode(1);
+    }
+
+    public function testVerifySendsTheTestEmailOnceConfirmed()
+    {
+        $this->artisan('postmaster:verify', ['--timeout' => 0])
+            ->expectsChoice('Which provider are you verifying?', 'postmark', ['sendgrid', 'postmark', 'mailgun', 'ses', 'resend'])
+            ->expectsConfirmation('Have you set that webhook URL in your postmark dashboard?', 'yes')
+            ->expectsQuestion('Send the test email to which address? (use a real inbox you can check)', 'tester@example.com')
+            ->expectsOutputToContain('Test email sent to tester@example.com.');
+
+        $this->assertDatabaseHas('email_messages', ['recipient' => 'tester@example.com']);
+    }
 }

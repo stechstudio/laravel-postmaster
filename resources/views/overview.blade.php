@@ -5,9 +5,9 @@
 @section('content')
     {{-- Timeframe applies to the stat cards and the chart below. --}}
     <div class="pm-pills">
-        @foreach (['7' => '7 days', '30' => '30 days', '90' => '90 days', '365' => '1 year'] as $value => $label)
+        @foreach ($ranges as $value => $label)
             <a href="{{ route('postmaster.overview', ['days' => $value]) }}"
-               class="{{ (int) $value === $days ? 'is-active' : '' }}">{{ $label }}</a>
+               class="{{ $value === $days ? 'is-active' : '' }}">{{ $label }}</a>
         @endforeach
     </div>
 

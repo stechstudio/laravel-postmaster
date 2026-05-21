@@ -22,27 +22,18 @@ class ActivityController extends Controller
         }
 
         if ($recipient = $request->query('recipient')) {
-            $query->whereHas('emailMessage', function ($q) use ($recipient) {
-                $q->withoutGlobalScopes()
-                    ->whereRaw('lower(recipient) like ?', ['%'.strtolower((string) $recipient).'%']);
-            });
+            $query->whereHas('emailMessage', fn ($q) => $this->applyContains(
+                $q->withoutGlobalScopes(), 'recipient', $recipient
+            ));
         }
 
         $tenant = $request->query('tenant');
 
         if ($tenant !== null && $tenant !== '') {
-            $query->whereHas('emailMessage', function ($q) use ($tenant) {
-                $q->withoutGlobalScopes()->where($this->tenantColumn(), $tenant);
-            });
+            $query->whereHas('emailMessage', fn ($q) => $q->withoutGlobalScopes()->where($this->tenantColumn(), $tenant));
         }
 
-        if ($from = $request->query('from')) {
-            $query->where('occurred_at', '>=', $from);
-        }
-
-        if ($to = $request->query('to')) {
-            $query->where('occurred_at', '<=', $to.' 23:59:59');
-        }
+        $this->applyDateRange($query, 'occurred_at', $request->query('from'), $request->query('to'));
 
         return response()->view('postmaster::activity', [
             'events'   => $query->paginate(50)->withQueryString(),

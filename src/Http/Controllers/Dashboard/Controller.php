@@ -151,6 +151,49 @@ abstract class Controller
     }
 
     /**
+     * Add a case-insensitive "contains" filter on a column. lower() keeps it
+     * portable across the database engines the package supports. A no-op for
+     * an empty term. The column name is supplied by the controller, never by
+     * the request.
+     *
+     * @param Builder $query
+     * @param string  $column
+     * @param mixed   $term
+     *
+     * @return void
+     */
+    protected function applyContains( Builder $query, $column, $term )
+    {
+        if ($term === null || $term === '') {
+            return;
+        }
+
+        $query->whereRaw("lower({$column}) like ?", ['%'.strtolower((string) $term).'%']);
+    }
+
+    /**
+     * Add an inclusive date-range filter on a column. Either bound may be
+     * empty, in which case that side is left open.
+     *
+     * @param Builder $query
+     * @param string  $column
+     * @param mixed   $from
+     * @param mixed   $to
+     *
+     * @return void
+     */
+    protected function applyDateRange( Builder $query, $column, $from, $to )
+    {
+        if ($from !== null && $from !== '') {
+            $query->where($column, '>=', $from);
+        }
+
+        if ($to !== null && $to !== '') {
+            $query->where($column, '<=', $to.' 23:59:59');
+        }
+    }
+
+    /**
      * The lifecycle statuses, for filter dropdowns.
      *
      * @return array<int, string>

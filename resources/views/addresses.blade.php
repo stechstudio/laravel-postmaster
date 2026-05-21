@@ -13,12 +13,7 @@
                     <option value="suppressed" @selected(($filters['status'] ?? '') === 'suppressed')>Suppressed</option>
                 </select>
             </div>
-            <div class="pm-field">
-                <label>Address</label>
-                <input type="text" name="address" class="pm-input" placeholder="contains…"
-                       value="{{ $filters['address'] ?? '' }}"
-                       x-on:input.debounce.400ms="($el.value.length >= 3 || $el.value.length === 0) && $el.form.requestSubmit()">
-            </div>
+            @include('postmaster::partials.filters.text', ['name' => 'address', 'label' => 'Address'])
             <a href="{{ route('postmaster.addresses') }}" class="pm-btn pm-btn--ghost">Clear</a>
         </form>
     </div>

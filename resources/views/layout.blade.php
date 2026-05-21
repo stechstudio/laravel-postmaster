@@ -3,7 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Postmaster — @yield('title', 'Dashboard')</title>
     <link rel="stylesheet" href="{{ route('postmaster.css') }}">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
@@ -28,6 +27,5 @@
         </div>
     </main>
 </div>
-@yield('scripts')
 </body>
 </html>

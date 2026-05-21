@@ -12,57 +12,20 @@
     <div class="pm-card">
         {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
         <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" x-data>
-            <div class="pm-field">
-                <label>Status</label>
-                <select name="status" class="pm-select" onchange="this.form.requestSubmit()">
-                    <option value="">Any</option>
-                    @foreach ($statuses as $status)
-                        <option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>{{ ucfirst($status) }}</option>
-                    @endforeach
-                </select>
-            </div>
+            @include('postmaster::partials.filters.status')
             <div class="pm-field">
                 <label>Provider</label>
                 <select name="provider" class="pm-select" onchange="this.form.requestSubmit()">
                     <option value="">Any</option>
                     @foreach ($providers as $provider)
-                        <option value="{{ $provider }}" @selected(($filters['provider'] ?? '') === $provider)>{{ ucfirst($provider) }}</option>
+                        <option value="{{ $provider }}" @selected(($filters['provider'] ?? '') === $provider)>{{ $provider }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="pm-field">
-                <label>Recipient</label>
-                <input type="text" name="recipient" class="pm-input" placeholder="contains…"
-                       value="{{ $filters['recipient'] ?? '' }}"
-                       x-on:input.debounce.400ms="($el.value.length >= 3 || $el.value.length === 0) && $el.form.requestSubmit()">
-            </div>
-            <div class="pm-field">
-                <label>Subject</label>
-                <input type="text" name="subject" class="pm-input" placeholder="contains…"
-                       value="{{ $filters['subject'] ?? '' }}"
-                       x-on:input.debounce.400ms="($el.value.length >= 3 || $el.value.length === 0) && $el.form.requestSubmit()">
-            </div>
-            @if ($hasTenants)
-                <div class="pm-field">
-                    <label>Tenant</label>
-                    <select name="tenant" class="pm-select" onchange="this.form.requestSubmit()">
-                        <option value="">Any</option>
-                        @foreach ($tenants as $key => $label)
-                            <option value="{{ $key }}" @selected((string) ($filters['tenant'] ?? '') === (string) $key)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            @endif
-            <div class="pm-field">
-                <label>From</label>
-                <input type="date" name="from" class="pm-input" value="{{ $filters['from'] ?? '' }}"
-                       onchange="this.form.requestSubmit()">
-            </div>
-            <div class="pm-field">
-                <label>To</label>
-                <input type="date" name="to" class="pm-input" value="{{ $filters['to'] ?? '' }}"
-                       onchange="this.form.requestSubmit()">
-            </div>
+            @include('postmaster::partials.filters.text', ['name' => 'recipient', 'label' => 'Recipient'])
+            @include('postmaster::partials.filters.text', ['name' => 'subject', 'label' => 'Subject'])
+            @include('postmaster::partials.filters.tenant')
+            @include('postmaster::partials.filters.dates')
             <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">Clear</a>
         </form>
     </div>

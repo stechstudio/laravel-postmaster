@@ -25,32 +25,18 @@ class MessageController extends Controller
         $tenant = $request->query('tenant');
 
         if ($tenant !== null && $tenant !== '') {
-            $query->where(config('postmaster.persistence.tenant_column', 'tenant_id'), $tenant);
+            $query->where($this->tenantColumn(), $tenant);
         }
 
-        // Case-insensitive "contains" matches — lower() is portable across the
-        // database engines the package supports.
-        if ($recipient = $request->query('recipient')) {
-            $query->whereRaw('lower(recipient) like ?', ['%'.strtolower((string) $recipient).'%']);
-        }
-
-        if ($subject = $request->query('subject')) {
-            $query->whereRaw('lower(subject) like ?', ['%'.strtolower((string) $subject).'%']);
-        }
-
-        if ($from = $request->query('from')) {
-            $query->where('created_at', '>=', $from);
-        }
-
-        if ($to = $request->query('to')) {
-            $query->where('created_at', '<=', $to.' 23:59:59');
-        }
+        $this->applyContains($query, 'recipient', $request->query('recipient'));
+        $this->applyContains($query, 'subject', $request->query('subject'));
+        $this->applyDateRange($query, 'created_at', $request->query('from'), $request->query('to'));
 
         return response()->view('postmaster::messages', [
             'messages'  => $query->paginate(50)->withQueryString(),
             'filters'   => $request->query(),
             'statuses'  => $this->statuses(),
-            'providers' => array_keys(config('postmaster.providers', [])),
+            'providers' => $this->providersInUse(),
             'tenants'   => $this->tenantLabels($this->tenantKeysInUse()),
         ]);
     }
@@ -64,5 +50,22 @@ class MessageController extends Controller
             'events'  => $record->events()->get(),
             'tenants' => $this->tenantLabels([$record->{$this->tenantColumn()}]),
         ]);
+    }
+
+    /**
+     * Distinct provider names present in the messages table. Providers are
+     * stored under their display name ("SendGrid"), so the filter options
+     * must come from the data — not the lower-case config keys.
+     *
+     * @return array
+     */
+    protected function providersInUse()
+    {
+        return $this->messageQuery()
+            ->whereNotNull('provider')
+            ->distinct()
+            ->orderBy('provider')
+            ->pluck('provider')
+            ->all();
     }
 }

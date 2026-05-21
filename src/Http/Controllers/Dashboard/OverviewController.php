@@ -11,17 +11,22 @@ use STS\Postmaster\Models\EmailAddress;
 class OverviewController extends Controller
 {
     /**
-     * Selectable chart windows, in days.
+     * Selectable timeframe windows: days => label.
      *
-     * @var array<int, int>
+     * @var array<int, string>
      */
-    protected $ranges = [7, 30, 90, 365];
+    protected $ranges = [
+        7   => '7 days',
+        30  => '30 days',
+        90  => '90 days',
+        365 => '1 year',
+    ];
 
     public function __invoke()
     {
         $days = (int) request()->query('days', 30);
 
-        if (! in_array($days, $this->ranges, true)) {
+        if (! array_key_exists($days, $this->ranges)) {
             $days = 30;
         }
 

@@ -66,6 +66,37 @@ class DashboardTest extends TestCase
             ->assertDontSee('delivered@example.com');
     }
 
+    public function testProviderFilterUsesStoredProviderNames()
+    {
+        Postmaster::auth(fn () => true);
+        EmailMessage::create(['message_id' => 's1', 'recipient' => 'sg@example.com', 'provider' => 'SendGrid']);
+        EmailMessage::create(['message_id' => 'p1', 'recipient' => 'pm@example.com', 'provider' => 'Postmark']);
+
+        // The filter options are the provider names as actually stored
+        // ("SendGrid"), not the lower-case config keys.
+        $this->get('/postmaster/messages')
+            ->assertOk()
+            ->assertSee('value="SendGrid"', false);
+
+        $this->get('/postmaster/messages?provider=SendGrid')
+            ->assertOk()
+            ->assertSee('sg@example.com')
+            ->assertDontSee('pm@example.com');
+    }
+
+    public function testMessageSubjectIsEscapedInThePageTitle()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create([
+            'message_id' => 'm1',
+            'subject'    => '</title><script>alert(1)</script>',
+        ]);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertDontSee('<script>alert(1)</script>', false);
+    }
+
     public function testMessageDetailLoads()
     {
         Postmaster::auth(fn () => true);

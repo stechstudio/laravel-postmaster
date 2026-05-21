@@ -1,6 +1,8 @@
 @extends('postmaster::layout')
 
-@section('title', $message->subject ?: '(no subject)')
+{{-- Escaped here: the layout yields the title into <title>/<h1> unescaped,
+     and an email subject is attacker-influenced content. --}}
+@section('title', e($message->subject ?: '(no subject)'))
 
 @section('content')
     <div>

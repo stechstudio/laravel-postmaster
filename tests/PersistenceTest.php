@@ -3,11 +3,13 @@
 namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Schema;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
+use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
@@ -706,12 +708,40 @@ class PersistenceTest extends TestCase
 
     public function testVerifySendsTheTestEmailOnceConfirmed()
     {
-        $this->artisan('postmaster:verify', ['--timeout' => 0])
+        config(['cache.default' => 'array']);
+
+        $this->artisan('postmaster:verify')
             ->expectsChoice('Which provider are you verifying?', 'postmark', ['sendgrid', 'postmark', 'mailgun', 'ses', 'resend'])
             ->expectsConfirmation('Have you set that webhook URL in your postmark dashboard?', 'yes')
             ->expectsQuestion('Send the test email to which address? (use a real inbox you can check)', 'tester@example.com')
+            ->expectsOutputToContain('per-process')
             ->expectsOutputToContain('Test email sent to tester@example.com.');
 
         $this->assertDatabaseHas('email_messages', ['recipient' => 'tester@example.com']);
+    }
+
+    public function testVerificationEventsAreRelayedToTheWatchedMessage()
+    {
+        Cache::put(RelayVerificationEvent::WATCHING_KEY, 'watched-message', now()->addMinutes(5));
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'watched-message',
+            'Recipient'   => 'r@example.com',
+            'DeliveredAt' => '2021-01-01T00:00:00Z',
+        ])));
+
+        // An event for any other message must not be relayed.
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'a-different-message',
+            'Recipient'   => 'other@example.com',
+            'DeliveredAt' => '2021-01-01T00:00:00Z',
+        ])));
+
+        $relayed = Cache::get(RelayVerificationEvent::EVENTS_KEY);
+        $this->assertIsArray($relayed);
+        $this->assertCount(1, $relayed);
+        $this->assertSame(EmailEvent::EVENT_DELIVERED, $relayed[0]['status']);
     }
 }

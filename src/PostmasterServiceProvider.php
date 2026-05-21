@@ -12,6 +12,7 @@ use STS\Postmaster\Console\PruneEmailContent;
 use STS\Postmaster\Console\PruneEmailMessageEvents;
 use STS\Postmaster\Console\VerifySetup;
 use STS\Postmaster\Listeners\RecordOutboundMessage;
+use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Listeners\StashOutboundMetadata;
 use STS\Postmaster\Listeners\UpdateMessageFromEvent;
 use STS\Postmaster\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
@@ -44,6 +45,10 @@ class PostmasterServiceProvider extends ServiceProvider
                 logger("Received email event", $event->toArray());
             });
         }
+
+        // Relay webhook events to a running postmaster:verify command, which
+        // watches from a separate process.
+        $this->app['events']->listen(EmailEvent::class, RelayVerificationEvent::class);
 
         // Optional persistence: record outbound mail and update those records
         // as webhook events arrive.

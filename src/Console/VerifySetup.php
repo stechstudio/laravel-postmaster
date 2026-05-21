@@ -3,8 +3,9 @@
 namespace STS\Postmaster\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
-use STS\Postmaster\Models\EmailMessage;
+use STS\Postmaster\Listeners\RelayVerificationEvent;
 use Throwable;
 
 /**
@@ -69,12 +70,13 @@ class VerifySetup extends Command
             return self::FAILURE;
         }
 
-        $persists = (bool) config('postmaster.persistence.enabled');
+        $canWatch = ! $this->cacheIsPerProcess();
 
-        if (! $persists) {
+        if (! $canWatch) {
             $this->components->warn(
-                'Persistence is off, so this command cannot watch for the webhook. '
-                .'It will send the test email; confirm delivery by listening for the EmailEvent yourself.'
+                'Your cache store ('.config('cache.default').') is per-process, so this command '
+                .'cannot watch for the webhook. It will send the test email; set a shared cache '
+                .'store (file, redis, database, ...) to watch live.'
             );
         }
 
@@ -88,11 +90,26 @@ class VerifySetup extends Command
 
         $this->components->info("Test email sent to {$address}.");
 
-        if (! $persists || $messageId === null) {
+        if (! $canWatch || $messageId === null) {
+            $this->line('  Listen for the EmailEvent in your application to confirm webhook delivery.');
+
             return self::SUCCESS;
         }
 
         return $this->waitForWebhook($messageId, max(0, (int) $this->option('timeout')));
+    }
+
+    /**
+     * Whether the cache store is per-process (array/null) and so cannot carry
+     * a signal from the web process back to this command.
+     *
+     * @return bool
+     */
+    protected function cacheIsPerProcess()
+    {
+        $store = config('cache.default');
+
+        return in_array(config("cache.stores.{$store}.driver"), ['array', 'null'], true);
     }
 
     /**
@@ -230,8 +247,11 @@ class VerifySetup extends Command
     }
 
     /**
-     * Poll the persistence layer for the test message until a webhook event
-     * lands on it, showing a live spinner and reporting each event received.
+     * Watch for webhook events on the test message until one arrives, showing
+     * a live spinner and reporting each event the instant it lands.
+     *
+     * The webhook arrives in a separate process; RelayVerificationEvent mirrors
+     * matching events into the cache, which this loop polls.
      *
      * @param string $messageId
      * @param int    $timeout
@@ -240,52 +260,52 @@ class VerifySetup extends Command
      */
     protected function waitForWebhook( $messageId, $timeout )
     {
-        $model = $this->messageModel();
+        Cache::forget(RelayVerificationEvent::EVENTS_KEY);
+        Cache::put(RelayVerificationEvent::WATCHING_KEY, $messageId, now()->addMinutes(10));
+
         $frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
         $start = microtime(true);
         $deadline = $timeout;
         $lastPoll = -2.0;
         $frame = 0;
-        $lastSeen = null;
-        $verified = false;
+        $shown = 0;
+        $extended = false;
 
         $this->newLine();
 
         while (($elapsed = microtime(true) - $start) < $deadline) {
-            if (microtime(true) - $lastPoll >= 2.0) {
+            if (microtime(true) - $lastPoll >= 1.0) {
                 $lastPoll = microtime(true);
 
-                $record = $model->newQuery()
-                    ->withoutGlobalScopes()
-                    ->where('message_id', $messageId)
-                    ->first();
+                $events = Cache::get(RelayVerificationEvent::EVENTS_KEY, []);
+                $events = is_array($events) ? $events : [];
 
-                if ($record !== null
-                    && ($at = $record->last_event_at) !== null
-                    && (string) $at !== $lastSeen) {
-                    $lastSeen = (string) $at;
+                while ($shown < count($events)) {
+                    $entry = $events[$shown++];
 
-                    $this->clearLine();
-                    $this->components->info(sprintf(
-                        'Event received: %s (%s)',
-                        (string) $record->status,
-                        $at->toDateTimeString()
-                    ));
-
-                    if (! $verified) {
-                        $verified = true;
-                        // Keep watching briefly for follow-up events (a
-                        // delivery is often followed by opens and clicks).
-                        $deadline = min($timeout, $elapsed + 20);
+                    if (is_array($entry)) {
+                        $this->clearLine();
+                        $this->components->info(sprintf(
+                            'Event received: %s (%s)',
+                            $entry['status'] ?? 'event',
+                            $entry['at'] ?? ''
+                        ));
                     }
+                }
+
+                if ($shown > 0 && ! $extended) {
+                    $extended = true;
+                    // Keep watching briefly for follow-up events (a delivery
+                    // is often followed by opens and clicks).
+                    $deadline = min($timeout, $elapsed + 20);
                 }
             }
 
             $this->output->write(sprintf(
                 "\r %s %s  %ds elapsed   ",
                 $frames[$frame++ % count($frames)],
-                $verified ? 'Watching for further events...' : 'Waiting for a webhook...',
+                $shown > 0 ? 'Watching for further events...' : 'Waiting for a webhook...',
                 (int) $elapsed
             ));
 
@@ -293,9 +313,11 @@ class VerifySetup extends Command
         }
 
         $this->clearLine();
+        Cache::forget(RelayVerificationEvent::WATCHING_KEY);
+        Cache::forget(RelayVerificationEvent::EVENTS_KEY);
         $this->newLine();
 
-        if ($verified) {
+        if ($shown > 0) {
             $this->components->info('Verified — delivery webhooks are reaching your app.');
 
             return self::SUCCESS;
@@ -309,18 +331,6 @@ class VerifySetup extends Command
         ]);
 
         return self::FAILURE;
-    }
-
-    /**
-     * A fresh instance of the configured (swappable) email message model.
-     *
-     * @return EmailMessage
-     */
-    protected function messageModel()
-    {
-        $class = config('postmaster.persistence.model', EmailMessage::class);
-
-        return new $class;
     }
 
     /**

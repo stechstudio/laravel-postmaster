@@ -80,9 +80,13 @@ php artisan postmaster:verify
 ```
 
 It detects your provider from the mail config, shows the exact webhook URL to
-register, sends a real test email to an address you supply, and then — if
-[persistence](#optional-persistence) is enabled — watches live for the
-delivery webhook to come back, reporting each event the instant it lands.
+register, sends a real test email to an address you supply, then watches live
+for the delivery webhook to come back — reporting each event the instant it
+lands.
+
+The live watch needs a cache store shared between your CLI and web processes
+(`file`, `redis`, `database`, …). With the per-process `array` store the
+command sends the test email and stops there.
 
 ## The EmailEvent
 

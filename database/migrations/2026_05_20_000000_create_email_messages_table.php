@@ -40,6 +40,9 @@ return new class extends Migration
             // Optional owning tenant, for multitenant apps. Apps with
             // UUID/ULID tenant keys should change this column type to match.
             $table->unsignedBigInteger($this->tenantColumn())->nullable()->index();
+            // Free-form labels set per email via a Mailable's Tracking, for
+            // categorising and filtering recorded mail ("billing", etc.).
+            $table->json('tags')->nullable();
             $table->string('status')->nullable();
             $table->string('bounce_type')->nullable();
             $table->timestamp('sent_at')->nullable();

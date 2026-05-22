@@ -23,6 +23,7 @@ class OutboundMetadata
     const HEADER_RELATED_TYPE  = 'X-Postmaster-Related-Type';
     const HEADER_RELATED_ID    = 'X-Postmaster-Related-Id';
     const HEADER_TENANT        = 'X-Postmaster-Tenant';
+    const HEADER_TAGS          = 'X-Postmaster-Tags';
     const HEADER_STORE_CONTENT = 'X-Postmaster-Store-Content';
 
     /**

@@ -15,9 +15,13 @@ class DeclaredMail extends Mailable
 {
     use TracksMailable;
 
+    /**
+     * @param array<int, string> $labels
+     */
     public function __construct(
         public ?Model $order = null,
         public mixed $account = null,
+        public array $labels = [],
         public ?bool $store = null,
     ) {
     }
@@ -27,6 +31,7 @@ class DeclaredMail extends Mailable
         return new Tracking(
             related: $this->order,
             tenant: $this->account,
+            tags: $this->labels,
             storeContent: $this->store,
         );
     }

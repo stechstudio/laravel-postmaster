@@ -58,6 +58,19 @@ trait TracksMailMessage
     }
 
     /**
+     * Tag this email with free-form labels, recorded on the email_messages
+     * row for filtering and querying (see EmailMessage::taggedWith()).
+     *
+     * @param array<int, string> $tags
+     *
+     * @return $this
+     */
+    public function tags( array $tags )
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->tags($tags));
+    }
+
+    /**
      * Store this email's content, overriding the store_content setting.
      *
      * @return $this

@@ -206,6 +206,15 @@ class PersistenceTest extends TestCase
         $this->assertSame('<p>declared</p>', EmailMessage::where('recipient', 'in@example.com')->first()->html_body);
     }
 
+    public function testDeclaredTagsAreRecordedAndQueryable()
+    {
+        Mail::to('recipient@example.com')->send(new DeclaredMail(labels: ['billing', 'invoice']));
+
+        $this->assertSame(['billing', 'invoice'], EmailMessage::first()->tags);
+        $this->assertCount(1, EmailMessage::taggedWith('billing')->get());
+        $this->assertCount(0, EmailMessage::taggedWith('marketing')->get());
+    }
+
     public function testUnrelatedMailLeavesRelatedColumnsNull()
     {
         Mail::raw('Hello there', function ($message) {

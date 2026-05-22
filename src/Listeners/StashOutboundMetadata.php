@@ -21,6 +21,7 @@ class StashOutboundMetadata
         OutboundMetadata::HEADER_RELATED_TYPE  => 'related_type',
         OutboundMetadata::HEADER_RELATED_ID    => 'related_id',
         OutboundMetadata::HEADER_TENANT        => 'tenant',
+        OutboundMetadata::HEADER_TAGS          => 'tags',
         OutboundMetadata::HEADER_STORE_CONTENT => 'store_content',
     ];
 

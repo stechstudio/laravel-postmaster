@@ -183,6 +183,22 @@ class Postmaster
     }
 
     /**
+     * Build a callback that tags a message with free-form labels.
+     *
+     * @param array<int, string> $tags
+     *
+     * @return Closure
+     */
+    public function tags( array $tags )
+    {
+        return function (Email $message) use ($tags) {
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_TAGS, (string) json_encode(array_values($tags))
+            );
+        };
+    }
+
+    /**
      * Build a callback that overrides content storage for a single message,
      * regardless of the postmaster.persistence.store_content setting.
      *

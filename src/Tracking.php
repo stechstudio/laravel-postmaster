@@ -15,6 +15,8 @@ class Tracking
     /**
      * @param Model|null            $related      The model this email is about.
      * @param Model|int|string|null $tenant       The owning tenant, or its key.
+     * @param array<int, string>    $tags         Free-form labels for filtering
+     *                                            and querying recorded mail.
      * @param bool|null             $storeContent Whether to store this email's
      *                                            content. null defers to the
      *                                            postmaster.persistence.store_content
@@ -23,6 +25,7 @@ class Tracking
     public function __construct(
         public readonly ?Model $related = null,
         public readonly Model|int|string|null $tenant = null,
+        public readonly array $tags = [],
         public readonly ?bool $storeContent = null,
     ) {
     }

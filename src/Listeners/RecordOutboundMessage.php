@@ -64,6 +64,10 @@ class RecordOutboundMessage
             $attributes['related_id']   = $metadata['related_id'];
         }
 
+        if (isset($metadata['tags']) && is_array($tags = json_decode($metadata['tags'], true))) {
+            $attributes['tags'] = $tags;
+        }
+
         // An explicit Mailable forTenant() wins; otherwise fall back to the
         // app-registered tenant resolver.
         $tenant = $metadata['tenant'] ?? $this->events->resolveTenant();

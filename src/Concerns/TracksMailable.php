@@ -75,6 +75,10 @@ trait TracksMailable
             $this->forTenant($tracking->tenant);
         }
 
+        if ($tracking->tags !== []) {
+            $this->tags($tracking->tags);
+        }
+
         if ($tracking->storeContent !== null) {
             $tracking->storeContent ? $this->storeContent() : $this->dontStoreContent();
         }

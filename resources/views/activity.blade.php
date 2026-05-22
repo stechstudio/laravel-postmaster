@@ -47,17 +47,17 @@
             <tbody>
                 @forelse ($events as $event)
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $event->email_message_id) }}'">
-                        <td class="pm-dim" data-label="Time">{{ $event->occurred_at?->format('M j, g:ia') ?? '—' }}</td>
-                        <td class="pm-mono" data-label="Recipient">{{ $event->emailMessage?->recipient ?? '—' }}</td>
-                        <td class="pm-truncate" data-label="Subject">{{ $event->emailMessage?->subject ?? '—' }}</td>
-                        <td data-label="Status">@include('postmaster::partials.badge', ['status' => $event->status])</td>
-                        <td class="pm-dim" data-label="Provider">{{ $event->provider ?? '—' }}</td>
+                        <td class="pm-dim pm-cell-meta">{{ $event->occurred_at?->format('M j, g:ia') ?? '—' }}</td>
+                        <td class="pm-mono pm-cell-sub">{{ $event->emailMessage?->recipient ?? '—' }}</td>
+                        <td class="pm-truncate pm-cell-title">{{ $event->emailMessage?->subject ?? '—' }}</td>
+                        <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $event->status])</td>
+                        <td class="pm-dim">{{ $event->provider ?? '—' }}</td>
                         @if ($hasTenants)
-                            <td class="pm-dim" data-label="{{ $tenantTerm }}">{{ $tenants[$event->emailMessage?->{$tenantColumn}] ?? '—' }}</td>
+                            <td class="pm-dim">{{ $tenants[$event->emailMessage?->{$tenantColumn}] ?? '—' }}</td>
                         @endif
                     </tr>
                 @empty
-                    <tr><td colspan="{{ $columns }}"><div class="pm-empty">No activity matches these filters.</div></td></tr>
+                    <tr class="pm-row-empty"><td class="pm-cell-full" colspan="{{ $columns }}"><div class="pm-empty">No activity matches these filters.</div></td></tr>
                 @endforelse
             </tbody>
         </table>

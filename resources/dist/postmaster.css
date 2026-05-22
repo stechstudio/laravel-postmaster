@@ -83,6 +83,22 @@ a { color: inherit; text-decoration: none; }
 .pm-nav a:hover { background: var(--pm-muted); color: var(--pm-fg); }
 .pm-nav a.is-active { background: var(--pm-muted); color: var(--pm-fg); }
 
+/* Hamburger trigger — hidden until the sidebar collapses on small screens. */
+.pm-nav-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: var(--pm-radius);
+    color: var(--pm-fg);
+    cursor: pointer;
+}
+.pm-nav-toggle:hover { background: var(--pm-muted); }
+
 /* Main */
 .pm-main { flex: 1; min-width: 0; }
 .pm-header {
@@ -364,7 +380,8 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 768px) {
     .pm-layout { flex-direction: column; }
 
-    /* Sidebar becomes a top bar: brand and nav on a row that can wrap. */
+    /* Sidebar becomes a top bar: brand and a hamburger, with the nav
+       dropping down full-width when the hamburger is tapped. */
     .pm-sidebar {
         width: auto;
         height: auto;
@@ -374,11 +391,18 @@ a { color: inherit; text-decoration: none; }
         padding: 10px 16px;
         display: flex;
         align-items: center;
+        justify-content: space-between;
         flex-wrap: wrap;
-        gap: 4px 16px;
     }
     .pm-brand { padding: 0; }
-    .pm-nav { flex-direction: row; flex-wrap: wrap; }
+    .pm-nav-toggle { display: inline-flex; }
+    .pm-nav {
+        display: none;
+        width: 100%;
+        margin-top: 8px;
+    }
+    .pm-nav.is-open { display: flex; }
+    .pm-nav a { padding: 10px 12px; }
 
     .pm-header { padding: 14px 16px; }
     .pm-content { padding: 16px; }

@@ -10,12 +10,26 @@
 </head>
 <body class="pm-body">
 <div class="pm-layout">
-    <aside class="pm-sidebar">
+    <aside class="pm-sidebar" x-data="{ navOpen: false }">
         <div class="pm-brand">
             <img src="{{ route('postmaster.logo') }}" alt="" class="pm-brand-mark">
             Postmaster
         </div>
-        <nav class="pm-nav">
+        <button type="button" class="pm-nav-toggle" @click="navOpen = ! navOpen"
+                :aria-expanded="navOpen" aria-label="Menu">
+            <svg x-show="! navOpen" width="20" height="20" viewBox="0 0 20 20" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="3" y1="6" x2="17" y2="6"/>
+                <line x1="3" y1="10" x2="17" y2="10"/>
+                <line x1="3" y1="14" x2="17" y2="14"/>
+            </svg>
+            <svg x-show="navOpen" style="display: none;" width="20" height="20" viewBox="0 0 20 20"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="5" y1="5" x2="15" y2="15"/>
+                <line x1="15" y1="5" x2="5" y2="15"/>
+            </svg>
+        </button>
+        <nav class="pm-nav" :class="{ 'is-open': navOpen }">
             <a href="{{ route('postmaster.overview') }}" class="{{ request()->routeIs('postmaster.overview') ? 'is-active' : '' }}">Overview</a>
             <a href="{{ route('postmaster.messages') }}" class="{{ request()->routeIs('postmaster.messages*') ? 'is-active' : '' }}">Messages</a>
             <a href="{{ route('postmaster.activity') }}" class="{{ request()->routeIs('postmaster.activity') ? 'is-active' : '' }}">Activity</a>

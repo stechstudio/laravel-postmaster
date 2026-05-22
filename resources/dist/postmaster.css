@@ -354,3 +354,46 @@ a { color: inherit; text-decoration: none; }
     padding: 10px 14px;
     font-size: 13px;
 }
+
+/* A wide table keeps its shape; its card scrolls sideways when space runs out
+   (a no-op on desktop, where the table fits). */
+.pm-card:has(.pm-table) { overflow-x: auto; }
+
+/* Responsive — phones and small tablets. The grids above already reflow via
+   auto-fit; this handles the layout, the sidebar, and the fixed-width bits. */
+@media (max-width: 768px) {
+    .pm-layout { flex-direction: column; }
+
+    /* Sidebar becomes a top bar: brand and nav on a row that can wrap. */
+    .pm-sidebar {
+        width: auto;
+        height: auto;
+        position: static;
+        border-right: 0;
+        border-bottom: 1px solid var(--pm-border);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+    }
+    .pm-brand { padding: 0; }
+    .pm-nav { flex-direction: row; flex-wrap: wrap; }
+
+    .pm-header { padding: 14px 16px; }
+    .pm-content { padding: 16px; }
+    .pm-card { padding: 14px; }
+
+    /* Filter fields tile and fill the row instead of sizing to content. */
+    .pm-filters .pm-field { flex: 1 1 140px; }
+    .pm-filters .pm-input,
+    .pm-filters .pm-select { width: 100%; }
+
+    .pm-table { min-width: 560px; }
+
+    .pm-detail-grid { grid-template-columns: 1fr; }
+    .pm-frame { height: 360px; }
+
+    .pm-imgbar { flex-wrap: wrap; }
+    .pm-pager { flex-wrap: wrap; gap: 10px; }
+}

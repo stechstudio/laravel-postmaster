@@ -17,7 +17,7 @@
         {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
         <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
             @include('postmaster::partials.filters.status')
-            @include('postmaster::partials.filters.options', ['name' => 'provider', 'label' => 'Provider', 'options' => $providers])
+            @include('postmaster::partials.filters.options', ['name' => 'provider', 'label' => 'Provider', 'options' => $providers, 'min' => 2])
             @include('postmaster::partials.filters.options', ['name' => 'tag', 'label' => 'Tag', 'options' => $tags])
             @include('postmaster::partials.filters.text', ['name' => 'recipient', 'label' => 'Recipient'])
             @include('postmaster::partials.filters.text', ['name' => 'subject', 'label' => 'Subject'])

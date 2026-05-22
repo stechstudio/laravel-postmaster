@@ -85,6 +85,18 @@ class DashboardTest extends TestCase
             ->assertDontSee('pm@example.com');
     }
 
+    public function testProviderFilterIsHiddenWithASingleProvider()
+    {
+        Postmaster::auth(fn () => true);
+        EmailMessage::create(['message_id' => 'a', 'provider' => 'SendGrid']);
+        EmailMessage::create(['message_id' => 'b', 'provider' => 'SendGrid']);
+
+        // One provider can only ever select everything — drop the dropdown.
+        $this->get('/postmaster/messages')
+            ->assertOk()
+            ->assertDontSee('name="provider"', false);
+    }
+
     public function testMessagesListFiltersByTag()
     {
         Postmaster::auth(fn () => true);

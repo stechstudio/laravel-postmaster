@@ -3,20 +3,46 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/stechstudio/laravel-postmaster.svg?style=flat-square)](https://packagist.org/packages/stechstudio/laravel-postmaster)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
 
-Your Laravel app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, or
-Resend. Each of those providers can POST a webhook back to you when something
-happens to a message — a delivery, an open, a bounce, a complaint — but every
-provider authenticates, shapes, and names those events differently.
+**Provider-agnostic email webhooks and delivery tracking for Laravel.**
 
-Postmaster accepts webhooks from any supported provider and normalizes them
-into a single Laravel `EmailEvent`. You listen for one event and react — with
-no provider-specific code in your app. Switch on the optional persistence layer
-and it also records every outbound message, keeping a queryable delivery
-history that stays current as events arrive.
+Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, or Resend.
+Each of them can POST a webhook when something happens to a message —
+delivered, opened, bounced, complained — but every provider authenticates,
+shapes, and names those events differently. Handle them yourself and your
+bounce-and-complaint logic is welded to one vendor's payload format.
 
-## Supported providers
+Postmaster sits in front of all five. It verifies and parses every inbound
+webhook and hands your app a single, normalized `EmailEvent` — the same shape
+no matter who sent it. You write your delivery logic **once**, and switching
+providers, running two at once, or failing over between them takes no change to
+that code at all.
 
-SendGrid, Postmark, Mailgun, Amazon SES, and Resend.
+That's the whole package by default — a pure event dispatcher, zero
+configuration. Opt in to the persistence layer and it also records every
+outbound email and keeps it current as events arrive: a queryable delivery
+history, a self-maintaining suppression list, and a dashboard to browse it all.
+
+## What you get
+
+- **One event for every provider.** Every webhook — SendGrid, Postmark,
+  Mailgun, SES, Resend — arrives as the same `EmailEvent`. No provider-specific
+  parsing anywhere in your app.
+- **Provider independence.** Because your code only ever sees the normalized
+  event, you can switch providers, run several side by side, or fail over
+  between them without changing a line of it.
+- **Verified by default.** Every inbound webhook is authenticated — by
+  signature, token, or basic auth, depending on the provider — and anything
+  untrusted is rejected.
+- **Delivery tracking, when you want it.** Opt in and Postmaster records every
+  send and keeps it current from the webhook stream: `delivered()` /
+  `bounced()` / `failed()` query scopes, a full per-message timeline, and an
+  address suppression list that maintains itself.
+- **Emails linked to your models.** Tie a send to an `Order` or a `User` and
+  read its delivery state straight off the model.
+- **A support dashboard.** A gated, cross-tenant UI to search messages, watch
+  events arrive live, and inspect any stored email.
+- **Sandbox delivery.** Intercept every outbound email in staging — recorded in
+  your app's history, never actually sent.
 
 ## Requirements
 
@@ -29,13 +55,17 @@ SendGrid, Postmark, Mailgun, Amazon SES, and Resend.
 composer require stechstudio/laravel-postmaster
 ```
 
-That's all the setup there is — the webhook route is registered automatically.
+That's the whole install — the webhook route registers itself, and there's
+nothing to publish until you opt into a feature that needs it.
 
-## Quick start
+## Getting started
+
+The core of Postmaster is one webhook endpoint and one event. Two steps and
+you're reacting to delivery events from any provider.
 
 ### 1. Point your provider at the webhook
 
-The package serves `POST .hooks/postmaster/{provider}`. In your email
+Postmaster serves `POST /.hooks/postmaster/{provider}`. In your email
 provider's dashboard, set the webhook URL to:
 
 ```
@@ -46,7 +76,8 @@ https://your-app.com/.hooks/postmaster/{provider}
 
 ### 2. Listen for the event
 
-In a service provider's `boot()` method:
+Every webhook — from any provider — is dispatched as a normalized `EmailEvent`.
+Listen for it in a service provider's `boot()` method:
 
 ```php
 use Illuminate\Support\Facades\Event;
@@ -54,88 +85,32 @@ use STS\Postmaster\EmailEvent;
 
 Event::listen(function (EmailEvent $event) {
     if ($event->isPermanent()) {
-        // A hard bounce or a block — safe to suppress this address.
-        MySuppressionList::add($event->getRecipient());
+        // Uh oh — a hard bounce or a block. This address won't accept mail again.
+        // What happens next is your call: pause sends, flag the account, alert the team.
+        logger()->warning("Email permanently failed for {$event->getRecipient()}");
     }
 });
 ```
 
-That's the whole integration. Every webhook — a delivery, open, bounce, or
-complaint, from any provider — arrives as one normalized `EmailEvent`.
+That's the whole integration. A delivery, open, bounce, or complaint — from
+SendGrid or Postmark or any other provider — all arrive here as one
+`EmailEvent` with one API.
 
-For anything substantial, use a dedicated listener class instead — Laravel
-auto-discovers it, and it can implement `Illuminate\Contracts\Queue\ShouldQueue`
-to process webhooks off the request cycle.
+For anything beyond a few lines, use a dedicated listener class instead —
+Laravel auto-discovers it, and it can implement
+`Illuminate\Contracts\Queue\ShouldQueue` to process webhooks off the request
+cycle.
 
-> **Before going live**, set up [webhook verification](#verifying-webhooks) so
-> the package can trust inbound requests. Unverified webhooks are rejected by
-> default — it's one credential per provider.
+> **Before you go live**, set up [webhook verification](#securing-webhooks).
+> Postmaster rejects unverified webhooks by default — it's one credential per
+> provider.
 
-## Checking your setup
+## Securing webhooks
 
-To confirm the whole round trip, run:
-
-```bash
-php artisan postmaster:verify
-```
-
-It detects your provider from the mail config, shows the exact webhook URL to
-register, sends a real test email to an address you supply, then watches live
-for the delivery webhook to come back — reporting each event the instant it
-lands.
-
-The live watch needs a cache store shared between your CLI and web processes
-(`file`, `redis`, `database`, …). With the per-process `array` store the
-command sends the test email and stops there.
-
-## The EmailEvent
-
-Every webhook becomes an `EmailEvent` with a normalized API:
-
-```php
-$event->getProvider();    // "SendGrid", "Postmark", "Mailgun", "SES", "Resend"
-$event->getAction();      // one of the EmailEvent::EVENT_* constants
-$event->getRecipient();   // the recipient email address
-$event->getMessageId();   // the provider's message id
-$event->getTimestamp();   // unix timestamp (int)
-$event->getDate();        // the timestamp as a DateTimeImmutable (UTC)
-$event->getBounceType();  // normalized bounce severity, or null
-$event->isPermanent();    // true for a hard bounce or a block
-$event->getResponse();    // the provider's response/diagnostic detail
-$event->getReason();      // the provider's reason string
-$event->getCode();        // the provider's status code
-$event->getTags();        // Collection of tags/categories
-$event->getData();        // Collection of custom data
-$event->getPayload();     // the raw provider payload
-$event->toArray();        // everything above as an array
-```
-
-### Actions
-
-`getAction()` returns one of:
-
-`EmailEvent::EMAIL_ACCEPTED`, `EVENT_DEFERRED`, `EVENT_DELIVERED`,
-`EVENT_BOUNCED`, `EVENT_DROPPED`, `EVENT_COMPLAINED`, `EVENT_OPENED`,
-`EVENT_CLICKED`.
-
-### Bounce classification
-
-Beyond the action, bounces are normalized into a severity so you can answer
-"should I stop mailing this address?" without provider-specific knowledge:
-
-- `EmailEvent::BOUNCE_HARD` — permanent; safe to suppress.
-- `EmailEvent::BOUNCE_SOFT` — transient; retry later.
-- `EmailEvent::BOUNCE_BLOCK` — blocked by reputation/policy.
-
-`getBounceType()` returns one of these (or `null` when the event is not a
-bounce). `isPermanent()` is a shortcut for "hard or block".
-
-## Verifying webhooks
-
-The package verifies every inbound webhook and rejects anything it can't
-trust. Each provider authenticates its webhooks differently — configure the
-one credential your provider needs. These are `.env` values; no config file
-needs to be published.
+Postmaster authenticates every inbound webhook and rejects anything it can't
+trust. Each provider proves authenticity differently — configure the one
+credential yours needs. These are all `.env` values; no config file needs to be
+published.
 
 ### SendGrid
 
@@ -189,6 +164,66 @@ Each provider's verification method is its `auth` key in
 `user-agent`) or a fully-qualified authorizer class. Providers default to
 signature verification where the provider supports it.
 
+## Verify your setup
+
+With the webhook pointed and its credential set, confirm the whole round trip:
+
+```bash
+php artisan postmaster:verify
+```
+
+It detects your provider from the mail config, shows the exact webhook URL to
+register, sends a real test email to an address you supply, then watches live
+for the delivery webhook to come back — reporting each event the instant it
+lands.
+
+The live watch needs a cache store shared between your CLI and web processes
+(`file`, `redis`, `database`, …). With the per-process `array` store the
+command sends the test email and stops there.
+
+## The EmailEvent
+
+Every webhook becomes an `EmailEvent` with a normalized API — the same methods
+whatever the provider:
+
+```php
+$event->getProvider();    // "SendGrid", "Postmark", "Mailgun", "SES", "Resend"
+$event->getAction();      // one of the EmailEvent::EVENT_* constants
+$event->getRecipient();   // the recipient email address
+$event->getMessageId();   // the provider's message id
+$event->getTimestamp();   // unix timestamp (int)
+$event->getDate();        // the timestamp as a DateTimeImmutable (UTC)
+$event->getBounceType();  // normalized bounce severity, or null
+$event->isPermanent();    // true for a hard bounce or a block
+$event->getResponse();    // the provider's response/diagnostic detail
+$event->getReason();      // the provider's reason string
+$event->getCode();        // the provider's status code
+$event->getTags();        // Collection of tags/categories
+$event->getData();        // Collection of custom data
+$event->getPayload();     // the raw provider payload
+$event->toArray();        // everything above as an array
+```
+
+### Actions
+
+`getAction()` returns one of:
+
+`EmailEvent::EMAIL_ACCEPTED`, `EVENT_DEFERRED`, `EVENT_DELIVERED`,
+`EVENT_BOUNCED`, `EVENT_DROPPED`, `EVENT_COMPLAINED`, `EVENT_OPENED`,
+`EVENT_CLICKED`.
+
+### Bounce classification
+
+Beyond the action, bounces are normalized into a severity so you can answer
+"should I stop mailing this address?" without provider-specific knowledge:
+
+- `EmailEvent::BOUNCE_HARD` — permanent; safe to suppress.
+- `EmailEvent::BOUNCE_SOFT` — transient; retry later.
+- `EmailEvent::BOUNCE_BLOCK` — blocked by reputation/policy.
+
+`getBounceType()` returns one of these (or `null` when the event is not a
+bounce). `isPermanent()` is a shortcut for "hard or block".
+
 ## Invalid payloads
 
 If a payload can't be turned into a valid event, the `on_invalid` config
@@ -198,12 +233,14 @@ setting decides what happens: `log` (default), `throw`, or `ignore`.
 POSTMASTER_ON_INVALID=log
 ```
 
-## Optional persistence
+## Tracking delivery
 
-So far the package is a pure event dispatcher. Enable persistence and it will
-also **record every outbound email** and keep that record up to date as
-webhook events arrive — correlated by provider message id — giving you a
-queryable delivery history.
+Everything above is the core: a verified webhook endpoint and a normalized
+event. Everything from here on is opt-in.
+
+Enable persistence and Postmaster also **records every outbound email** and
+keeps that record up to date as webhook events arrive — correlated by provider
+message id — giving you a queryable delivery history.
 
 ```
 POSTMASTER_PERSISTENCE=true
@@ -573,7 +610,7 @@ POSTMASTER_DASHBOARD=true
 ```
 
 The dashboard reads the persistence tables, so it requires the
-[persistence layer](#optional-persistence) to be enabled.
+[persistence layer](#tracking-delivery) to be enabled.
 
 ### Authorization
 

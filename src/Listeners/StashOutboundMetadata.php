@@ -21,7 +21,6 @@ class StashOutboundMetadata
         OutboundMetadata::HEADER_RELATED_TYPE  => 'related_type',
         OutboundMetadata::HEADER_RELATED_ID    => 'related_id',
         OutboundMetadata::HEADER_TENANT        => 'tenant',
-        OutboundMetadata::HEADER_TAGS          => 'tags',
         OutboundMetadata::HEADER_STORE_CONTENT => 'store_content',
     ];
 
@@ -40,6 +39,19 @@ class StashOutboundMetadata
                 $stashed[$key] = $value->getBodyAsString();
                 $headers->remove($header);
             }
+        }
+
+        // Laravel renders a Mailable's / notification's tags as Symfony
+        // X-Tag headers. Read them so they land on the record, but leave
+        // them in place — the provider transport forwards them.
+        $tags = [];
+
+        foreach ($headers->all('x-tag') as $tag) {
+            $tags[] = $tag->getBodyAsString();
+        }
+
+        if ($tags !== []) {
+            $stashed['tags'] = $tags;
         }
 
         if ($stashed !== []) {

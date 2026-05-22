@@ -75,8 +75,10 @@ trait TracksMailable
             $this->forTenant($tracking->tenant);
         }
 
-        if ($tracking->tags !== []) {
-            $this->tags($tracking->tags);
+        // Tags are declared on the Tracking but applied through Laravel's
+        // own tag() — one tag concept, recorded and provider-forwarded alike.
+        foreach ($tracking->tags as $tag) {
+            $this->tag($tag);
         }
 
         if ($tracking->storeContent !== null) {

@@ -64,8 +64,8 @@ class RecordOutboundMessage
             $attributes['related_id']   = $metadata['related_id'];
         }
 
-        if (isset($metadata['tags']) && is_array($tags = json_decode($metadata['tags'], true))) {
-            $attributes['tags'] = $tags;
+        if (! empty($metadata['tags'])) {
+            $attributes['tags'] = $metadata['tags'];
         }
 
         // An explicit Mailable forTenant() wins; otherwise fall back to the

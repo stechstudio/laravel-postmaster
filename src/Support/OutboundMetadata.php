@@ -23,17 +23,16 @@ class OutboundMetadata
     const HEADER_RELATED_TYPE  = 'X-Postmaster-Related-Type';
     const HEADER_RELATED_ID    = 'X-Postmaster-Related-Id';
     const HEADER_TENANT        = 'X-Postmaster-Tenant';
-    const HEADER_TAGS          = 'X-Postmaster-Tags';
     const HEADER_STORE_CONTENT = 'X-Postmaster-Store-Content';
 
     /**
-     * @var array<int, array<string, string>>
+     * @var array<int, array<string, mixed>>
      */
     protected static $pending = [];
 
     /**
      * @param int                   $objectId
-     * @param array<string, string> $attributes
+     * @param array<string, mixed> $attributes
      *
      * @return void
      */
@@ -47,7 +46,7 @@ class OutboundMetadata
      *
      * @param int $objectId
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     public static function pull( $objectId )
     {

@@ -463,20 +463,22 @@ is dequeued (so it's queue-safe), and records what the `Tracking` declares.
 Every field is optional, so declare only the ones that apply.
 
 > Need to set something dynamically instead? `TracksMailable` also exposes
-> `relatedTo($model)`, `forTenant($tenant)`, `tags($tags)`, `storeContent()`
-> and `dontStoreContent()`. Call them anywhere before the mailable is sent.
+> `relatedTo($model)`, `forTenant($tenant)`, `storeContent()` and
+> `dontStoreContent()`. Call them anywhere before the mailable is sent.
 
 ### Tagging
 
-`Tracking`'s `tags` are free-form labels stored on the recorded message, for
-categorising and querying your mail. They're recorded locally only, never sent
-to the provider, so they behave identically whatever you send through.
+`Tracking`'s `tags` are Laravel's own mailable tags. Postmaster records them on
+the message so you can categorise and query your recorded mail:
 
 ```php
 EmailMessage::taggedWith('billing')->bounced()->get();
 ```
 
-A notification's `MailMessage` carries the same as a fluent `tags()` method.
+Because they're Laravel's tags, a notification's `MailMessage` sets them with
+its native `tag()` method, and Symfony forwards them to providers whose
+transport supports tags. Postmaster reads and records whatever is there, so a
+plain Mailable calling `tag()` directly is recorded just the same.
 
 Add the `HasEmailMessages` trait to the related model:
 

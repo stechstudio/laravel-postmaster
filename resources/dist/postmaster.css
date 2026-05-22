@@ -83,6 +83,22 @@ a { color: inherit; text-decoration: none; }
 .pm-nav a:hover { background: var(--pm-muted); color: var(--pm-fg); }
 .pm-nav a.is-active { background: var(--pm-muted); color: var(--pm-fg); }
 
+/* Hamburger trigger — hidden until the sidebar collapses on small screens. */
+.pm-nav-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: var(--pm-radius);
+    color: var(--pm-fg);
+    cursor: pointer;
+}
+.pm-nav-toggle:hover { background: var(--pm-muted); }
+
 /* Main */
 .pm-main { flex: 1; min-width: 0; }
 .pm-header {
@@ -225,6 +241,24 @@ a { color: inherit; text-decoration: none; }
 
 /* Forms */
 .pm-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+
+/* "Filters" trigger — hidden on desktop, where the filters always show. */
+.pm-filters-toggle {
+    display: none;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 2px;
+    background: transparent;
+    border: 0;
+    color: var(--pm-fg);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.pm-filters-chevron { transition: transform 0.15s ease; }
+.pm-filters-chevron.is-open { transform: rotate(180deg); }
 .pm-field { display: flex; flex-direction: column; gap: 4px; }
 .pm-field label {
     font-size: 11px;
@@ -279,6 +313,7 @@ a { color: inherit; text-decoration: none; }
 .pm-meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
 .pm-meta dt { color: var(--pm-muted-fg); font-size: 12px; }
 .pm-meta dd { margin: 0; }
+.pm-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .pm-frame {
     width: 100%;
@@ -352,4 +387,59 @@ a { color: inherit; text-decoration: none; }
     border-radius: var(--pm-radius);
     padding: 10px 14px;
     font-size: 13px;
+}
+
+/* A wide table keeps its shape; its card scrolls sideways when space runs out
+   (a no-op on desktop, where the table fits). */
+.pm-card:has(.pm-table) { overflow-x: auto; }
+
+/* Responsive — phones and small tablets. The grids above already reflow via
+   auto-fit; this handles the layout, the sidebar, and the fixed-width bits. */
+@media (max-width: 768px) {
+    .pm-layout { flex-direction: column; }
+
+    /* Sidebar becomes a top bar: brand and a hamburger, with the nav
+       dropping down full-width when the hamburger is tapped. */
+    .pm-sidebar {
+        width: auto;
+        height: auto;
+        position: static;
+        border-right: 0;
+        border-bottom: 1px solid var(--pm-border);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+    .pm-brand { padding: 0; }
+    .pm-nav-toggle { display: inline-flex; }
+    .pm-nav {
+        display: none;
+        width: 100%;
+        margin-top: 8px;
+    }
+    .pm-nav.is-open { display: flex; }
+    .pm-nav a { padding: 10px 12px; }
+
+    .pm-header { padding: 14px 16px; }
+    .pm-content { padding: 16px; }
+    .pm-card { padding: 14px; }
+
+    /* Filters collapse behind the trigger, and the fields tile and fill
+       the row instead of sizing to content. */
+    .pm-filters-toggle { display: flex; }
+    .pm-filters { display: none; }
+    .pm-filters.is-open { display: flex; margin-top: 12px; }
+    .pm-filters .pm-field { flex: 1 1 140px; }
+    .pm-filters .pm-input,
+    .pm-filters .pm-select { width: 100%; }
+
+    .pm-table { min-width: 560px; }
+
+    .pm-detail-grid { grid-template-columns: 1fr; }
+    .pm-frame { height: 360px; }
+
+    .pm-imgbar { flex-wrap: wrap; }
+    .pm-pager { flex-wrap: wrap; gap: 10px; }
 }

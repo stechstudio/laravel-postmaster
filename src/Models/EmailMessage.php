@@ -52,6 +52,7 @@ class EmailMessage extends Model
     protected $casts = [
         'recipients'    => 'array',
         'attachments'   => 'array',
+        'tags'          => 'array',
         'sent_at'       => 'datetime',
         'last_event_at' => 'datetime',
     ];
@@ -224,5 +225,18 @@ class EmailMessage extends Model
     public function scopeClicked( Builder $query )
     {
         return $query->where('status', EmailEvent::EVENT_CLICKED);
+    }
+
+    /**
+     * Scope to messages carrying the given tag.
+     *
+     * @param Builder $query
+     * @param string  $tag
+     *
+     * @return Builder
+     */
+    public function scopeTaggedWith( Builder $query, $tag )
+    {
+        return $query->whereJsonContains('tags', $tag);
     }
 }

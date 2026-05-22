@@ -85,6 +85,29 @@ class DashboardTest extends TestCase
             ->assertDontSee('pm@example.com');
     }
 
+    public function testMessagesListFiltersByTag()
+    {
+        Postmaster::auth(fn () => true);
+        EmailMessage::create(['message_id' => 'b1', 'recipient' => 'billing@example.com', 'tags' => ['billing']]);
+        EmailMessage::create(['message_id' => 'o1', 'recipient' => 'onboard@example.com', 'tags' => ['onboarding']]);
+
+        $this->get('/postmaster/messages?tag=billing')
+            ->assertOk()
+            ->assertSee('billing@example.com')
+            ->assertDontSee('onboard@example.com');
+    }
+
+    public function testMessageDetailShowsTags()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create(['message_id' => 'm1', 'tags' => ['billing', 'q3']]);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSee('Tags')
+            ->assertSee('q3');
+    }
+
     public function testMessageSubjectIsEscapedInThePageTitle()
     {
         Postmaster::auth(fn () => true);

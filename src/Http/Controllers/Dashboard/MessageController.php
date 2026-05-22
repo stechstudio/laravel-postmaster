@@ -28,15 +28,20 @@ class MessageController extends Controller
             $query->where($this->tenantColumn(), $tenant);
         }
 
+        if ($tag = $request->query('tag')) {
+            $query->taggedWith($tag);
+        }
+
         $this->applyContains($query, 'recipient', $request->query('recipient'));
         $this->applyContains($query, 'subject', $request->query('subject'));
         $this->applyDateRange($query, 'created_at', $request->query('from'), $request->query('to'));
 
         return response()->view('postmaster::messages', [
-            'messages'  => $query->paginate(50)->withQueryString(),
-            'filters'   => $request->query(),
-            'statuses'  => $this->statuses(),
-            'providers' => $this->providersInUse(),
+            'messages'   => $query->paginate(50)->withQueryString(),
+            'filters'    => $request->query(),
+            'statuses'   => $this->statuses(),
+            'providers'  => $this->providersInUse(),
+            'tags'       => $this->tagsInUse(),
             'tenants'    => $this->tenantLabels($this->tenantKeysInUse()),
             'tenantTerm' => $this->tenantTerm(),
         ]);
@@ -87,6 +92,25 @@ class MessageController extends Controller
             ->distinct()
             ->orderBy('provider')
             ->pluck('provider')
+            ->all();
+    }
+
+    /**
+     * The distinct tags present across recorded messages, for the filter.
+     * Tags live in a JSON array column, so they are flattened in PHP rather
+     * than with a database-specific distinct.
+     *
+     * @return array
+     */
+    protected function tagsInUse()
+    {
+        return $this->messageQuery()
+            ->whereNotNull('tags')
+            ->pluck('tags')
+            ->flatten()
+            ->unique()
+            ->sort()
+            ->values()
             ->all();
     }
 }

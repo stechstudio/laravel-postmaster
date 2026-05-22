@@ -86,6 +86,14 @@
                     @if ($message->related_type)
                         <dt>Related</dt><dd class="pm-mono">{{ class_basename($message->related_type) }} #{{ $message->related_id }}</dd>
                     @endif
+                    @if (! empty($message->tags))
+                        <dt>Tags</dt>
+                        <dd class="pm-tags">
+                            @foreach ($message->tags as $tag)
+                                <span class="pm-badge pm-badge--muted">{{ $tag }}</span>
+                            @endforeach
+                        </dd>
+                    @endif
                     <dt>Sent</dt><dd>{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</dd>
                     <dt>Last event</dt><dd>{{ $message->last_event_at?->format('M j, g:ia') ?? '—' }}</dd>
                 </dl>

@@ -53,6 +53,7 @@ class DatabaseSeeder extends Seeder
                 'tenant_id'     => $tenantIds[array_rand($tenantIds)],
                 'sent_at'       => $sentAt,
                 'last_event_at' => $status === EmailEvent::EVENT_SENT ? null : $sentAt->copy()->addMinutes(rand(2, 240)),
+                'tags'          => $this->tagsFor($subject),
                 'html_body'     => $this->messageBody($subject, $i),
                 'created_at'    => $sentAt,
                 'updated_at'    => $sentAt,
@@ -91,6 +92,27 @@ class DatabaseSeeder extends Seeder
      * images (a hotlinked photo and logo) so the message preview's
      * "Show images" bar can be seen in action under `composer serve`.
      */
+    /**
+     * Sample tags for a subject, so the dashboard's tag filter has something
+     * to show under `composer serve`.
+     *
+     * @return array<int, string>
+     */
+    protected function tagsFor(string $subject): array
+    {
+        return match ($subject) {
+            'Your receipt from Acme'          => ['billing', 'receipt'],
+            'Invoice #10428'                  => ['billing'],
+            'Welcome to Acme'                 => ['onboarding'],
+            'Your trial is ending soon'       => ['onboarding', 'billing'],
+            'Reset your password'             => ['security'],
+            'Action required on your account' => ['account'],
+            'Your order has shipped'          => ['orders'],
+            'Weekly digest'                   => ['digest'],
+            default                           => [],
+        };
+    }
+
     protected function messageBody(string $subject, int $i): string
     {
         $heading = '<h1 style="font-family:sans-serif">'.$subject.'</h1>';

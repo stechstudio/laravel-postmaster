@@ -146,8 +146,11 @@ return [
          * email_message_events table — so a message keeps its complete
          * history, including repeated opens and clicks, alongside the latest
          * status on the summary record.
+         *
+         * On by default whenever persistence is enabled. Set
+         * POSTMASTER_RECORD_EVENTS=false to keep only the summary record.
          */
-        'record_events' => env('POSTMASTER_RECORD_EVENTS', false),
+        'record_events' => env('POSTMASTER_RECORD_EVENTS', true),
         'events_table'  => 'email_message_events',
         'event_model'   => \STS\Postmaster\Models\EmailMessageEvent::class,
 
@@ -168,8 +171,11 @@ return [
          *
          * Suppression is global, never per tenant: providers suppress on
          * their side regardless of which tenant sent the mail.
+         *
+         * On by default whenever persistence is enabled. Set
+         * POSTMASTER_TRACK_ADDRESSES=false to disable it.
          */
-        'track_addresses' => env('POSTMASTER_TRACK_ADDRESSES', false),
+        'track_addresses' => env('POSTMASTER_TRACK_ADDRESSES', true),
         'addresses_table' => 'email_addresses',
         'address_model'   => \STS\Postmaster\Models\EmailAddress::class,
     ],

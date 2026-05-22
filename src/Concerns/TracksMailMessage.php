@@ -6,26 +6,25 @@ use Illuminate\Database\Eloquent\Model;
 use STS\Postmaster\Postmaster;
 
 /**
- * Adds relatedTo() / forTenant() to a notification's MailMessage, associating
- * the outbound email with one of your models (an Order, User, etc.) and/or the
- * tenant it belongs to. When persistence is enabled, the recorded
- * email_messages row is linked back accordingly.
+ * Adds the fluent relatedTo() / forTenant() / storeContent() /
+ * dontStoreContent() methods to a notification's MailMessage, declaring what
+ * the email is about and how it should be recorded. When persistence is
+ * enabled, the recorded email_messages row reflects each of them.
  *
  * For notifications, the package ships STS\Postmaster\Notifications\MailMessage
- * with this trait already applied — return that from toMail() and chain
- * relatedTo()/forTenant(), no extra wiring. Add the trait directly only if you
- * maintain your own MailMessage subclass. (To skip subclassing entirely, call
- * Postmaster::relatedTo()/forTenant() and pass the result to
- * withSymfonyMessage() yourself — the trait delegates to those same builders.)
+ * with this trait already applied — return that from toMail() and chain the
+ * methods, no extra wiring. Add the trait directly only if you maintain your
+ * own MailMessage subclass. (To skip subclassing entirely, call the matching
+ * Postmaster builders and pass the result to withSymfonyMessage() yourself —
+ * the trait delegates to those.)
  *
- * For Mailables, use TracksMailable instead — it carries these same methods and
- * additionally lets a Mailable declare related()/tenant() the way it declares
- * envelope()/content().
+ * For Mailables, use TracksMailable instead — it carries these same methods,
+ * and additionally lets a Mailable declare everything up front through a
+ * postmaster() method, the way it declares envelope() / content().
  *
- * The associations are carried on the message only in-process: each is
- * written as a header, then read and stripped before the email is
- * transmitted, so nothing about the related model or tenant is ever exposed
- * in the outbound email.
+ * Each declaration is carried on the message only in-process: written as a
+ * header, then read and stripped before the email is transmitted, so none of
+ * it is ever exposed in the outbound email.
  *
  * Requires the optional persistence layer (POSTMASTER_PERSISTENCE=true).
  */
@@ -55,5 +54,27 @@ trait TracksMailMessage
     public function forTenant( $tenant )
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->forTenant($tenant));
+    }
+
+    /**
+     * Store this email's content, overriding the store_content setting.
+     *
+     * @return $this
+     */
+    public function storeContent()
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->storeContent(true));
+    }
+
+    /**
+     * Skip storing this email's content, overriding the store_content
+     * setting. Use it for messages that carry secrets a database shouldn't
+     * keep — password resets, magic-login links, MFA codes.
+     *
+     * @return $this
+     */
+    public function dontStoreContent()
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->storeContent(false));
     }
 }

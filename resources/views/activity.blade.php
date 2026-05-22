@@ -18,8 +18,10 @@
         </div>
     @endunless
 
-    <div class="pm-card">
-        <form method="GET" action="{{ route('postmaster.activity') }}" class="pm-filters" x-data>
+    @php $filtersActive = collect($filters)->except('page')->filter()->isNotEmpty(); @endphp
+    <div class="pm-card" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
+        @include('postmaster::partials.filters.toggle')
+        <form method="GET" action="{{ route('postmaster.activity') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
             @include('postmaster::partials.filters.status')
             @include('postmaster::partials.filters.text', ['name' => 'recipient', 'label' => 'Recipient'])
             @include('postmaster::partials.filters.tenant')

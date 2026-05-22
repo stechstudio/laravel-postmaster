@@ -296,15 +296,12 @@ The summary record above keeps only a message's *latest* status. That's enough
 for "is this delivered?" but it can't represent a message that was opened three
 times, and it overwrites the history as new events arrive.
 
-Turn on timeline recording and the package also keeps every event as its own
-row, the initial send and each webhook alike, so a message retains its complete
-delivery history:
+With persistence on, the package also keeps every event as its own row, the
+initial send and each webhook alike, so a message retains its complete delivery
+history. This is on by default; set `POSTMASTER_RECORD_EVENTS=false` to keep
+only the summary record.
 
-```
-POSTMASTER_RECORD_EVENTS=true
-```
-
-Each `EmailMessage` then exposes its timeline, oldest first, via the `events()`
+Each `EmailMessage` exposes its timeline, oldest first, via the `events()`
 relationship. It's ideal for an activity feed:
 
 ```php
@@ -341,12 +338,9 @@ answers a different question: should I send to this *address* at all? The
 message tables can't answer that cleanly, because a bad address poisons every
 future send, not just the message that bounced.
 
-Turn it on and the package keeps an `email_addresses` table: one row per
-recipient with a current `status` of `active` or `suppressed`.
-
-```
-POSTMASTER_TRACK_ADDRESSES=true
-```
+With persistence on, the package keeps an `email_addresses` table: one row per
+recipient with a current `status` of `active` or `suppressed`. This is on by
+default; set `POSTMASTER_TRACK_ADDRESSES=false` to disable it.
 
 An address is suppressed automatically on a hard bounce, a spam complaint, or a
 drop. Soft bounces don't count, since they're transient. Suppression is sticky:
@@ -415,6 +409,20 @@ You can also run it on demand:
 php artisan postmaster:prune-content
 ```
 
+A single email can override the global setting. A Mailable's `Tracking` carries
+a `storeContent` field, and the notification `MailMessage` has fluent
+`storeContent()` / `dontStoreContent()` methods. So a password-reset or MFA
+email can keep its body out of the database even when storage is on, and a
+specific email can be captured even when it's off:
+
+```php
+// in a Mailable's postmaster() method
+return new Tracking(related: $this->user, storeContent: false);
+
+// on a notification MailMessage
+return (new MailMessage)->subject('Your login code')->dontStoreContent();
+```
+
 ### Relating emails to your models
 
 Recorded emails can be linked back to one of your own models, like an `Order`
@@ -422,13 +430,13 @@ or a `User`, so that model can list its own delivery history. That's handy for
 an admin activity feed that highlights bounces and complaints.
 
 Add the `TracksMailable` trait to a Mailable and declare what the email is
-about with a `related()` method, plus an optional `tenant()`. They work the
-same way as Laravel's own `envelope()` and `content()`:
+about with a `postmaster()` method that returns a `Tracking` object. It works
+the same way as Laravel's own `envelope()` and `content()`:
 
 ```php
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Mailable;
 use STS\Postmaster\Concerns\TracksMailable;
+use STS\Postmaster\Tracking;
 
 class OrderConfirmation extends Mailable
 {
@@ -436,15 +444,13 @@ class OrderConfirmation extends Mailable
 
     public function __construct(public Order $order) {}
 
-    public function related(): Model
+    public function postmaster(): Tracking
     {
-        return $this->order;
-    }
-
-    // Optional. Most apps let the tenant come from resolveTenantUsing().
-    public function tenant(): mixed
-    {
-        return $this->order->account_id;
+        return new Tracking(
+            related: $this->order,
+            tenant: $this->order->account_id,   // optional; see Multitenancy below
+            tags: ['billing'],                  // optional; see below
+        );
     }
 
     public function envelope(): Envelope { /* ... */ }
@@ -452,12 +458,27 @@ class OrderConfirmation extends Mailable
 }
 ```
 
-Postmaster reads `related()` and `tenant()` when the mailable is sent, after a
-queued job is dequeued (so it's queue-safe), and records the association.
+Postmaster reads `postmaster()` when the mailable is sent, after a queued job
+is dequeued (so it's queue-safe), and records what the `Tracking` declares.
+Every field is optional, so declare only the ones that apply.
 
-> Need to set the association dynamically instead? `TracksMailable` also
-> exposes `relatedTo($model)` and `forTenant($tenant)`. Call them anywhere
-> before the mailable is sent.
+> Need to set something dynamically instead? `TracksMailable` also exposes
+> `relatedTo($model)`, `forTenant($tenant)`, `storeContent()` and
+> `dontStoreContent()`. Call them anywhere before the mailable is sent.
+
+### Tagging
+
+`Tracking`'s `tags` are Laravel's own mailable tags. Postmaster records them on
+the message so you can categorise and query your recorded mail:
+
+```php
+EmailMessage::taggedWith('billing')->bounced()->get();
+```
+
+Because they're Laravel's tags, a notification's `MailMessage` sets them with
+its native `tag()` method, and Symfony forwards them to providers whose
+transport supports tags. Postmaster reads and records whatever is there, so a
+plain Mailable calling `tag()` directly is recorded just the same.
 
 Add the `HasEmailMessages` trait to the related model:
 
@@ -546,22 +567,20 @@ The resolver may return a tenant model or its key, and is called lazily when
 each email is recorded, so it resolves correctly per request or queued job.
 
 If tenant context isn't available globally (e.g. inside a queued job that
-doesn't bootstrap tenancy), a Mailable can declare its tenant explicitly with a
-`tenant()` method. This always takes precedence over the resolver:
+doesn't bootstrap tenancy), a Mailable can declare its tenant explicitly in its
+`Tracking`. That always takes precedence over the resolver:
 
 ```php
 class OrderConfirmation extends Mailable
 {
     use TracksMailable;
 
-    public function related(): Model
+    public function postmaster(): Tracking
     {
-        return $this->order;
-    }
-
-    public function tenant(): mixed
-    {
-        return $this->order->tenant;
+        return new Tracking(
+            related: $this->order,
+            tenant: $this->order->tenant,
+        );
     }
 }
 ```
@@ -630,11 +649,11 @@ environment**, so the dashboard is never unguarded in production by accident.
 
 - **Overview.** Headline counts and an activity chart over a selectable
   timeframe, plus recent-messages and live recent-activity cards.
-- **Messages.** A filterable inbox (status, provider, tenant, recipient,
+- **Messages.** A filterable inbox (status, provider, tag, tenant, recipient,
   subject, date range). Each message opens to its delivery timeline and stored
   content, rendered in a sandboxed, CSP-restricted frame.
-- **Activity.** A filterable, paginated stream of every recorded event. Needs
-  `POSTMASTER_RECORD_EVENTS`.
+- **Activity.** A filterable, paginated stream of every recorded event, drawn
+  from the timeline (on by default with persistence).
 - **Addresses.** The suppression list.
 
 There are no assets to publish and no CDN. The dashboard serves its own

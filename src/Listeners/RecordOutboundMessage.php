@@ -64,6 +64,10 @@ class RecordOutboundMessage
             $attributes['related_id']   = $metadata['related_id'];
         }
 
+        if (! empty($metadata['tags'])) {
+            $attributes['tags'] = $metadata['tags'];
+        }
+
         // An explicit Mailable forTenant() wins; otherwise fall back to the
         // app-registered tenant resolver.
         $tenant = $metadata['tenant'] ?? $this->events->resolveTenant();
@@ -72,7 +76,13 @@ class RecordOutboundMessage
             $attributes[$this->tenantColumn()] = $tenant;
         }
 
-        if (config('postmaster.persistence.store_content', false)) {
+        // A per-message storeContent() / dontStoreContent() declaration wins;
+        // otherwise fall back to the store_content setting.
+        $storeContent = isset($metadata['store_content'])
+            ? $metadata['store_content'] === '1'
+            : (bool) config('postmaster.persistence.store_content', false);
+
+        if ($storeContent) {
             $attributes += $this->content($message);
         }
 

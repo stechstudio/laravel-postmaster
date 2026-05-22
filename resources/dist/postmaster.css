@@ -279,6 +279,7 @@ a { color: inherit; text-decoration: none; }
 .pm-meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
 .pm-meta dt { color: var(--pm-muted-fg); font-size: 12px; }
 .pm-meta dd { margin: 0; }
+.pm-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .pm-frame {
     width: 100%;

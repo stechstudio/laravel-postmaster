@@ -22,6 +22,17 @@
                     @endforeach
                 </select>
             </div>
+            @if (! empty($tags))
+                <div class="pm-field">
+                    <label>Tag</label>
+                    <select name="tag" class="pm-select" onchange="this.form.requestSubmit()">
+                        <option value="">Any</option>
+                        @foreach ($tags as $tag)
+                            <option value="{{ $tag }}" @selected(($filters['tag'] ?? '') === $tag)>{{ $tag }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
             @include('postmaster::partials.filters.text', ['name' => 'recipient', 'label' => 'Recipient'])
             @include('postmaster::partials.filters.text', ['name' => 'subject', 'label' => 'Subject'])
             @include('postmaster::partials.filters.tenant')

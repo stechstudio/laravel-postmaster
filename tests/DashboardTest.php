@@ -9,6 +9,7 @@ use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
+use STS\Postmaster\Tests\Stubs\Account;
 use STS\Postmaster\Tests\Stubs\Tenant;
 
 class DashboardTest extends TestCase
@@ -205,6 +206,30 @@ class DashboardTest extends TestCase
         $this->get('/postmaster/messages')
             ->assertOk()
             ->assertSee('Acme Corp');
+    }
+
+    public function testTheTenantTermIsDerivedFromTheTenantModelName()
+    {
+        Postmaster::auth(fn () => true);
+        config(['postmaster.persistence.tenant_model' => Account::class]);
+
+        Schema::create('accounts', function ($table) {
+            $table->id();
+            $table->string('name');
+        });
+        $account = Account::create(['name' => 'Acme']);
+
+        EmailMessage::create([
+            'message_id' => 'm1',
+            'recipient'  => 'r@example.com',
+            'tenant_id'  => $account->getKey(),
+        ]);
+
+        // The dashboard speaks the app's language: the column header is the
+        // tenant model's class name, not the generic "Tenant".
+        $this->get('/postmaster/messages')
+            ->assertOk()
+            ->assertSee('<th>Account</th>', false);
     }
 
     public function testActivityListLoads()

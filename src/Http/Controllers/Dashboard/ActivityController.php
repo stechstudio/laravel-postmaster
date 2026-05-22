@@ -39,7 +39,8 @@ class ActivityController extends Controller
             'events'   => $query->paginate(50)->withQueryString(),
             'filters'  => $request->query(),
             'statuses' => $this->statuses(),
-            'tenants'  => $this->tenantLabels($this->tenantKeysInUse()),
+            'tenants'    => $this->tenantLabels($this->tenantKeysInUse()),
+            'tenantTerm' => $this->tenantTerm(),
             'enabled'  => (bool) config('postmaster.persistence.record_events', false),
         ]);
     }

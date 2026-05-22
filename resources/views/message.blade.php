@@ -80,7 +80,7 @@
                     <dt>Provider</dt><dd>{{ $message->provider ?? '—' }}</dd>
                     <dt>Message ID</dt><dd class="pm-mono pm-truncate">{{ $message->message_id ?? '—' }}</dd>
                     @if ($message->{$tenantColumn})
-                        <dt>Tenant</dt>
+                        <dt>{{ $tenantTerm }}</dt>
                         <dd>{{ $tenants[$message->{$tenantColumn}] ?? $message->{$tenantColumn} }}</dd>
                     @endif
                     @if ($message->related_type)

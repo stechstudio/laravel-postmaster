@@ -91,6 +91,21 @@ abstract class Controller
     }
 
     /**
+     * The dashboard's word for a tenant, used for column headers, the filter
+     * label, and the message-detail field. Derived from the configured
+     * tenant model's class name (App\Models\Account => "Account"), so the
+     * dashboard speaks the app's language; defaults to "Tenant".
+     *
+     * @return string
+     */
+    protected function tenantTerm()
+    {
+        $model = $this->tenantModel();
+
+        return $model ? class_basename($model) : 'Tenant';
+    }
+
+    /**
      * Distinct tenant keys that appear in the messages table.
      *
      * @return array

@@ -40,7 +40,7 @@
                     <th>Subject</th>
                     <th>Status</th>
                     <th>Provider</th>
-                    @if ($hasTenants)<th>Tenant</th>@endif
+                    @if ($hasTenants)<th>{{ $tenantTerm }}</th>@endif
                     <th>Sent</th>
                 </tr>
             </thead>

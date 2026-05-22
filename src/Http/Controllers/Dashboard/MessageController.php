@@ -37,7 +37,8 @@ class MessageController extends Controller
             'filters'   => $request->query(),
             'statuses'  => $this->statuses(),
             'providers' => $this->providersInUse(),
-            'tenants'   => $this->tenantLabels($this->tenantKeysInUse()),
+            'tenants'    => $this->tenantLabels($this->tenantKeysInUse()),
+            'tenantTerm' => $this->tenantTerm(),
         ]);
     }
 
@@ -49,6 +50,7 @@ class MessageController extends Controller
             'message'    => $record,
             'events'     => $record->events()->get(),
             'tenants'    => $this->tenantLabels([$record->{$this->tenantColumn()}]),
+            'tenantTerm' => $this->tenantTerm(),
             // Remote images are blocked by the preview CSP. The viewer can
             // opt in per view with ?images=1; the bar is offered only when
             // the message actually has a remote image to unblock.

@@ -53,9 +53,7 @@ class DatabaseSeeder extends Seeder
                 'tenant_id'     => $tenantIds[array_rand($tenantIds)],
                 'sent_at'       => $sentAt,
                 'last_event_at' => $status === EmailEvent::EVENT_SENT ? null : $sentAt->copy()->addMinutes(rand(2, 240)),
-                'html_body'     => '<h1 style="font-family:sans-serif">'.$subject.'</h1>'
-                    .'<p style="font-family:sans-serif">Hi there — this is a sample message body '
-                    .'rendered in the dashboard\'s sandboxed preview frame.</p>',
+                'html_body'     => $this->messageBody($subject, $i),
                 'created_at'    => $sentAt,
                 'updated_at'    => $sentAt,
             ]);
@@ -85,6 +83,39 @@ class DatabaseSeeder extends Seeder
             }
         }
 
+        $this->seedAddresses($names, $domains);
+    }
+
+    /**
+     * Build a sample HTML body. Roughly every third message carries remote
+     * images (a hotlinked photo and logo) so the message preview's
+     * "Show images" bar can be seen in action under `composer serve`.
+     */
+    protected function messageBody(string $subject, int $i): string
+    {
+        $heading = '<h1 style="font-family:sans-serif">'.$subject.'</h1>';
+        $intro   = '<p style="font-family:sans-serif">Hi there — this is a sample message body '
+            .'rendered in the dashboard\'s sandboxed preview frame.</p>';
+
+        if ($i % 3 !== 0) {
+            return $heading.$intro;
+        }
+
+        return $heading
+            .'<p><img src="https://picsum.photos/seed/postmaster'.$i.'/600/220" alt="" '
+            .'width="600" style="max-width:100%;border-radius:8px"></p>'
+            .$intro
+            .'<p style="font-family:sans-serif;color:#888;font-size:13px;margin-top:24px">'
+            .'<img src="https://www.google.com/images/branding/googlelogo/2x/'
+            .'googlelogo_color_272x92dp.png" alt="" width="120"><br>Sent with Postmaster.</p>';
+    }
+
+    /**
+     * @param array<int, string> $names
+     * @param array<int, string> $domains
+     */
+    protected function seedAddresses(array $names, array $domains): void
+    {
         foreach (range(1, 28) as $i) {
             $suppressed = $i % 4 === 0;
 

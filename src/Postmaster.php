@@ -125,6 +125,22 @@ class Postmaster
     }
 
     /**
+     * Set the application's tenant model class at runtime, so the tenant()
+     * relationship on EmailMessage and the dashboard's tenant labels work
+     * without having to publish the config file just for this one value.
+     *
+     * @param string $class
+     *
+     * @return $this
+     */
+    public function useTenantModel( string $class )
+    {
+        config(['postmaster.persistence.tenant_model' => $class]);
+
+        return $this;
+    }
+
+    /**
      * Build a callback that associates a message with the given model.
      *
      * Pass it to any message exposing withSymfonyMessage() — a Mailable or a

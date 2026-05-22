@@ -360,6 +360,17 @@ class PersistenceTest extends TestCase
         $this->assertTrue($tenant->is($record->tenant));
     }
 
+    public function testUseTenantModelConfiguresTheTenantRelationship()
+    {
+        Schema::create('tenants', fn ($table) => $table->id());
+        Postmaster::useTenantModel(Tenant::class);
+        $tenant = Tenant::create();
+
+        $record = EmailMessage::create(['message_id' => 'a', 'tenant_id' => $tenant->getKey()]);
+
+        $this->assertTrue($tenant->is($record->tenant));
+    }
+
     public function testFullMessageContentIsStoredWhenEnabled()
     {
         config(['postmaster.persistence.store_content' => true]);

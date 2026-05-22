@@ -536,14 +536,17 @@ Query a tenant's activity:
 EmailMessage::forTenant($tenant)->bounced()->get();
 ```
 
-To get a `tenant()` relationship on `EmailMessage`, point config at your tenant
-model:
+To get a `tenant()` relationship on `EmailMessage` — and tenant labels in the
+dashboard — tell Postmaster your tenant model. Register it in a service
+provider; no need to publish the config file:
 
 ```php
-'persistence' => [
-    'tenant_model' => App\Models\Tenant::class,
-],
+use STS\Postmaster\Facades\Postmaster;
+
+Postmaster::useTenantModel(App\Models\Tenant::class);
 ```
+
+Or, if you publish the config, set `persistence.tenant_model` there instead.
 
 A few notes for multitenant setups:
 

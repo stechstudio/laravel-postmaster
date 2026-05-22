@@ -7,12 +7,13 @@
 @section('content')
     @php
         // Stored email HTML is rendered inert: the iframe sandbox blocks
-        // scripts, and this CSP blocks remote subresources — so opening a
-        // message never fires the sender's tracking pixels or leaks the
-        // viewer's IP to third parties. Inline styles and data: images
-        // (which most HTML emails rely on) still render.
+        // scripts, and this CSP blocks remote subresources. Remote images are
+        // off by default — only data: images load — so opening a message
+        // doesn't leak the viewer's IP. ?images=1 relaxes img-src for this
+        // view only; scripts, forms, fetch and fonts stay blocked either way.
+        $imgSrc = $showImages ? 'data: https: http:' : 'data:';
         $previewCsp = '<meta http-equiv="Content-Security-Policy" '
-            ."content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:;\">";
+            ."content=\"default-src 'none'; style-src 'unsafe-inline'; img-src {$imgSrc};\">";
     @endphp
 
     <div>
@@ -22,6 +23,13 @@
     <div class="pm-detail-grid">
         <div>
             @if ($message->html_body)
+                @if ($hasRemoteImages && ! $showImages)
+                    <div class="pm-imgbar">
+                        <span>Remote images aren't shown in this preview.</span>
+                        <a href="{{ route('postmaster.messages.show', ['message' => $message, 'images' => 1]) }}"
+                           class="pm-btn pm-btn--sm">Show images</a>
+                    </div>
+                @endif
                 <iframe class="pm-frame" sandbox srcdoc="{{ $previewCsp.$message->html_body }}" title="Message body"></iframe>
             @elseif ($message->text_body)
                 <div class="pm-pre">{{ $message->text_body }}</div>

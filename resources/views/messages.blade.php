@@ -17,26 +17,8 @@
         {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
         <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
             @include('postmaster::partials.filters.status')
-            <div class="pm-field">
-                <label>Provider</label>
-                <select name="provider" class="pm-select" onchange="this.form.requestSubmit()">
-                    <option value="">Any</option>
-                    @foreach ($providers as $provider)
-                        <option value="{{ $provider }}" @selected(($filters['provider'] ?? '') === $provider)>{{ $provider }}</option>
-                    @endforeach
-                </select>
-            </div>
-            @if (! empty($tags))
-                <div class="pm-field">
-                    <label>Tag</label>
-                    <select name="tag" class="pm-select" onchange="this.form.requestSubmit()">
-                        <option value="">Any</option>
-                        @foreach ($tags as $tag)
-                            <option value="{{ $tag }}" @selected(($filters['tag'] ?? '') === $tag)>{{ $tag }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            @endif
+            @include('postmaster::partials.filters.options', ['name' => 'provider', 'label' => 'Provider', 'options' => $providers])
+            @include('postmaster::partials.filters.options', ['name' => 'tag', 'label' => 'Tag', 'options' => $tags])
             @include('postmaster::partials.filters.text', ['name' => 'recipient', 'label' => 'Recipient'])
             @include('postmaster::partials.filters.text', ['name' => 'subject', 'label' => 'Subject'])
             @include('postmaster::partials.filters.tenant')

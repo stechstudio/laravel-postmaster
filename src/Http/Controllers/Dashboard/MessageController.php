@@ -37,10 +37,10 @@ class MessageController extends Controller
         $this->applyDateRange($query, 'created_at', $request->query('from'), $request->query('to'));
 
         return response()->view('postmaster::messages', [
-            'messages'  => $query->paginate(50)->withQueryString(),
-            'filters'   => $request->query(),
-            'statuses'  => $this->statuses(),
-            'providers' => $this->providersInUse(),
+            'messages'   => $query->paginate(50)->withQueryString(),
+            'filters'    => $request->query(),
+            'statuses'   => $this->statuses(),
+            'providers'  => $this->providersInUse(),
             'tags'       => $this->tagsInUse(),
             'tenants'    => $this->tenantLabels($this->tenantKeysInUse()),
             'tenantTerm' => $this->tenantTerm(),

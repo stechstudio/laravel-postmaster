@@ -6,9 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * What a Mailable declares to Postmaster about itself: the model the email is
- * about, the tenant it belongs to, and whether to store its content. Returned
- * from a Mailable's postmaster() method. Every field is optional, so declare
- * only the ones that apply.
+ * about, the tenant it belongs to, any tags, and whether to store its content.
+ * Returned from a Mailable's postmaster() method. Every field is optional, so
+ * declare only the ones that apply.
  */
 class Tracking
 {

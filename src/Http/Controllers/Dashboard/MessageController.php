@@ -46,10 +46,29 @@ class MessageController extends Controller
         $record = $this->messageQuery()->findOrFail($message);
 
         return response()->view('postmaster::message', [
-            'message' => $record,
-            'events'  => $record->events()->get(),
-            'tenants' => $this->tenantLabels([$record->{$this->tenantColumn()}]),
+            'message'    => $record,
+            'events'     => $record->events()->get(),
+            'tenants'    => $this->tenantLabels([$record->{$this->tenantColumn()}]),
+            // Remote images are blocked by the preview CSP. The viewer can
+            // opt in per view with ?images=1; the bar is offered only when
+            // the message actually has a remote image to unblock.
+            'showImages'      => request()->boolean('images'),
+            'hasRemoteImages' => $this->hasRemoteImages($record->html_body),
         ]);
+    }
+
+    /**
+     * Whether the HTML contains an <img> with a remote (non-data:) source —
+     * i.e. an image the preview CSP would block.
+     *
+     * @param mixed $html
+     *
+     * @return bool
+     */
+    protected function hasRemoteImages( $html )
+    {
+        return is_string($html)
+            && preg_match('/<img\b[^>]*\bsrc\s*=\s*["\']?\s*(?:https?:)?\/\//i', $html) === 1;
     }
 
     /**

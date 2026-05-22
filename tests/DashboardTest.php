@@ -109,6 +109,48 @@ class DashboardTest extends TestCase
             ->assertSee('Content-Security-Policy', false);
     }
 
+    public function testRemoteImagesAreBlockedWithAnOptInBar()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create([
+            'message_id' => 'm1',
+            'html_body'  => '<p>Hi</p><img src="https://tracker.example/pixel.png">',
+        ]);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSee('img-src data:;', false)   // remote images blocked
+            ->assertSee('Show images');
+    }
+
+    public function testRemoteImagesCanBeShownOnDemand()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create([
+            'message_id' => 'm1',
+            'html_body'  => '<img src="https://tracker.example/pixel.png">',
+        ]);
+
+        $this->get('/postmaster/messages/'.$message->getKey().'?images=1')
+            ->assertOk()
+            ->assertSee('img-src data: https: http:;', false)
+            ->assertDontSee('Show images');
+    }
+
+    public function testTheImageBarIsHiddenForDataUriImages()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create([
+            'message_id' => 'm1',
+            'html_body'  => '<img src="data:image/png;base64,iVBORw0KGgo=">',
+        ]);
+
+        // A data: image is not blocked, so there is nothing to opt into.
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertDontSee('Show images');
+    }
+
     public function testShortContainsFilterTermsAreIgnored()
     {
         Postmaster::auth(fn () => true);
@@ -210,10 +252,10 @@ class DashboardTest extends TestCase
     {
         Postmaster::auth(fn () => true);
 
-        $response = $this->get('/postmaster/assets/hat.svg');
+        $response = $this->get('/postmaster/assets/postmaster-hat.png');
 
         $response->assertOk();
-        $this->assertStringContainsString('image/svg+xml', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('image/png', (string) $response->headers->get('Content-Type'));
     }
 
     public function testTheStylesheetIsServed()

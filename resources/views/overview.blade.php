@@ -71,7 +71,7 @@
                             @include('postmaster::partials.badge', ['status' => $message->status])
                         </div>
                         <div class="pm-feed-line">
-                            <span class="pm-feed-secondary pm-mono">{{ $message->recipient ?? '—' }}</span>
+                            <span class="pm-feed-secondary">{{ $message->recipient ?? '—' }}</span>
                             <span class="pm-feed-meta">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</span>
                         </div>
                     </div>

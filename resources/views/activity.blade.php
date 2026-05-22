@@ -48,7 +48,7 @@
                 @forelse ($events as $event)
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $event->email_message_id) }}'">
                         <td class="pm-dim pm-cell-meta">{{ $event->occurred_at?->format('M j, g:ia') ?? '—' }}</td>
-                        <td class="pm-mono pm-cell-sub">{{ $event->emailMessage?->recipient ?? '—' }}</td>
+                        <td class="pm-cell-sub">{{ $event->emailMessage?->recipient ?? '—' }}</td>
                         <td class="pm-truncate pm-cell-title">{{ $event->emailMessage?->subject ?? '—' }}</td>
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $event->status])</td>
                         <td class="pm-dim">{{ $event->provider ?? '—' }}</td>

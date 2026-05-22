@@ -29,13 +29,13 @@
                 <h1 class="pm-email-subject">{{ $message->subject ?: '(no subject)' }}</h1>
                 <dl class="pm-meta">
                     @if ($message->from_address)
-                        <dt>From</dt><dd class="pm-mono">{{ $message->from_address }}</dd>
+                        <dt>From</dt><dd>{{ $message->from_address }}</dd>
                     @endif
-                    <dt>To</dt><dd class="pm-mono">{{ $message->recipient ?? '—' }}</dd>
+                    <dt>To</dt><dd>{{ $message->recipient ?? '—' }}</dd>
                     @foreach (['cc' => 'Cc', 'bcc' => 'Bcc'] as $key => $label)
                         @if (! empty($recipients[$key]))
                             <dt>{{ $label }}</dt>
-                            <dd class="pm-mono">{{ collect($recipients[$key])->pluck('address')->implode(', ') }}</dd>
+                            <dd>{{ collect($recipients[$key])->pluck('address')->implode(', ') }}</dd>
                         @endif
                     @endforeach
                     <dt>Date</dt><dd>{{ $message->sent_at?->format('M j, Y g:ia') ?? '—' }}</dd>

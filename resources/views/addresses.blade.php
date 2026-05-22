@@ -35,7 +35,7 @@
             <tbody>
                 @forelse ($addresses as $address)
                     <tr>
-                        <td class="pm-mono pm-cell-title">{{ $address->address }}</td>
+                        <td class="pm-cell-title">{{ $address->address }}</td>
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $address->status])</td>
                         <td class="pm-dim pm-cell-sub">{{ $address->reason ?? '—' }}</td>
                         <td class="pm-dim pm-cell-meta">{{ $address->suppressed_at?->format('M j, g:ia') ?? '—' }}</td>

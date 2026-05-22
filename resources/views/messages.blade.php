@@ -44,14 +44,14 @@
             <tbody>
                 @forelse ($messages as $message)
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $message) }}'">
-                        <td class="pm-mono">{{ $message->recipient ?? '—' }}</td>
-                        <td class="pm-truncate">{{ $message->subject ?? '—' }}</td>
-                        <td>@include('postmaster::partials.badge', ['status' => $message->status])</td>
-                        <td class="pm-dim">{{ $message->provider ?? '—' }}</td>
+                        <td class="pm-mono" data-label="Recipient">{{ $message->recipient ?? '—' }}</td>
+                        <td class="pm-truncate" data-label="Subject">{{ $message->subject ?? '—' }}</td>
+                        <td data-label="Status">@include('postmaster::partials.badge', ['status' => $message->status])</td>
+                        <td class="pm-dim" data-label="Provider">{{ $message->provider ?? '—' }}</td>
                         @if ($hasTenants)
-                            <td class="pm-dim">{{ $tenants[$message->{$tenantColumn}] ?? '—' }}</td>
+                            <td class="pm-dim" data-label="{{ $tenantTerm }}">{{ $tenants[$message->{$tenantColumn}] ?? '—' }}</td>
                         @endif
-                        <td class="pm-dim">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</td>
+                        <td class="pm-dim" data-label="Sent">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="{{ $columns }}"><div class="pm-empty">No messages match these filters.</div></td></tr>

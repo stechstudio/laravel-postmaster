@@ -389,10 +389,6 @@ a { color: inherit; text-decoration: none; }
     font-size: 13px;
 }
 
-/* A wide table keeps its shape; its card scrolls sideways when space runs out
-   (a no-op on desktop, where the table fits). */
-.pm-card:has(.pm-table) { overflow-x: auto; }
-
 /* Responsive — phones and small tablets. The grids above already reflow via
    auto-fit; this handles the layout, the sidebar, and the fixed-width bits. */
 @media (max-width: 768px) {
@@ -435,7 +431,43 @@ a { color: inherit; text-decoration: none; }
     .pm-filters .pm-input,
     .pm-filters .pm-select { width: 100%; }
 
-    .pm-table { min-width: 560px; }
+    /* Data tables become one card per row, each cell a labelled line. */
+    .pm-table thead { display: none; }
+    .pm-table,
+    .pm-table tbody { display: block; }
+    .pm-table tr {
+        display: block;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--pm-border);
+    }
+    .pm-table tr:last-child { border-bottom: 0; }
+    .pm-table td {
+        display: block;
+        max-width: none;
+        padding: 4px 0;
+        border: 0;
+        white-space: normal;
+        overflow: visible;
+    }
+    .pm-table td[data-label] {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        text-align: right;
+    }
+    .pm-table td[data-label]::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        text-align: left;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--pm-muted-fg);
+    }
+
+    /* Too many bars to label every one on a narrow screen — keep every third. */
+    .pm-chart--dense .pm-chart-labels span:not(:nth-child(3n + 1)) { visibility: hidden; }
 
     .pm-detail-grid { grid-template-columns: 1fr; }
     .pm-frame { height: 360px; }

@@ -47,13 +47,13 @@
             <tbody>
                 @forelse ($events as $event)
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $event->email_message_id) }}'">
-                        <td class="pm-dim">{{ $event->occurred_at?->format('M j, g:ia') ?? '—' }}</td>
-                        <td class="pm-mono">{{ $event->emailMessage?->recipient ?? '—' }}</td>
-                        <td class="pm-truncate">{{ $event->emailMessage?->subject ?? '—' }}</td>
-                        <td>@include('postmaster::partials.badge', ['status' => $event->status])</td>
-                        <td class="pm-dim">{{ $event->provider ?? '—' }}</td>
+                        <td class="pm-dim" data-label="Time">{{ $event->occurred_at?->format('M j, g:ia') ?? '—' }}</td>
+                        <td class="pm-mono" data-label="Recipient">{{ $event->emailMessage?->recipient ?? '—' }}</td>
+                        <td class="pm-truncate" data-label="Subject">{{ $event->emailMessage?->subject ?? '—' }}</td>
+                        <td data-label="Status">@include('postmaster::partials.badge', ['status' => $event->status])</td>
+                        <td class="pm-dim" data-label="Provider">{{ $event->provider ?? '—' }}</td>
                         @if ($hasTenants)
-                            <td class="pm-dim">{{ $tenants[$event->emailMessage?->{$tenantColumn}] ?? '—' }}</td>
+                            <td class="pm-dim" data-label="{{ $tenantTerm }}">{{ $tenants[$event->emailMessage?->{$tenantColumn}] ?? '—' }}</td>
                         @endif
                     </tr>
                 @empty

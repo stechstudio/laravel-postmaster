@@ -35,10 +35,10 @@
             <tbody>
                 @forelse ($addresses as $address)
                     <tr>
-                        <td class="pm-mono">{{ $address->address }}</td>
-                        <td>@include('postmaster::partials.badge', ['status' => $address->status])</td>
-                        <td class="pm-dim">{{ $address->reason ?? '—' }}</td>
-                        <td class="pm-dim">{{ $address->suppressed_at?->format('M j, g:ia') ?? '—' }}</td>
+                        <td class="pm-mono" data-label="Address">{{ $address->address }}</td>
+                        <td data-label="Status">@include('postmaster::partials.badge', ['status' => $address->status])</td>
+                        <td class="pm-dim" data-label="Reason">{{ $address->reason ?? '—' }}</td>
+                        <td class="pm-dim" data-label="Suppressed">{{ $address->suppressed_at?->format('M j, g:ia') ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="4"><div class="pm-empty">No addresses match these filters.</div></td></tr>

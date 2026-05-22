@@ -36,7 +36,8 @@
             $slot = 48; $barW = 26; $plotH = 100;
             $width = max(count($chart), 1) * $slot;
         @endphp
-        <div class="pm-chart">
+        {{-- Dense charts thin their x-axis labels on narrow screens. --}}
+        <div class="pm-chart {{ count($chart) > 8 ? 'pm-chart--dense' : '' }}">
             <svg class="pm-chart-bars" viewBox="0 0 {{ $width }} {{ $plotH }}" preserveAspectRatio="none">
                 @foreach ($chart as $i => $bar)
                     @php

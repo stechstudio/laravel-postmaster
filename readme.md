@@ -649,7 +649,7 @@ environment**, so the dashboard is never unguarded in production by accident.
 
 - **Overview.** Headline counts and an activity chart over a selectable
   timeframe, plus recent-messages and live recent-activity cards.
-- **Messages.** A filterable inbox (status, provider, tenant, recipient,
+- **Messages.** A filterable inbox (status, provider, tag, tenant, recipient,
   subject, date range). Each message opens to its delivery timeline and stored
   content, rendered in a sandboxed, CSP-restricted frame.
 - **Activity.** A filterable, paginated stream of every recorded event, drawn

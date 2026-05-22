@@ -20,9 +20,10 @@ class OutboundMetadata
      * forTenant(), read and removed by StashOutboundMetadata before the
      * message is handed to the transport.
      */
-    const HEADER_RELATED_TYPE = 'X-Postmaster-Related-Type';
-    const HEADER_RELATED_ID   = 'X-Postmaster-Related-Id';
-    const HEADER_TENANT       = 'X-Postmaster-Tenant';
+    const HEADER_RELATED_TYPE  = 'X-Postmaster-Related-Type';
+    const HEADER_RELATED_ID    = 'X-Postmaster-Related-Id';
+    const HEADER_TENANT        = 'X-Postmaster-Tenant';
+    const HEADER_STORE_CONTENT = 'X-Postmaster-Store-Content';
 
     /**
      * @var array<int, array<string, string>>

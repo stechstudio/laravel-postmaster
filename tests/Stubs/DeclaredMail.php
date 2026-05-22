@@ -5,27 +5,30 @@ namespace STS\Postmaster\Tests\Stubs;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Mailable;
 use STS\Postmaster\Concerns\TracksMailable;
+use STS\Postmaster\Tracking;
 
 /**
- * A Mailable that declares its associations the Laravel way — as related()
- * and tenant() methods that TracksMailable reads at send time.
+ * A Mailable that declares what it's about with a postmaster() method, the
+ * way TracksMailable expects.
  */
 class DeclaredMail extends Mailable
 {
     use TracksMailable;
 
-    public function __construct( public ?Model $order = null, public mixed $account = null )
-    {
+    public function __construct(
+        public ?Model $order = null,
+        public mixed $account = null,
+        public ?bool $store = null,
+    ) {
     }
 
-    public function related(): ?Model
+    public function postmaster(): Tracking
     {
-        return $this->order;
-    }
-
-    public function tenant(): mixed
-    {
-        return $this->account;
+        return new Tracking(
+            related: $this->order,
+            tenant: $this->account,
+            storeContent: $this->store,
+        );
     }
 
     public function build()

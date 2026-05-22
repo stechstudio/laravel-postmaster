@@ -56,4 +56,26 @@ trait TracksMailMessage
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->forTenant($tenant));
     }
+
+    /**
+     * Store this email's content, overriding the store_content setting.
+     *
+     * @return $this
+     */
+    public function storeContent()
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->storeContent(true));
+    }
+
+    /**
+     * Skip storing this email's content, overriding the store_content
+     * setting. Use it for messages that carry secrets a database shouldn't
+     * keep — password resets, magic-login links, MFA codes.
+     *
+     * @return $this
+     */
+    public function dontStoreContent()
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->storeContent(false));
+    }
 }

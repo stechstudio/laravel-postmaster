@@ -193,6 +193,19 @@ class PersistenceTest extends TestCase
         $this->assertNull($record->tenant_id);
     }
 
+    public function testDeclaredTrackingControlsContentStorage()
+    {
+        // Global storage on, but this mailable opts out via Tracking.
+        config(['postmaster.persistence.store_content' => true]);
+        Mail::to('out@example.com')->send(new DeclaredMail(store: false));
+        $this->assertNull(EmailMessage::where('recipient', 'out@example.com')->first()->html_body);
+
+        // Global storage off, but this mailable opts in.
+        config(['postmaster.persistence.store_content' => false]);
+        Mail::to('in@example.com')->send(new DeclaredMail(store: true));
+        $this->assertSame('<p>declared</p>', EmailMessage::where('recipient', 'in@example.com')->first()->html_body);
+    }
+
     public function testUnrelatedMailLeavesRelatedColumnsNull()
     {
         Mail::raw('Hello there', function ($message) {
@@ -329,6 +342,18 @@ class PersistenceTest extends TestCase
             $order->getMorphClass(),
             $email->getHeaders()->get('X-Postmaster-Related-Type')->getBodyAsString()
         );
+    }
+
+    public function testDontStoreContentIsAvailableFluentlyOnAMailMessage()
+    {
+        $message = (new TrackedMailMessage)->dontStoreContent();
+
+        $email = new Email;
+        foreach ($message->callbacks as $callback) {
+            $callback($email);
+        }
+
+        $this->assertSame('0', $email->getHeaders()->get('X-Postmaster-Store-Content')->getBodyAsString());
     }
 
     public function testTenantHeaderIsStrippedBeforeSending()
@@ -525,8 +550,21 @@ class PersistenceTest extends TestCase
         $this->assertSame(EmailEvent::BOUNCE_HARD, $record->bounce_type);
     }
 
-    public function testTimelineIsNotRecordedByDefault()
+    public function testTimelineIsRecordedByDefault()
     {
+        Mail::raw('Hello', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        // Timeline recording follows persistence; the send seeds one event.
+        $this->assertDatabaseCount('email_messages', 1);
+        $this->assertDatabaseCount('email_message_events', 1);
+    }
+
+    public function testTimelineRecordingCanBeDisabled()
+    {
+        config(['postmaster.persistence.record_events' => false]);
+
         Mail::raw('Hello', function ($message) {
             $message->to('recipient@example.com')->subject('Greetings');
         });
@@ -654,8 +692,19 @@ class PersistenceTest extends TestCase
         $this->assertDatabaseHas('email_message_events', ['id' => $recent->getKey()]);
     }
 
-    public function testAddressesAreNotTrackedByDefault()
+    public function testAddressesAreTrackedByDefault()
     {
+        Mail::raw('Hello', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        $this->assertDatabaseCount('email_addresses', 1);
+    }
+
+    public function testAddressTrackingCanBeDisabled()
+    {
+        config(['postmaster.persistence.track_addresses' => false]);
+
         Mail::raw('Hello', function ($message) {
             $message->to('recipient@example.com')->subject('Greetings');
         });

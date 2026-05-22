@@ -183,6 +183,23 @@ class Postmaster
     }
 
     /**
+     * Build a callback that overrides content storage for a single message,
+     * regardless of the postmaster.persistence.store_content setting.
+     *
+     * @param bool $store
+     *
+     * @return Closure
+     */
+    public function storeContent( bool $store )
+    {
+        return function (Email $message) use ($store) {
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_STORE_CONTENT, $store ? '1' : '0'
+            );
+        };
+    }
+
+    /**
      * Register the webhook route. Call this from the consuming app's route
      * file. Authorization runs as middleware ahead of the controller.
      */

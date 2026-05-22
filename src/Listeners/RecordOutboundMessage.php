@@ -72,7 +72,13 @@ class RecordOutboundMessage
             $attributes[$this->tenantColumn()] = $tenant;
         }
 
-        if (config('postmaster.persistence.store_content', false)) {
+        // A per-message storeContent() / dontStoreContent() declaration wins;
+        // otherwise fall back to the store_content setting.
+        $storeContent = isset($metadata['store_content'])
+            ? $metadata['store_content'] === '1'
+            : (bool) config('postmaster.persistence.store_content', false);
+
+        if ($storeContent) {
             $attributes += $this->content($message);
         }
 

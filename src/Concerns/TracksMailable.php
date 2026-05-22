@@ -3,34 +3,40 @@
 namespace STS\Postmaster\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
+use STS\Postmaster\Tracking;
 
 /**
- * The trait for Mailables. Add it to a Mailable and declare what the email is
- * about, the Laravel way — as `related()` and `tenant()` methods, the same
- * shape as `envelope()` / `content()`:
+ * The trait for Mailables. Add it and declare what the email is about with a
+ * postmaster() method that returns a Tracking object, the same way a Mailable
+ * declares envelope() / content():
  *
  *     class OrderShipped extends Mailable
  *     {
  *         use TracksMailable;
  *
- *         public function related(): Model     { return $this->order; }
- *         public function tenant(): mixed      { return $this->order->account_id; }
+ *         public function postmaster(): Tracking
+ *         {
+ *             return new Tracking(
+ *                 related: $this->order,
+ *                 tenant: $this->order->account_id,
+ *             );
+ *         }
  *     }
  *
- * Postmaster reads those methods at send time and records the association —
- * after the job is dequeued, so it is queue-safe. Both are optional; declare
- * only what you need (the tenant often comes from resolveTenantUsing()).
+ * Postmaster reads postmaster() at send time and records the declarations,
+ * after the job is dequeued, so it is queue-safe. Every Tracking field is
+ * optional.
  *
- * The imperative relatedTo() / forTenant() methods are still available for
- * cases where the association is only known dynamically.
+ * The imperative relatedTo() / forTenant() / storeContent() / dontStoreContent()
+ * methods are still available for cases where a value is only known at runtime.
  */
 trait TracksMailable
 {
     use TracksMailMessage;
 
     /**
-     * Apply any declared associations, then hand off to the Mailable's own
-     * send(). This runs post-dequeue for queued mail, so the association is
+     * Apply anything the Mailable declared, then hand off to its own send().
+     * This runs post-dequeue for queued mail, so the declarations are
      * registered without a closure ever being serialized onto the queue.
      *
      * @param \Illuminate\Contracts\Mail\Mailer|\Illuminate\Contracts\Mail\Factory $mailer
@@ -39,24 +45,38 @@ trait TracksMailable
      */
     public function send( $mailer )
     {
-        $this->applyDeclaredAssociations();
+        $this->applyDeclaredTracking();
 
         return parent::send($mailer);
     }
 
     /**
-     * Read the optional related()/tenant() declarations and apply them.
+     * Read the optional postmaster() declaration and apply each field.
      *
      * @return void
      */
-    protected function applyDeclaredAssociations()
+    protected function applyDeclaredTracking()
     {
-        if (method_exists($this, 'related') && ($related = $this->related()) instanceof Model) {
-            $this->relatedTo($related);
+        if (! method_exists($this, 'postmaster')) {
+            return;
         }
 
-        if (method_exists($this, 'tenant') && ($tenant = $this->tenant()) !== null) {
-            $this->forTenant($tenant);
+        $tracking = $this->postmaster();
+
+        if (! $tracking instanceof Tracking) {
+            return;
+        }
+
+        if ($tracking->related instanceof Model) {
+            $this->relatedTo($tracking->related);
+        }
+
+        if ($tracking->tenant !== null) {
+            $this->forTenant($tracking->tenant);
+        }
+
+        if ($tracking->storeContent !== null) {
+            $tracking->storeContent ? $this->storeContent() : $this->dontStoreContent();
         }
     }
 }

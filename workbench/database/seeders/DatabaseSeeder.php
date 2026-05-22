@@ -54,7 +54,7 @@ class DatabaseSeeder extends Seeder
                 'sent_at'       => $sentAt,
                 'last_event_at' => $status === EmailEvent::EVENT_SENT ? null : $sentAt->copy()->addMinutes(rand(2, 240)),
                 'tags'          => $this->tagsFor($subject),
-                'html_body'     => $this->messageBody($subject, $i),
+                'html_body'     => $this->messageBody($i),
                 'created_at'    => $sentAt,
                 'updated_at'    => $sentAt,
             ]);
@@ -113,18 +113,16 @@ class DatabaseSeeder extends Seeder
         };
     }
 
-    protected function messageBody(string $subject, int $i): string
+    protected function messageBody(int $i): string
     {
-        $heading = '<h1 style="font-family:sans-serif">'.$subject.'</h1>';
-        $intro   = '<p style="font-family:sans-serif">Hi there — this is a sample message body '
+        $intro = '<p style="font-family:sans-serif">Hi there — this is a sample message body '
             .'rendered in the dashboard\'s sandboxed preview frame.</p>';
 
         if ($i % 3 !== 0) {
-            return $heading.$intro;
+            return $intro;
         }
 
-        return $heading
-            .'<p><img src="https://picsum.photos/seed/postmaster'.$i.'/600/220" alt="" '
+        return '<p><img src="https://picsum.photos/seed/postmaster'.$i.'/600/220" alt="" '
             .'width="600" style="max-width:100%;border-radius:8px"></p>'
             .$intro
             .'<p style="font-family:sans-serif;color:#888;font-size:13px;margin-top:24px">'

@@ -108,7 +108,7 @@ class DashboardTest extends TestCase
             ->assertSee('q3');
     }
 
-    public function testMessageSubjectIsEscapedInThePageTitle()
+    public function testMessageSubjectIsEscapedOnTheDetailPage()
     {
         Postmaster::auth(fn () => true);
         $message = EmailMessage::create([

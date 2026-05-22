@@ -34,8 +34,8 @@ class AssetController
     public function logo()
     {
         return response()
-            ->file(__DIR__.'/../../../../resources/svg/hat.svg', [
-                'Content-Type' => 'image/svg+xml',
+            ->file(__DIR__.'/../../../../resources/images/postmaster-hat.png', [
+                'Content-Type' => 'image/png',
             ]);
     }
 

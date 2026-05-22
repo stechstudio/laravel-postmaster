@@ -210,10 +210,10 @@ class DashboardTest extends TestCase
     {
         Postmaster::auth(fn () => true);
 
-        $response = $this->get('/postmaster/assets/hat.svg');
+        $response = $this->get('/postmaster/assets/postmaster-hat.png');
 
         $response->assertOk();
-        $this->assertStringContainsString('image/svg+xml', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('image/png', (string) $response->headers->get('Content-Type'));
     }
 
     public function testTheStylesheetIsServed()

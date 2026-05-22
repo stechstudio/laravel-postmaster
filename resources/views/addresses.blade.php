@@ -3,8 +3,10 @@
 @section('title', 'Addresses')
 
 @section('content')
-    <div class="pm-card">
-        <form method="GET" action="{{ route('postmaster.addresses') }}" class="pm-filters" x-data>
+    @php $filtersActive = collect($filters)->except('page')->filter()->isNotEmpty(); @endphp
+    <div class="pm-card" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
+        @include('postmaster::partials.filters.toggle')
+        <form method="GET" action="{{ route('postmaster.addresses') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
             <div class="pm-field">
                 <label>Status</label>
                 <select name="status" class="pm-select" onchange="this.form.requestSubmit()">

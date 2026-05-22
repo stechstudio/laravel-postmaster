@@ -241,6 +241,24 @@ a { color: inherit; text-decoration: none; }
 
 /* Forms */
 .pm-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+
+/* "Filters" trigger — hidden on desktop, where the filters always show. */
+.pm-filters-toggle {
+    display: none;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 2px;
+    background: transparent;
+    border: 0;
+    color: var(--pm-fg);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.pm-filters-chevron { transition: transform 0.15s ease; }
+.pm-filters-chevron.is-open { transform: rotate(180deg); }
 .pm-field { display: flex; flex-direction: column; gap: 4px; }
 .pm-field label {
     font-size: 11px;
@@ -408,7 +426,11 @@ a { color: inherit; text-decoration: none; }
     .pm-content { padding: 16px; }
     .pm-card { padding: 14px; }
 
-    /* Filter fields tile and fill the row instead of sizing to content. */
+    /* Filters collapse behind the trigger, and the fields tile and fill
+       the row instead of sizing to content. */
+    .pm-filters-toggle { display: flex; }
+    .pm-filters { display: none; }
+    .pm-filters.is-open { display: flex; margin-top: 12px; }
     .pm-filters .pm-field { flex: 1 1 140px; }
     .pm-filters .pm-input,
     .pm-filters .pm-select { width: 100%; }

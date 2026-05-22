@@ -7,11 +7,15 @@
         $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
         $hasTenants = ! empty($tenants);
         $columns = $hasTenants ? 6 : 5;
+        // Collapsed by default on mobile, but open straight away when a
+        // filter is already applied so it isn't hidden.
+        $filtersActive = collect($filters)->except('page')->filter()->isNotEmpty();
     @endphp
 
-    <div class="pm-card">
+    <div class="pm-card" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
+        @include('postmaster::partials.filters.toggle')
         {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
-        <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" x-data>
+        <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
             @include('postmaster::partials.filters.status')
             <div class="pm-field">
                 <label>Provider</label>

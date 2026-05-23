@@ -26,7 +26,7 @@
         "stechstudio/laravel-email-events": "self.version"
     },
     "require": {
-        "php": "^8.2",
+        "php": "^8.3",
         "illuminate/support": "^12.0|^13.0"
     },
     "require-dev": {

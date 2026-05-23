@@ -17,25 +17,25 @@ class EmailEvent
     use Dispatchable;
     use HasStatusPredicates;
 
-    const STATUS_ACCEPTED   = "accepted";
-    const STATUS_SENT       = "sent";
+    const string STATUS_ACCEPTED   = "accepted";
+    const string STATUS_SENT       = "sent";
     // Terminal status for a message intercepted by sandbox delivery mode: it
     // was recorded but never handed to a provider, so no webhooks will follow.
-    const STATUS_SANDBOXED  = "sandboxed";
+    const string STATUS_SANDBOXED  = "sandboxed";
     // Terminal status for a send we refused on the way out — the recipient
     // is on our suppression list — when block_suppressed is enabled.
-    const STATUS_BLOCKED    = "blocked";
-    const STATUS_DEFERRED   = "deferred";
-    const STATUS_DELIVERED  = "delivered";
-    const STATUS_BOUNCED    = "bounced";
-    const STATUS_DROPPED    = "dropped";
-    const STATUS_COMPLAINED = "complained";
-    const STATUS_OPENED     = "opened";
-    const STATUS_CLICKED    = "clicked";
+    const string STATUS_BLOCKED    = "blocked";
+    const string STATUS_DEFERRED   = "deferred";
+    const string STATUS_DELIVERED  = "delivered";
+    const string STATUS_BOUNCED    = "bounced";
+    const string STATUS_DROPPED    = "dropped";
+    const string STATUS_COMPLAINED = "complained";
+    const string STATUS_OPENED     = "opened";
+    const string STATUS_CLICKED    = "clicked";
 
-    const BOUNCE_HARD  = "hard";  // permanent — safe to suppress
-    const BOUNCE_SOFT  = "soft";  // transient — retry later
-    const BOUNCE_BLOCK = "block"; // blocked by reputation/policy
+    const string BOUNCE_HARD  = "hard";  // permanent — safe to suppress
+    const string BOUNCE_SOFT  = "soft";  // transient — retry later
+    const string BOUNCE_BLOCK = "block"; // blocked by reputation/policy
 
     /**
      * @var Adapter

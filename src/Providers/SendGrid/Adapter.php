@@ -50,6 +50,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function status()
     {
         return Arr::get($this->eventMap, Arr::get($this->payload, 'event'));
@@ -58,6 +59,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function toAddress()
     {
         return Arr::get($this->payload, 'email');
@@ -66,6 +68,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return DateTimeImmutable|null
      */
+    #[\Override]
     public function occurredAt()
     {
         return static::dateFromUnix(Arr::get($this->payload, 'timestamp'));
@@ -74,6 +77,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function providerMessageId()
     {
         return Arr::get($this->payload, "smtp-id");
@@ -82,6 +86,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
+    #[\Override]
     public function tags()
     {
         return collect((array)Arr::get($this->payload, 'category'));
@@ -90,6 +95,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
+    #[\Override]
     public function data()
     {
         return collect(
@@ -102,6 +108,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
+    #[\Override]
     public function response()
     {
         return Arr::get($this->payload, 'response', Arr::get($this->payload, 'useragent'));
@@ -110,6 +117,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
+    #[\Override]
     public function code()
     {
         return Arr::get($this->payload, 'status');
@@ -118,6 +126,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
+    #[\Override]
     public function reason()
     {
         return Arr::get($this->payload, 'reason');
@@ -130,6 +139,7 @@ class Adapter extends AbstractAdapter
      *
      * @return string|null
      */
+    #[\Override]
     public function bounceType()
     {
         $event = Arr::get($this->payload, 'event');
@@ -150,6 +160,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function clickedUrl()
     {
         return Arr::get($this->payload, 'url');
@@ -160,6 +171,7 @@ class Adapter extends AbstractAdapter
      *
      * @return bool
      */
+    #[\Override]
     public static function supports( array $payload )
     {
         return array_key_exists('sg_message_id', $payload);

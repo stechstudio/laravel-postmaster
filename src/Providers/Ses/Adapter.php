@@ -71,6 +71,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function status()
     {
         return Arr::get($this->eventMap, $this->eventType());
@@ -79,6 +80,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function toAddress()
     {
         return Arr::get($this->payload, 'bounce.bouncedRecipients.0.emailAddress')
@@ -89,6 +91,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return DateTimeImmutable|null
      */
+    #[\Override]
     public function occurredAt()
     {
         $timestamp = Arr::get($this->payload, 'mail.timestamp');
@@ -99,6 +102,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function providerMessageId()
     {
         return Arr::get($this->payload, 'mail.messageId');
@@ -107,6 +111,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
+    #[\Override]
     public function tags()
     {
         return collect(array_keys((array) Arr::get($this->payload, 'mail.tags')));
@@ -115,6 +120,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
+    #[\Override]
     public function data()
     {
         return collect((array) Arr::get($this->payload, 'mail.tags'));
@@ -123,6 +129,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
+    #[\Override]
     public function response()
     {
         return Arr::get($this->payload, 'bounce.bouncedRecipients.0.diagnosticCode');
@@ -131,6 +138,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
+    #[\Override]
     public function code()
     {
         return Arr::get($this->payload, 'bounce.bouncedRecipients.0.status');
@@ -139,6 +147,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
+    #[\Override]
     public function reason()
     {
         return Arr::get($this->payload, 'bounce.bounceSubType')
@@ -148,6 +157,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function bounceType()
     {
         if ($this->status() !== EmailEvent::STATUS_BOUNCED) {
@@ -162,6 +172,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
+    #[\Override]
     public function clickedUrl()
     {
         return Arr::get($this->payload, 'click.link');
@@ -172,6 +183,7 @@ class Adapter extends AbstractAdapter
      *
      * @return bool
      */
+    #[\Override]
     public static function supports( array $payload )
     {
         return array_key_exists('eventType', $payload)

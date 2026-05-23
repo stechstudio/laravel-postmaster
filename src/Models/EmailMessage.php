@@ -47,7 +47,7 @@ class EmailMessage extends Model
      *
      * @var array<int, string>
      */
-    public const FAILED_STATUSES = [
+    public const array FAILED_STATUSES = [
         EmailEvent::STATUS_BOUNCED,
         EmailEvent::STATUS_DROPPED,
         EmailEvent::STATUS_COMPLAINED,

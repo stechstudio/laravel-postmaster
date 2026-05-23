@@ -28,7 +28,7 @@ trait IsEmailRecipient
     {
         return $this->morphMany(
             config('postmaster.persistence.model', EmailMessage::class),
-            'recipient_model'
+            'recipient'
         );
     }
 

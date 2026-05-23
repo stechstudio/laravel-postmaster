@@ -535,7 +535,7 @@ headers and read and stripped *before* the email is transmitted, so nothing
 about the related or recipient model is ever exposed in the outbound email.
 
 > Both use polymorphic relationships. If your models use UUID/ULID primary
-> keys, change `nullableMorphs('related')` and `nullableMorphs('recipient_model')`
+> keys, change `nullableMorphs('related')` and `nullableMorphs('recipient')`
 > to the matching variants in the published migration.
 
 ### From a notification
@@ -772,13 +772,20 @@ An adapter implements `STS\Postmaster\Contracts\Adapter` (extending
 
 Schema changes shipped with 2.0:
 
-- `email_messages.message_id` was renamed to `provider_message_id`. If you've
-  already migrated against 1.x, rename the column (and any code reading
-  `$record->message_id`) — or write a one-off migration that does it for you.
-- `email_messages` gained `recipient_model_type` / `recipient_model_id`
-  (nullable polymorphic) for the new recipient-model link.
+- `email_messages.message_id` was renamed to `provider_message_id`. The old
+  name read like a foreign-key cousin of `id`.
+- `email_messages.recipient` (the to-address string) was renamed to
+  `to_address`, mirroring the existing `from_address`.
+- `email_messages` gained `recipient_type` / `recipient_id` (nullable
+  polymorphic) for the new recipient-model link.
 - `email_message_events` gained a nullable `url` column to store the clicked
   URL on click events.
+
+If you've already migrated against 1.x, rename `message_id` → `provider_message_id`
+and `recipient` → `to_address` on `email_messages`, and add the polymorphic
+columns and the events `url` — either in place or with one focused upgrade
+migration. Update any code reading `$record->message_id` or `$record->recipient`
+to the new names.
 
 New API surface:
 

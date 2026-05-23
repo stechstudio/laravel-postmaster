@@ -85,7 +85,7 @@ class UpdateMessageFromEvent
         return $this->messageModel()->newQuery()->create([
             'provider_message_id' => $messageId,
             'provider'            => $event->getProvider(),
-            'recipient'           => $event->getRecipient(),
+            'to_address'          => $event->getRecipient(),
         ]);
     }
 
@@ -105,8 +105,8 @@ class UpdateMessageFromEvent
             $record->provider = $event->getProvider();
         }
 
-        if (empty($record->recipient)) {
-            $record->recipient = $event->getRecipient();
+        if (empty($record->to_address)) {
+            $record->to_address = $event->getRecipient();
         }
 
         $occurredAt = $event->getDate() ?? now();

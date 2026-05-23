@@ -22,7 +22,7 @@ return new class extends Migration
             $table->id();
             $table->string('provider')->nullable();
             $table->string('provider_message_id')->nullable()->index();
-            $table->string('recipient')->nullable()->index();
+            $table->string('to_address')->nullable()->index();
             $table->string('subject')->nullable();
             // Full message representation, captured at send time only when
             // persistence.store_content is enabled, and purged again by the
@@ -37,11 +37,11 @@ return new class extends Migration
             // Apps using UUID/ULID primary keys should change related_id to
             // match (e.g. $table->nullableUuidMorphs('related')).
             $table->nullableMorphs('related');
-            // Optional polymorphic link to the *person* the email is intended
-            // for — separate from `related` so an email about an Order can
-            // still answer "every email this User has received." Set via a
+            // Optional polymorphic link to the *person* the email is for —
+            // separate from `related` so an email about an Order can still
+            // answer "every email this User has received." Set via a
             // Mailable's Tracking(recipient: ...) or a global resolver.
-            $table->nullableMorphs('recipient_model');
+            $table->nullableMorphs('recipient');
             // Optional owning tenant, for multitenant apps. Apps with
             // UUID/ULID tenant keys should change this column type to match.
             $table->unsignedBigInteger($this->tenantColumn())->nullable()->index();

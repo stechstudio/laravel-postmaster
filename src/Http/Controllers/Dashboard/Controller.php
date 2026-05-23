@@ -289,7 +289,7 @@ abstract class Controller
             'id'        => $event->id,
             'status'    => $event->status,
             'provider'  => $event->provider,
-            'recipient' => $event->emailMessage?->getAttribute('recipient'),
+            'to'        => $event->emailMessage?->getAttribute('to_address'),
             'subject'   => $event->emailMessage?->getAttribute('subject'),
             'messageId' => $event->email_message_id,
             'at'        => $event->occurred_at?->format('M j, g:ia'),

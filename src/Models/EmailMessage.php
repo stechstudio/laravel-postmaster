@@ -18,9 +18,9 @@ use STS\Postmaster\EmailEvent;
  *
  * @property string|null $provider
  * @property string|null $provider_message_id
- * @property string|null $recipient
- * @property string|null $recipient_model_type
- * @property int|string|null $recipient_model_id
+ * @property string|null $to_address
+ * @property string|null $recipient_type
+ * @property int|string|null $recipient_id
  * @property string|null $subject
  * @property string|null $from_address
  * @property array|null $recipients
@@ -97,7 +97,7 @@ class EmailMessage extends Model
      *
      * @return MorphTo
      */
-    public function recipientModel()
+    public function recipient()
     {
         return $this->morphTo();
     }

@@ -7,7 +7,7 @@
                 <span class="pm-badge" :class="'pm-badge--' + tone(event.status)" x-text="event.status"></span>
             </div>
             <div class="pm-feed-line">
-                <span class="pm-feed-secondary" x-text="event.recipient || '—'"></span>
+                <span class="pm-feed-secondary" x-text="event.to || '—'"></span>
                 <span class="pm-feed-meta" x-text="event.at"></span>
             </div>
         </div>

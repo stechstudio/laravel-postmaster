@@ -35,7 +35,7 @@ class MessageController extends Controller
             $query->taggedWith($tag);
         }
 
-        $this->applyContains($query, 'recipient', $request->query('recipient'));
+        $this->applyContains($query, 'to_address', $request->query('to'));
         $this->applyContains($query, 'subject', $request->query('subject'));
         $this->applyDateRange($query, 'created_at', $request->query('from'), $request->query('to'));
 
@@ -111,8 +111,8 @@ class MessageController extends Controller
     public function forRecipient( $type, $id )
     {
         $messages = $this->messageQuery()
-            ->where('recipient_model_type', $type)
-            ->where('recipient_model_id', $id)
+            ->where('recipient_type', $type)
+            ->where('recipient_id', $id)
             ->latest()
             ->paginate(50)
             ->withQueryString();
@@ -161,15 +161,15 @@ class MessageController extends Controller
      */
     protected function labelForRecipientOnRecord( $record )
     {
-        if (empty($record->recipient_model_type) || empty($record->recipient_model_id)) {
+        if (empty($record->recipient_type) || empty($record->recipient_id)) {
             return null;
         }
 
-        $recipient = $this->loadRecipient($record->recipient_model_type, $record->recipient_model_id);
+        $recipient = $this->loadRecipient($record->recipient_type, $record->recipient_id);
 
         return $recipient
             ? $this->recipientLabel($recipient)
-            : class_basename($record->recipient_model_type).' #'.$record->recipient_model_id;
+            : class_basename($record->recipient_type).' #'.$record->recipient_id;
     }
 
     /**

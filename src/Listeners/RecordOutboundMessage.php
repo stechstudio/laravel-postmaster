@@ -51,7 +51,7 @@ class RecordOutboundMessage
 
         $attributes = [
             'provider_message_id' => $messageId,
-            'recipient'           => $to ? $to[0]->getAddress() : null,
+            'to_address'          => $to ? $to[0]->getAddress() : null,
             'subject'             => $message->getSubject(),
             'status'              => $status,
             'sent_at'             => now(),
@@ -66,12 +66,12 @@ class RecordOutboundMessage
 
         // A Mailable's Tracking(recipient: ...) declaration wins; otherwise
         // fall back to the app-registered resolver against the to-address.
-        if (isset($metadata['recipient_model_type'], $metadata['recipient_model_id'])) {
-            $attributes['recipient_model_type'] = $metadata['recipient_model_type'];
-            $attributes['recipient_model_id']   = $metadata['recipient_model_id'];
-        } elseif ($recipient = $this->events->resolveRecipient($attributes['recipient'])) {
-            $attributes['recipient_model_type'] = $recipient->getMorphClass();
-            $attributes['recipient_model_id']   = $recipient->getKey();
+        if (isset($metadata['recipient_type'], $metadata['recipient_id'])) {
+            $attributes['recipient_type'] = $metadata['recipient_type'];
+            $attributes['recipient_id']   = $metadata['recipient_id'];
+        } elseif ($recipient = $this->events->resolveRecipient($attributes['to_address'])) {
+            $attributes['recipient_type'] = $recipient->getMorphClass();
+            $attributes['recipient_id']   = $recipient->getKey();
         }
 
         if (! empty($metadata['tags'])) {
@@ -106,7 +106,7 @@ class RecordOutboundMessage
         ]);
 
         // Note the recipient so the address is on record as one we send to.
-        $this->touchAddress($attributes['recipient']);
+        $this->touchAddress($attributes['to_address']);
 
         return $record;
     }

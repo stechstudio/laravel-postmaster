@@ -21,9 +21,9 @@ class ActivityController extends Controller
             $query->where('status', $status);
         }
 
-        if ($recipient = $request->query('recipient')) {
+        if ($to = $request->query('to')) {
             $query->whereHas('emailMessage', fn ($q) => $this->applyContains(
-                $q->withoutGlobalScopes(), 'recipient', $recipient
+                $q->withoutGlobalScopes(), 'to_address', $to
             ));
         }
 

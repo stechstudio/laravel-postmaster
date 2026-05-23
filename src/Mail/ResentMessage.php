@@ -32,7 +32,7 @@ class ResentMessage extends Mailable
             $this->from($this->record->from_address);
         }
 
-        $this->to($this->record->recipient);
+        $this->to($this->record->to_address);
 
         $recipients = $this->record->recipients ?? [];
 
@@ -63,7 +63,7 @@ class ResentMessage extends Mailable
 
     /**
      * Carry over the original's text alternative and tracking context
-     * (related, recipient_model, tenant) via the in-process courier headers
+     * (related, recipient, tenant) via the in-process courier headers
      * — the same channel a fresh send would use. Stripped from the wire by
      * StashOutboundMetadata before the message is transmitted.
      *
@@ -86,9 +86,9 @@ class ResentMessage extends Mailable
                 $headers->addTextHeader(OutboundMetadata::HEADER_RELATED_ID, (string) $record->related_id);
             }
 
-            if ($record->recipient_model_type && $record->recipient_model_id !== null) {
-                $headers->addTextHeader(OutboundMetadata::HEADER_RECIPIENT_TYPE, $record->recipient_model_type);
-                $headers->addTextHeader(OutboundMetadata::HEADER_RECIPIENT_ID, (string) $record->recipient_model_id);
+            if ($record->recipient_type && $record->recipient_id !== null) {
+                $headers->addTextHeader(OutboundMetadata::HEADER_RECIPIENT_TYPE, $record->recipient_type);
+                $headers->addTextHeader(OutboundMetadata::HEADER_RECIPIENT_ID, (string) $record->recipient_id);
             }
 
             if ($record->{$tenantColumn} !== null) {

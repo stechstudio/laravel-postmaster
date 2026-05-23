@@ -23,7 +23,7 @@
         @include('postmaster::partials.filters.toggle')
         <form method="GET" action="{{ route('postmaster.activity') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
             @include('postmaster::partials.filters.status')
-            @include('postmaster::partials.filters.text', ['name' => 'recipient', 'label' => 'Recipient'])
+            @include('postmaster::partials.filters.text', ['name' => 'to', 'label' => 'To'])
             @include('postmaster::partials.filters.tenant')
             @include('postmaster::partials.filters.dates')
             <a href="{{ route('postmaster.activity') }}" class="pm-btn pm-btn--ghost">Clear</a>
@@ -37,7 +37,7 @@
             <thead>
                 <tr>
                     <th>Time</th>
-                    <th>Recipient</th>
+                    <th>To</th>
                     <th>Subject</th>
                     <th>Status</th>
                     <th>Provider</th>
@@ -48,7 +48,7 @@
                 @forelse ($events as $event)
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $event->email_message_id) }}'">
                         <td class="pm-dim pm-cell-meta">{{ $event->occurred_at?->format('M j, g:ia') ?? '—' }}</td>
-                        <td class="pm-cell-sub">{{ $event->emailMessage?->recipient ?? '—' }}</td>
+                        <td class="pm-cell-sub">{{ $event->emailMessage?->to_address ?? '—' }}</td>
                         <td class="pm-truncate pm-cell-title">{{ $event->emailMessage?->subject ?? '—' }}</td>
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $event->status])</td>
                         <td class="pm-dim">{{ $event->provider ?? '—' }}</td>

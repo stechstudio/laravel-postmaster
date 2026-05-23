@@ -37,7 +37,7 @@ class SandboxDeliveryTest extends TestCase
         $this->assertDatabaseCount('email_messages', 1);
 
         $record = EmailMessage::first();
-        $this->assertSame('recipient@example.com', $record->recipient);
+        $this->assertSame('recipient@example.com', $record->to_address);
         $this->assertSame('Greetings', $record->subject);
         $this->assertSame(EmailEvent::EVENT_SANDBOX, $record->status);
 

@@ -56,7 +56,7 @@ class PersistenceTest extends TestCase
         $this->assertDatabaseCount('email_messages', 1);
 
         $record = EmailMessage::first();
-        $this->assertSame('recipient@example.com', $record->recipient);
+        $this->assertSame('recipient@example.com', $record->to_address);
         $this->assertSame('Greetings', $record->subject);
         $this->assertSame(EmailEvent::EVENT_SENT, $record->status);
         $this->assertNotEmpty($record->provider_message_id);
@@ -67,7 +67,7 @@ class PersistenceTest extends TestCase
     {
         $record = EmailMessage::create([
             'provider_message_id' => 'postmark-message-1',
-            'recipient'  => 'recipient@example.com',
+            'to_address'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
 
@@ -93,7 +93,7 @@ class PersistenceTest extends TestCase
 
         $record = EmailMessage::create([
             'provider_message_id'   => 'postmark-message-9',
-            'recipient'    => 'recipient@example.com',
+            'to_address'    => 'recipient@example.com',
             'status'       => EmailEvent::EVENT_SENT,
             'related_type' => $order->getMorphClass(),
             'related_id'   => $order->getKey(),
@@ -143,7 +143,7 @@ class PersistenceTest extends TestCase
     {
         EmailMessage::create([
             'provider_message_id' => 'postmark-message-2',
-            'recipient'  => 'recipient@example.com',
+            'to_address'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
 
@@ -199,12 +199,12 @@ class PersistenceTest extends TestCase
         // Global storage on, but this mailable opts out via Tracking.
         config(['postmaster.persistence.store_content' => true]);
         Mail::to('out@example.com')->send(new DeclaredMail(store: false));
-        $this->assertNull(EmailMessage::where('recipient', 'out@example.com')->first()->html_body);
+        $this->assertNull(EmailMessage::where('to_address', 'out@example.com')->first()->html_body);
 
         // Global storage off, but this mailable opts in.
         config(['postmaster.persistence.store_content' => false]);
         Mail::to('in@example.com')->send(new DeclaredMail(store: true));
-        $this->assertSame('<p>declared</p>', EmailMessage::where('recipient', 'in@example.com')->first()->html_body);
+        $this->assertSame('<p>declared</p>', EmailMessage::where('to_address', 'in@example.com')->first()->html_body);
     }
 
     public function testDeclaredTagsAreRecordedAndQueryable()
@@ -277,8 +277,8 @@ class PersistenceTest extends TestCase
         Mail::to('alice@example.com')->send(new DeclaredMail(user: $user));
 
         $record = EmailMessage::first();
-        $this->assertSame($user->getMorphClass(), $record->recipient_model_type);
-        $this->assertSame((string) $user->getKey(), (string) $record->recipient_model_id);
+        $this->assertSame($user->getMorphClass(), $record->recipient_type);
+        $this->assertSame((string) $user->getKey(), (string) $record->recipient_id);
     }
 
     public function testRecipientModelIsRecordedFromTheGlobalResolver()
@@ -291,8 +291,8 @@ class PersistenceTest extends TestCase
         Mail::to('alice@example.com')->send(new DeclaredMail);
 
         $record = EmailMessage::first();
-        $this->assertSame($user->getMorphClass(), $record->recipient_model_type);
-        $this->assertSame((string) $user->getKey(), (string) $record->recipient_model_id);
+        $this->assertSame($user->getMorphClass(), $record->recipient_type);
+        $this->assertSame((string) $user->getKey(), (string) $record->recipient_id);
     }
 
     public function testExplicitForRecipientOverridesTheResolver()
@@ -306,7 +306,7 @@ class PersistenceTest extends TestCase
         Mail::to('alice@example.com')->send(new DeclaredMail(user: $declared));
 
         $record = EmailMessage::first();
-        $this->assertSame((string) $declared->getKey(), (string) $record->recipient_model_id);
+        $this->assertSame((string) $declared->getKey(), (string) $record->recipient_id);
     }
 
     public function testIsEmailRecipientLoadsEveryEmailSentToTheModel()
@@ -326,7 +326,7 @@ class PersistenceTest extends TestCase
 
         $this->assertCount(2, $alice->emailMessages);
         $this->assertCount(1, $bob->emailMessages);
-        $this->assertTrue($alice->is($alice->emailMessages->first()->recipientModel));
+        $this->assertTrue($alice->is($alice->emailMessages->first()->recipient));
 
         // HasEmailMessages still scopes the Order to its own emails, untouched
         // by the recipient-side link.
@@ -625,7 +625,7 @@ class PersistenceTest extends TestCase
 
         EmailMessage::create([
             'provider_message_id' => 'scoped-message-1',
-            'recipient'  => 'recipient@example.com',
+            'to_address'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
 
@@ -657,7 +657,7 @@ class PersistenceTest extends TestCase
 
         $record = EmailMessage::where('provider_message_id', 'never-seen-before')->first();
         $this->assertNotNull($record);
-        $this->assertSame('recipient@example.com', $record->recipient);
+        $this->assertSame('recipient@example.com', $record->to_address);
         $this->assertSame(EmailEvent::EVENT_BOUNCED, $record->status);
         $this->assertSame(EmailEvent::BOUNCE_HARD, $record->bounce_type);
     }
@@ -668,7 +668,7 @@ class PersistenceTest extends TestCase
 
         $record = EmailMessage::create([
             'provider_message_id' => 'postmark-dup',
-            'recipient'           => 'recipient@example.com',
+            'to_address'           => 'recipient@example.com',
             'status'              => EmailEvent::EVENT_SENT,
         ]);
 
@@ -694,7 +694,7 @@ class PersistenceTest extends TestCase
 
         EmailMessage::create([
             'provider_message_id' => 'postmark-click',
-            'recipient'           => 'recipient@example.com',
+            'to_address'           => 'recipient@example.com',
             'status'              => EmailEvent::EVENT_SENT,
         ]);
 
@@ -753,7 +753,7 @@ class PersistenceTest extends TestCase
 
         $record = EmailMessage::create([
             'provider_message_id' => 'postmark-timeline-1',
-            'recipient'  => 'recipient@example.com',
+            'to_address'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
 
@@ -778,7 +778,7 @@ class PersistenceTest extends TestCase
 
         $record = EmailMessage::create([
             'provider_message_id' => 'postmark-timeline-2',
-            'recipient'  => 'recipient@example.com',
+            'to_address'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
 
@@ -803,7 +803,7 @@ class PersistenceTest extends TestCase
 
         $record = EmailMessage::create([
             'provider_message_id' => 'postmark-timeline-3',
-            'recipient'  => 'recipient@example.com',
+            'to_address'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
 
@@ -1073,7 +1073,7 @@ class PersistenceTest extends TestCase
             ->expectsOutputToContain('per-process')
             ->expectsOutputToContain('Test email sent to tester@example.com.');
 
-        $this->assertDatabaseHas('email_messages', ['recipient' => 'tester@example.com']);
+        $this->assertDatabaseHas('email_messages', ['to_address' => 'tester@example.com']);
     }
 
     public function testVerificationEventsAreRelayedToTheWatchedMessage()

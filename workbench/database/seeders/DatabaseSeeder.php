@@ -45,7 +45,7 @@ class DatabaseSeeder extends Seeder
             $message = EmailMessage::create([
                 'provider'      => $providers[array_rand($providers)],
                 'provider_message_id'    => 'wb-'.$i.'-'.bin2hex(random_bytes(4)),
-                'recipient'     => $recipient,
+                'to_address'     => $recipient,
                 'subject'       => $subject,
                 'from_address'  => 'hello@acme.test',
                 'status'        => $status,

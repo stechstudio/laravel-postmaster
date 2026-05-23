@@ -21,6 +21,7 @@ Route::get('/', OverviewController::class)->name('postmaster.overview');
 
 Route::get('messages', [MessageController::class, 'index'])->name('postmaster.messages');
 Route::get('messages/{message}', [MessageController::class, 'show'])->name('postmaster.messages.show');
+Route::post('messages/{message}/resend', [MessageController::class, 'resend'])->name('postmaster.messages.resend');
 Route::get('recipient/{type}/{id}', [MessageController::class, 'forRecipient'])
     ->where('type', '.*')
     ->name('postmaster.recipient');

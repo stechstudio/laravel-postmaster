@@ -323,6 +323,67 @@ class DashboardTest extends TestCase
             ->assertDontSee('For Bob');
     }
 
+    public function testResendReplaysAStoredMessage()
+    {
+        Postmaster::auth(fn () => true);
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $message = EmailMessage::create([
+            'provider_message_id' => 'orig',
+            'recipient'           => 'alice@example.com',
+            'from_address'        => 'no-reply@acme.test',
+            'subject'             => 'Receipt',
+            'html_body'           => '<p>Thanks!</p>',
+            'tags'                => ['billing'],
+        ]);
+
+        $this->post('/postmaster/messages/'.$message->getKey().'/resend')
+            ->assertRedirect('/postmaster/messages/'.$message->getKey())
+            ->assertSessionHas('postmasterFlash');
+
+        \Illuminate\Support\Facades\Mail::assertSent(\STS\Postmaster\Mail\ResentMessage::class, function ($mail) use ($message) {
+            return $mail->record->is($message);
+        });
+    }
+
+    public function testResentMessageReplaysTheStoredHeadersAndBody()
+    {
+        $message = EmailMessage::create([
+            'provider_message_id' => 'orig',
+            'recipient'           => 'alice@example.com',
+            'from_address'        => 'no-reply@acme.test',
+            'subject'             => 'Receipt',
+            'html_body'           => '<p>Thanks!</p>',
+            'tags'                => ['billing'],
+        ]);
+
+        $mail = new \STS\Postmaster\Mail\ResentMessage($message);
+        $mail->build();
+
+        $this->assertTrue($mail->hasTo('alice@example.com'));
+        $this->assertTrue($mail->hasFrom('no-reply@acme.test'));
+        $this->assertSame('Receipt', $mail->subject);
+        $this->assertTrue($mail->hasTag('billing'));
+        $this->assertTrue($mail->hasTag('resent'));
+    }
+
+    public function testResendRefusesWhenNoContentIsStored()
+    {
+        Postmaster::auth(fn () => true);
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $message = EmailMessage::create([
+            'provider_message_id' => 'orig',
+            'recipient'           => 'alice@example.com',
+        ]);
+
+        $this->post('/postmaster/messages/'.$message->getKey().'/resend')
+            ->assertRedirect('/postmaster/messages/'.$message->getKey())
+            ->assertSessionHas('postmasterError');
+
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
+
     public function testActivityListLoads()
     {
         Postmaster::auth(fn () => true);

@@ -41,6 +41,12 @@
             <h1>@yield('title', 'Dashboard')</h1>
         </header>
         <div class="pm-content">
+            @if (session('postmasterFlash'))
+                <div class="pm-flash pm-flash--ok">{{ session('postmasterFlash') }}</div>
+            @endif
+            @if (session('postmasterError'))
+                <div class="pm-flash pm-flash--err">{{ session('postmasterError') }}</div>
+            @endif
             @yield('content')
         </div>
     </main>

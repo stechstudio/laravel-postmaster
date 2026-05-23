@@ -17,8 +17,18 @@
         $recipients = $message->recipients ?: [];
     @endphp
 
-    <div>
+    <div class="pm-detail-bar">
         <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">← Back to messages</a>
+        @if ($message->html_body || $message->text_body)
+            <form method="POST" action="{{ route('postmaster.messages.resend', $message) }}"
+                  onsubmit="return confirm('Resend this email to {{ $message->recipient }}?')">
+                @csrf
+                <button type="submit" class="pm-btn"
+                        @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
+                    Resend
+                </button>
+            </form>
+        @endif
     </div>
 
     <div class="pm-detail-grid">

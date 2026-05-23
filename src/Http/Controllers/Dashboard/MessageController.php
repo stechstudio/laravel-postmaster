@@ -3,6 +3,8 @@
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use STS\Postmaster\Mail\ResentMessage;
 
 /**
  * The inbox: a filterable, cross-tenant list of recorded messages, and the
@@ -63,6 +65,35 @@ class MessageController extends Controller
             'showImages'      => request()->boolean('images'),
             'hasRemoteImages' => $this->hasRemoteImages($record->html_body),
         ]);
+    }
+
+    /**
+     * Resend a previously recorded email — typically after a bounce, once
+     * the recipient has corrected their address. The replay carries over
+     * subject, sender, recipients, bodies, and the tracking context, plus
+     * a "resent" tag of its own. Requires stored content; attachments are
+     * not restored (we never keep their bytes).
+     *
+     * @param Request    $request
+     * @param int|string $message
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function resend( Request $request, $message )
+    {
+        $record = $this->messageQuery()->findOrFail($message);
+
+        if (! $record->html_body && ! $record->text_body) {
+            return redirect()
+                ->route('postmaster.messages.show', $record)
+                ->with('postmasterError', "Can't resend — no stored content. Enable POSTMASTER_STORE_CONTENT for future messages.");
+        }
+
+        Mail::send(new ResentMessage($record));
+
+        return redirect()
+            ->route('postmaster.messages.show', $record)
+            ->with('postmasterFlash', 'Message resent.');
     }
 
     /**

@@ -5,23 +5,24 @@
 
 **Provider-agnostic email webhooks and delivery tracking for Laravel.**
 
-Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, or Resend.
-Each of them can POST a webhook back to you when something happens to a
-message: a delivery, an open, a bounce, a complaint. The trouble is that every
-provider authenticates, shapes, and names those events differently, so the code
-you write to handle one provider won't handle the next.
+Your app sends mail; Postmaster turns every provider's webhook — SendGrid,
+Postmark, Mailgun, Amazon SES, Resend — into one normalized event:
 
-Postmaster sits in front of all five. It verifies and parses every inbound
-webhook and hands your app a single, normalized `EmailEvent` that looks the
-same no matter who sent it. You write your delivery logic once. Switching
-providers, running two at the same time, or failing over between them needs no
-change to that code.
+```php
+use STS\Postmaster\EmailEvent;
 
-That's the whole package by default: a pure event dispatcher with nothing to
-configure. Turn on the persistence layer and it also records every outbound
-email and keeps it current as events arrive, which gives you a queryable
-delivery history, a suppression list that maintains itself, and a dashboard to
-browse all of it.
+Event::listen(function (EmailEvent $event) {
+    if ($event->isBounced()) {
+        // the address bounced; act on it
+    }
+});
+```
+
+Switch providers, run several at once, or fail over between them without
+touching that code. Run the migrations and Postmaster also records every
+outbound email and keeps it current as events arrive — a queryable delivery
+history, a self-maintaining suppression list, and a dashboard to browse it
+all.
 
 ## What you get
 
@@ -34,8 +35,8 @@ browse all of it.
 - **Verified by default.** Every inbound webhook is authenticated (by
   signature, token, or basic auth, depending on the provider), and anything it
   can't trust is rejected.
-- **Delivery tracking when you want it.** Turn it on and Postmaster records
-  every send and keeps it current from the webhook stream. You get
+- **Delivery tracking out of the box.** Run the migrations and Postmaster
+  records every send and keeps it current from the webhook stream. You get
   `delivered()`, `bounced()`, and `failed()` query scopes, a full per-message
   timeline, and an address suppression list that maintains itself.
 - **Emails linked to your models.** Tie a send to an `Order` or a `User` and
@@ -222,14 +223,20 @@ $event->payload();            // the raw provider payload
 $event->toArray();            // everything above as an array
 ```
 
+> **A note on provider casing.** Config keys are lowercase identifiers
+> (`sendgrid`, `postmark`, `mailgun`, `ses`, `resend`). Stored and surfaced
+> values are the canonical product name (`SendGrid`, `Postmark`, …). The
+> `provider()` method, the `provider` column, and the dashboard all use the
+> latter.
+
 ### Statuses
 
 `status()` returns one of:
 
 `EmailEvent::STATUS_ACCEPTED`, `STATUS_DEFERRED`, `STATUS_DELIVERED`,
 `STATUS_BOUNCED`, `STATUS_DROPPED`, `STATUS_COMPLAINED`, `STATUS_OPENED`,
-`STATUS_CLICKED`. (Plus `STATUS_SENT` and `STATUS_SANDBOXED` for outbound
-records the package writes itself.)
+`STATUS_CLICKED`. (Plus `STATUS_SENT`, `STATUS_SANDBOXED`, and `STATUS_BLOCKED`
+for outbound records the package writes itself.)
 
 For comparing against a single value, every status has a matching `is*()`
 predicate. They make a status check read clearly and they autocomplete:

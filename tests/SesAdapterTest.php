@@ -53,6 +53,48 @@ class SesAdapterTest extends TestCase
         ];
     }
 
+    public function testExpandFansDeliveryRecipientsIntoSeparateEvents()
+    {
+        $event = $this->deliveryEvent();
+        $event['mail']['destination']    = ['alice@example.com', 'bob@example.com'];
+        $event['delivery']['recipients'] = ['alice@example.com', 'bob@example.com'];
+
+        $expanded = Ses::expand($this->envelope($event));
+
+        $this->assertCount(2, $expanded);
+
+        // Each expanded payload has a single delivery recipient — so the
+        // adapter's toAddress() picks the right one per fanned event.
+        $first  = new Ses($expanded[0]);
+        $second = new Ses($expanded[1]);
+
+        $this->assertSame('alice@example.com', $first->toAddress());
+        $this->assertSame('bob@example.com',   $second->toAddress());
+        $this->assertSame('ses-message-1',     $first->providerMessageId());
+        $this->assertSame('ses-message-1',     $second->providerMessageId());
+    }
+
+    public function testExpandFansBouncedRecipientsIntoSeparateEvents()
+    {
+        $event = $this->bounceEvent();
+        $event['bounce']['bouncedRecipients'] = [
+            ['emailAddress' => 'alice@example.com', 'diagnosticCode' => 'smtp; 550 a'],
+            ['emailAddress' => 'bob@example.com',   'diagnosticCode' => 'smtp; 550 b'],
+        ];
+
+        $expanded = Ses::expand($this->envelope($event));
+
+        $this->assertCount(2, $expanded);
+        $this->assertSame('alice@example.com', (new Ses($expanded[0]))->toAddress());
+        $this->assertSame('bob@example.com',   (new Ses($expanded[1]))->toAddress());
+    }
+
+    public function testExpandLeavesSingleRecipientEventsAlone()
+    {
+        $this->assertCount(1, Ses::expand($this->envelope($this->deliveryEvent())));
+        $this->assertCount(1, Ses::expand($this->envelope($this->bounceEvent())));
+    }
+
     public function testSupports()
     {
         $this->assertTrue(Ses::supports($this->envelope($this->deliveryEvent())));

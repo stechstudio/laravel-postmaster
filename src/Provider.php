@@ -58,14 +58,21 @@ class Provider
      */
     public function adapt( array $payload )
     {
-        foreach ($this->wrapPayload($payload) AS $data) {
-            $adapter = new $this->adapterClass($data);
-            $event = EmailEvent::create($adapter);
+        $class = $this->adapterClass;
 
-            if ($event) {
-                $this->events[] = $event;
-            } else {
-                $this->handleInvalid($adapter);
+        foreach ($this->wrapPayload($payload) AS $data) {
+            // Some providers pack per-recipient data into a single event
+            // (SES's delivery.recipients[] array, for one). Give the
+            // adapter a chance to fan that out into one event per recipient.
+            foreach ($class::expand($data) as $expanded) {
+                $adapter = new $class($expanded);
+                $event = EmailEvent::create($adapter);
+
+                if ($event) {
+                    $this->events[] = $event;
+                } else {
+                    $this->handleInvalid($adapter);
+                }
             }
         }
 

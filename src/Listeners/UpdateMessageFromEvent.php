@@ -34,7 +34,8 @@ class UpdateMessageFromEvent
             return;
         }
 
-        $record = $this->findOrCreateMessage($event, $messageId);
+        $address = $event->toAddress() === null ? null : strtolower($event->toAddress());
+        $record  = $this->findOrCreateMessage($event, $messageId, $address);
 
         // Hand the correlated record to the event so any later listener can
         // reach the originating message — and, via related(), the app model
@@ -58,34 +59,42 @@ class UpdateMessageFromEvent
     }
 
     /**
-     * Locate the summary record for this message id, creating a minimal one
-     * if the email was never recorded at send time.
+     * Locate the per-recipient summary row for this event, creating a
+     * minimal one if the email was never recorded at send time (or if this
+     * is a webhook for a Cc/Bcc address we didn't pre-record).
      *
-     * The correlation lookup ignores global scopes: webhooks arrive with no
-     * tenant context, so a tenant (or other) global scope on a swapped-in
-     * model would otherwise hide every row.
+     * The correlation key is (provider_message_id, to_address), both
+     * lowercased — one outbound submission produces one row per envelope
+     * recipient, all sharing the provider id, distinguished by address.
      *
-     * @param EmailEvent $event
-     * @param string     $messageId
+     * The lookup ignores global scopes: webhooks arrive with no tenant
+     * context, so a tenant (or other) global scope on a swapped-in model
+     * would otherwise hide every row.
+     *
+     * @param EmailEvent  $event
+     * @param string      $messageId
+     * @param string|null $address    Lowercased recipient address from the event.
      *
      * @return EmailMessage
      */
-    protected function findOrCreateMessage( EmailEvent $event, $messageId )
+    protected function findOrCreateMessage( EmailEvent $event, $messageId, $address )
     {
-        $record = $this->messageModel()->newQuery()
+        $query = $this->messageModel()->newQuery()
             ->withoutGlobalScopes()
-            ->where('provider_message_id', $messageId)
-            ->latest('id')
-            ->first();
+            ->where('provider_message_id', $messageId);
 
-        if ($record) {
+        if ($address !== null) {
+            $query->where('to_address', $address);
+        }
+
+        if ($record = $query->latest('id')->first()) {
             return $record;
         }
 
         return $this->messageModel()->newQuery()->create([
             'provider_message_id' => $messageId,
             'provider'            => $event->provider(),
-            'to_address'          => $event->toAddress(),
+            'to_address'          => $address,
         ]);
     }
 
@@ -105,8 +114,8 @@ class UpdateMessageFromEvent
             $record->provider = $event->provider();
         }
 
-        if (empty($record->to_address)) {
-            $record->to_address = $event->toAddress();
+        if (empty($record->to_address) && $event->toAddress() !== null) {
+            $record->to_address = strtolower($event->toAddress());
         }
 
         $occurredAt = $event->occurredAt() ?? now();

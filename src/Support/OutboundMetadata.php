@@ -24,6 +24,10 @@ class OutboundMetadata
     const HEADER_RELATED_ID     = 'X-Postmaster-Related-Id';
     const HEADER_RECIPIENT_TYPE = 'X-Postmaster-Recipient-Type';
     const HEADER_RECIPIENT_ID   = 'X-Postmaster-Recipient-Id';
+    // Per-address recipient model map (base64-encoded JSON of
+    // {lowercased-address: [morph_class, key]}). Used when a Mailable's
+    // Tracking declared a $recipients array for a multi-recipient send.
+    const HEADER_RECIPIENT_MAP  = 'X-Postmaster-Recipient-Map';
     const HEADER_TENANT         = 'X-Postmaster-Tenant';
     const HEADER_STORE_CONTENT  = 'X-Postmaster-Store-Content';
 

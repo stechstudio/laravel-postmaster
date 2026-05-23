@@ -556,6 +556,36 @@ Postmaster::resolveRecipientUsing(
 An explicit `Tracking(recipient: …)` declaration always wins over the
 resolver — useful when an email about User A is sent to User B.
 
+#### Multi-recipient sends
+
+Each envelope recipient (To, Cc, Bcc) gets its own `email_messages` row,
+all sharing the provider message id and the related/tenant/tags. That's
+because providers fire delivery and bounce webhooks **per recipient** —
+one row per address keeps each delivery state accurate. A bounce for
+`bob@x` lands on bob's row; alice's stays untouched.
+
+For sends where each recipient maps to a different user, declare the map
+inline with `Tracking(recipients: [...])`:
+
+```php
+return new Tracking(
+    related: $this->order,
+    recipients: [
+        'alice@example.com' => $alice,
+        'bob@example.com'   => $bob,
+    ],
+);
+```
+
+Lookup is case-insensitive. Addresses not in the map fall through to
+`Postmaster::resolveRecipientUsing()`, so you only need to declare the
+ones the resolver wouldn't find.
+
+The dashboard's message list shows a small `cc` / `bcc` tag next to the
+address for non-To rows. The message detail page lists the other rows
+of the same outbound submission under an "Also sent to" block, each
+linking to its own detail page.
+
 ### Tagging
 
 `Tracking`'s `tags` are Laravel's own mailable tags. Postmaster records them on

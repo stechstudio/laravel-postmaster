@@ -101,4 +101,16 @@ interface Adapter
      * @return array
      */
     public function payload();
+
+    /**
+     * Expand a single inbound payload into one payload per recipient, for
+     * providers that pack multiple recipients into a single event (SES's
+     * delivery.recipients array, for one). The default returns the payload
+     * unchanged in a one-element list.
+     *
+     * @param array $payload
+     *
+     * @return array<int, array>
+     */
+    public static function expand( array $payload );
 }

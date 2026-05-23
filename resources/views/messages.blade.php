@@ -44,7 +44,12 @@
             <tbody>
                 @forelse ($messages as $message)
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $message) }}'">
-                        <td class="pm-cell-sub">{{ $message->to_address ?? '—' }}</td>
+                        <td class="pm-cell-sub">
+                            {{ $message->to_address ?? '—' }}
+                            @if ($message->recipient_role && $message->recipient_role !== 'to')
+                                <span class="pm-role-tag pm-role-tag--{{ $message->recipient_role }}">{{ $message->recipient_role }}</span>
+                            @endif
+                        </td>
                         <td class="pm-truncate pm-cell-title">{{ $message->subject ?? '—' }}</td>
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $message->status])</td>
                         <td class="pm-dim">{{ $message->provider ?? '—' }}</td>

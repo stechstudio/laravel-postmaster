@@ -85,6 +85,7 @@ class Adapter extends AbstractAdapter
     {
         return Arr::get($this->payload, 'bounce.bouncedRecipients.0.emailAddress')
             ?? Arr::get($this->payload, 'complaint.complainedRecipients.0.emailAddress')
+            ?? Arr::get($this->payload, 'delivery.recipients.0')
             ?? Arr::get($this->payload, 'mail.destination.0');
     }
 
@@ -189,5 +190,63 @@ class Adapter extends AbstractAdapter
         return array_key_exists('eventType', $payload)
             || array_key_exists('notificationType', $payload)
             || Arr::get($payload, 'Type') === 'Notification';
+    }
+
+    /**
+     * SES packs per-recipient data into a single event for delivery,
+     * bounce, and complaint notifications — fan each recipient out into
+     * its own event so per-row correlation finds the right `to_address`.
+     *
+     * @param array $payload
+     *
+     * @return array<int, array>
+     */
+    #[\Override]
+    public static function expand( array $payload )
+    {
+        $event = $payload;
+
+        // Unwrap the SNS Notification envelope so we can read the event
+        // type. The constructor will be passed the unwrapped form and skip
+        // its own unwrap step.
+        if (Arr::get($event, 'Type') === 'Notification' && isset($event['Message'])) {
+            $decoded = json_decode($event['Message'], true);
+            if (! is_array($decoded)) {
+                return [$payload];
+            }
+            $event = $decoded;
+        }
+
+        $type = Arr::get($event, 'eventType') ?? Arr::get($event, 'notificationType');
+
+        $expanders = [
+            'Delivery'  => 'delivery.recipients',
+            'Bounce'    => 'bounce.bouncedRecipients',
+            'Complaint' => 'complaint.complainedRecipients',
+        ];
+
+        if (! isset($expanders[$type])) {
+            return [$payload];
+        }
+
+        $path       = $expanders[$type];
+        $recipients = Arr::get($event, $path, []);
+
+        if (count($recipients) <= 1) {
+            return [$payload];
+        }
+
+        $expanded = [];
+
+        foreach ($recipients as $recipient) {
+            // Delivery recipients are bare strings; Bounce / Complaint
+            // entries are objects with emailAddress + diagnostic fields.
+            // Either way, each fanned event keeps just one entry.
+            $clone = $event;
+            Arr::set($clone, $path, [$recipient]);
+            $expanded[] = $clone;
+        }
+
+        return $expanded;
     }
 }

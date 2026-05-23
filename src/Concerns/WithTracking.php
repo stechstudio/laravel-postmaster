@@ -46,7 +46,8 @@ trait WithTracking
      * Record the recipient of this email as the given model — typically the
      * User it is being sent to. Distinct from relatedTo(): the related model
      * is what the email is *about* (an Order); the recipient is *who* the
-     * email is for. Takes precedence over the resolveRecipientUsing() resolver.
+     * email is for. Applies to the primary To recipient on a multi-recipient
+     * send. Takes precedence over the resolveRecipientUsing() resolver.
      *
      * @param Model $model
      *
@@ -55,6 +56,22 @@ trait WithTracking
     public function forRecipient( Model $model )
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->forRecipient($model));
+    }
+
+    /**
+     * Record the recipient model per envelope address — for sends that go
+     * to multiple recipients where each maps to a different user. Map keys
+     * are email addresses (case-insensitive); values are Model instances.
+     * Addresses not in the map fall through to the global recipient
+     * resolver.
+     *
+     * @param array<string, Model> $map
+     *
+     * @return $this
+     */
+    public function forRecipients( array $map )
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->forRecipients($map));
     }
 
     /**

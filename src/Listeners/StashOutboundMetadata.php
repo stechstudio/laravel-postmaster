@@ -44,6 +44,17 @@ class StashOutboundMetadata
             }
         }
 
+        // The recipient map ships as a single base64-encoded JSON header —
+        // one header instead of a pair per address — decoded here so the
+        // recorder can read it as a normal PHP array.
+        if (($value = $headers->get(OutboundMetadata::HEADER_RECIPIENT_MAP)) !== null) {
+            $decoded = json_decode(base64_decode($value->getBodyAsString()), true);
+            if (is_array($decoded)) {
+                $stashed['recipient_map'] = $decoded;
+            }
+            $headers->remove(OutboundMetadata::HEADER_RECIPIENT_MAP);
+        }
+
         // Laravel renders a Mailable's / notification's tags as Symfony
         // X-Tag headers. Read them so they land on the record, but leave
         // them in place — the provider transport forwards them.

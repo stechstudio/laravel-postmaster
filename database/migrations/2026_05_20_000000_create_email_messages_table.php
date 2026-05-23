@@ -21,8 +21,12 @@ return new class extends Migration
         Schema::create($this->table(), function (Blueprint $table) {
             $table->id();
             $table->string('provider')->nullable();
-            $table->string('provider_message_id')->nullable()->index();
+            $table->string('provider_message_id')->nullable();
             $table->string('to_address')->nullable()->index();
+            // Which envelope role this row represents: 'to', 'cc', or 'bcc'.
+            // One row per envelope recipient — providers fire webhooks per
+            // address, so each gets its own delivery state.
+            $table->string('recipient_role', 3)->nullable();
             $table->string('subject')->nullable();
             // Full message representation, captured at send time only when
             // persistence.store_content is enabled, and purged again by the
@@ -55,6 +59,10 @@ return new class extends Migration
             $table->timestamps();
             // Sorted by recency in every dashboard view.
             $table->index('created_at');
+            // Webhooks correlate to a recorded row by (provider id + address)
+            // because one outbound submission produces one row per envelope
+            // recipient — all sharing a provider id, distinguished by address.
+            $table->index(['provider_message_id', 'to_address']);
         });
     }
 

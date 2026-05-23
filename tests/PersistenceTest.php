@@ -486,6 +486,128 @@ class PersistenceTest extends TestCase
         $this->assertTrue($tenant->is($record->tenant));
     }
 
+    public function testMultiRecipientSendRecordsOneRowPerEnvelopeRecipient()
+    {
+        Mail::to(['alice@example.com', 'bob@example.com'])
+            ->cc('ops@example.com')
+            ->bcc('audit@example.com')
+            ->send(new FullMail);
+
+        // 2 To + 1 Cc + 1 Bcc = 4 rows, all sharing the provider message id.
+        $this->assertCount(4, EmailMessage::all());
+
+        $providerIds = EmailMessage::distinct()->pluck('provider_message_id');
+        $this->assertCount(1, $providerIds);
+
+        $this->assertSame(2, EmailMessage::where('recipient_role', 'to')->count());
+        $this->assertSame(1, EmailMessage::where('recipient_role', 'cc')->count());
+        $this->assertSame(1, EmailMessage::where('recipient_role', 'bcc')->count());
+
+        // Addresses lowercased on write for case-insensitive correlation.
+        $this->assertTrue(EmailMessage::where('to_address', 'alice@example.com')->exists());
+    }
+
+    public function testWebhookLandsOnTheRightRowForMultiRecipientSends()
+    {
+        Mail::to(['alice@example.com', 'bob@example.com'])->send(new FullMail);
+
+        $providerId = EmailMessage::first()->provider_message_id;
+
+        // Bob bounces; Alice doesn't. The wrong-attribution bug we set out
+        // to fix was that this would flip Alice's row to bounced. Per-row
+        // correlation by (provider_message_id, to_address) keeps each row
+        // accurate.
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Bounce',
+            'Type'       => 'HardBounce',
+            'MessageID'  => $providerId,
+            'Email'      => 'bob@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ])));
+
+        $alice = EmailMessage::where('to_address', 'alice@example.com')->first();
+        $bob   = EmailMessage::where('to_address', 'bob@example.com')->first();
+
+        $this->assertTrue($alice->isSent());
+        $this->assertTrue($bob->isBounced());
+    }
+
+    public function testWebhookCorrelationIsCaseInsensitive()
+    {
+        Mail::to('Alice@Example.COM')->send(new FullMail);
+
+        $this->assertSame('alice@example.com', EmailMessage::first()->to_address);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => EmailMessage::first()->provider_message_id,
+            'Recipient'   => 'ALICE@example.com',
+            'DeliveredAt' => '2021-01-01T00:00:00Z',
+        ])));
+
+        // Same provider id + same address (different casing) → same row.
+        $this->assertCount(1, EmailMessage::all());
+        $this->assertTrue(EmailMessage::first()->isDelivered());
+    }
+
+    public function testTrackingRecipientsMapBindsModelsPerAddress()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        $alice = User::create();
+        $bob   = User::create();
+
+        Mail::to(['alice@example.com', 'bob@example.com'])
+            ->send(new DeclaredMail(recipientMap: [
+                'alice@example.com' => $alice,
+                'bob@example.com'   => $bob,
+            ]));
+
+        $aliceRow = EmailMessage::where('to_address', 'alice@example.com')->first();
+        $bobRow   = EmailMessage::where('to_address', 'bob@example.com')->first();
+
+        $this->assertSame((string) $alice->getKey(), (string) $aliceRow->recipient_id);
+        $this->assertSame((string) $bob->getKey(),   (string) $bobRow->recipient_id);
+    }
+
+    public function testRecipientsMapFallsThroughToResolverForUnmappedAddresses()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        $alice    = User::create();
+        $stranger = User::create();
+
+        // Alice is in the map; bob is not — but the resolver knows him.
+        Postmaster::resolveRecipientUsing(fn ($address) => $address === 'bob@example.com' ? $stranger : null);
+
+        Mail::to(['alice@example.com', 'bob@example.com'])
+            ->send(new DeclaredMail(recipientMap: ['alice@example.com' => $alice]));
+
+        $this->assertSame(
+            (string) $alice->getKey(),
+            (string) EmailMessage::where('to_address', 'alice@example.com')->first()->recipient_id
+        );
+        $this->assertSame(
+            (string) $stranger->getKey(),
+            (string) EmailMessage::where('to_address', 'bob@example.com')->first()->recipient_id
+        );
+    }
+
+    public function testSingularRecipientDeclarationOnlyAppliesToThePrimaryToRow()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        $alice = User::create();
+
+        // Alice is declared singularly; bob is not in any map. With no
+        // resolver registered, bob's row has no recipient model.
+        Mail::to(['alice@example.com', 'bob@example.com'])
+            ->send(new DeclaredMail(user: $alice));
+
+        $this->assertSame(
+            (string) $alice->getKey(),
+            (string) EmailMessage::where('to_address', 'alice@example.com')->first()->recipient_id
+        );
+        $this->assertNull(EmailMessage::where('to_address', 'bob@example.com')->first()->recipient_id);
+    }
+
     public function testStatusPredicatesOnEmailMessage()
     {
         $record = EmailMessage::create(['status' => EmailEvent::STATUS_BOUNCED]);

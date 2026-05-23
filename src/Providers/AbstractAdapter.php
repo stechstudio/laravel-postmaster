@@ -141,6 +141,20 @@ abstract class AbstractAdapter implements Adapter
     abstract public static function supports( array $payload );
 
     /**
+     * Default expansion: the payload is one event for one recipient. Adapters
+     * for providers that pack per-recipient data into a single event override
+     * this to fan it out (see Ses\Adapter::expand()).
+     *
+     * @param array $payload
+     *
+     * @return array<int, array>
+     */
+    public static function expand( array $payload )
+    {
+        return [$payload];
+    }
+
+    /**
      * @return string
      */
     public function provider()

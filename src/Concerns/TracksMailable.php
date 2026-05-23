@@ -75,6 +75,10 @@ trait TracksMailable
             $this->forRecipient($tracking->recipient);
         }
 
+        if (! empty($tracking->recipients)) {
+            $this->forRecipients($tracking->recipients);
+        }
+
         if ($tracking->tenant !== null) {
             $this->forTenant($tracking->tenant);
         }

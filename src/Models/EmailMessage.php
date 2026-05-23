@@ -20,6 +20,7 @@ use STS\Postmaster\EmailEvent;
  * @property string|null $provider
  * @property string|null $provider_message_id
  * @property string|null $to_address
+ * @property string|null $recipient_role  'to' | 'cc' | 'bcc'
  * @property string|null $recipient_type
  * @property int|string|null $recipient_id
  * @property string|null $subject

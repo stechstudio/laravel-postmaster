@@ -54,9 +54,22 @@ class MessageController extends Controller
     {
         $record = $this->messageQuery()->findOrFail($message);
 
+        // Sibling rows for the same outbound submission — when the email
+        // went to multiple envelope recipients each got its own row, all
+        // sharing this row's provider_message_id.
+        $siblings = $record->provider_message_id
+            ? $this->messageQuery()
+                ->where('provider_message_id', $record->provider_message_id)
+                ->where('id', '!=', $record->getKey())
+                ->orderByRaw("CASE recipient_role WHEN 'to' THEN 1 WHEN 'cc' THEN 2 ELSE 3 END")
+                ->orderBy('id')
+                ->get()
+            : collect();
+
         return response()->view('postmaster::message', [
             'message'    => $record,
             'events'     => $record->events()->get(),
+            'siblings'   => $siblings,
             'tenants'    => $this->tenantLabels([$record->{$this->tenantColumn()}]),
             'tenantTerm' => $this->tenantTerm(),
             'recipientLabel' => $this->labelForRecipientOnRecord($record),

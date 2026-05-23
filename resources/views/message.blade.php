@@ -41,7 +41,8 @@
                     @if ($message->from_address)
                         <dt>From</dt><dd>{{ $message->from_address }}</dd>
                     @endif
-                    <dt>To</dt><dd>{{ $message->to_address ?? '—' }}</dd>
+                    <dt>{{ ucfirst($message->recipient_role ?? 'to') }}</dt>
+                    <dd>{{ $message->to_address ?? '—' }}</dd>
                     @foreach (['cc' => 'Cc', 'bcc' => 'Bcc'] as $key => $label)
                         @if (! empty($recipients[$key]))
                             <dt>{{ $label }}</dt>
@@ -119,6 +120,21 @@
                     <dt>Last event</dt><dd>@include('postmaster::partials.datetime', ['when' => $message->last_event_at])</dd>
                 </dl>
             </div>
+
+            @if ($siblings->isNotEmpty())
+                <div class="pm-card">
+                    <h2 class="pm-section-title">Also sent to</h2>
+                    <div class="pm-siblings">
+                        @foreach ($siblings as $sibling)
+                            <a class="pm-siblings-row" href="{{ route('postmaster.messages.show', $sibling) }}">
+                                <span class="pm-role-tag pm-role-tag--{{ $sibling->recipient_role }}">{{ $sibling->recipient_role }}</span>
+                                <span class="pm-truncate">{{ $sibling->to_address }}</span>
+                                @include('postmaster::partials.badge', ['status' => $sibling->status])
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
             <div class="pm-card">
                 <h2 class="pm-section-title">Timeline</h2>

@@ -352,6 +352,40 @@ a { color: inherit; text-decoration: none; }
 .pm-meta dd { margin: 0; }
 .pm-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 
+/* Small inline tag for the envelope role (cc / bcc) on a recipient row.
+   Only shown when the role is not 'to' — the To rows don't need a label. */
+.pm-role-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 5px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--pm-muted-fg);
+    background: var(--pm-muted-bg, rgba(0,0,0,0.05));
+    border-radius: 3px;
+    vertical-align: 1px;
+}
+
+/* "Also sent to" card on the message detail page — sibling recipients of
+   the same outbound submission, each linking to its own detail page. */
+.pm-siblings { display: flex; flex-direction: column; gap: 8px; }
+.pm-siblings-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--pm-fg);
+    text-decoration: none;
+    font-size: 13px;
+}
+.pm-siblings-row:hover { background: var(--pm-row-hover, rgba(0,0,0,0.04)); }
+.pm-siblings-row .pm-truncate { flex: 1; min-width: 0; }
+
 /* The message detail's email-style header — subject over participants. */
 .pm-email-head { margin-bottom: 18px; }
 .pm-email-subject {

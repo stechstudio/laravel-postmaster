@@ -259,8 +259,9 @@ class Postmaster
 
     /**
      * Build a callback that records the recipient model — the person the
-     * email is for — separate from relatedTo(). An explicit declaration
-     * takes precedence over the resolveRecipientUsing() resolver.
+     * email is for — separate from relatedTo(). Applies to the primary
+     * To recipient on a multi-recipient send. Takes precedence over the
+     * resolveRecipientUsing() resolver for that row.
      *
      * @param Model $model
      *
@@ -275,6 +276,43 @@ class Postmaster
 
             $message->getHeaders()->addTextHeader(
                 OutboundMetadata::HEADER_RECIPIENT_ID, (string) $model->getKey()
+            );
+        };
+    }
+
+    /**
+     * Build a callback that records the recipient model *per address* for a
+     * multi-recipient send. The map keys are email addresses (case-
+     * insensitive); the values are Model instances. Addresses not in the
+     * map fall through to the resolveRecipientUsing() resolver.
+     *
+     * @param array<string, Model> $map
+     *
+     * @return Closure
+     */
+    public function forRecipients( array $map )
+    {
+        $encoded = [];
+
+        foreach ($map as $address => $model) {
+            if (! $model instanceof Model) {
+                continue;
+            }
+
+            $encoded[strtolower((string) $address)] = [
+                $model->getMorphClass(),
+                (string) $model->getKey(),
+            ];
+        }
+
+        return function (Email $message) use ($encoded) {
+            if ($encoded === []) {
+                return;
+            }
+
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_RECIPIENT_MAP,
+                base64_encode(json_encode($encoded))
             );
         };
     }

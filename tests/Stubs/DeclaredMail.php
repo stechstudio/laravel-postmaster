@@ -18,9 +18,13 @@ class DeclaredMail extends Mailable
     /**
      * @param array<int, string> $labels
      */
+    /**
+     * @param array<string, Model>|null $recipientMap
+     */
     public function __construct(
         public ?Model $order = null,
         public ?Model $user = null,
+        public ?array $recipientMap = null,
         public mixed $account = null,
         public array $labels = [],
         public ?bool $store = null,
@@ -32,6 +36,7 @@ class DeclaredMail extends Mailable
         return new Tracking(
             related: $this->order,
             recipient: $this->user,
+            recipients: $this->recipientMap,
             tenant: $this->account,
             tags: $this->labels,
             storeContent: $this->store,

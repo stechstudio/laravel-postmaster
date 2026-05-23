@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Contracts;
 
+use DateTimeImmutable;
 use Illuminate\Support\Collection;
 
 /**
@@ -18,54 +19,60 @@ interface Adapter
     /**
      * @return string
      */
-    public function getProvider();
+    public function provider();
 
     /**
+     * The normalized lifecycle status this webhook represents — one of the
+     * EmailEvent::STATUS_* constants, or null if the provider's event type
+     * does not map to anything we recognise.
+     *
      * @return string|null
      */
-    public function getAction();
+    public function status();
 
     /**
+     * The id the provider assigned to the original message.
+     *
      * @return string|null
      */
-    public function getMessageId();
+    public function providerMessageId();
 
     /**
+     * The email address this event is about.
+     *
      * @return string|null
      */
-    public function getRecipient();
+    public function toAddress();
 
     /**
-     * @return int|null
+     * When the event happened, per the provider. Null when the provider did
+     * not supply a usable timestamp.
+     *
+     * @return DateTimeImmutable|null
      */
-    public function getTimestamp();
-
-    /**
-     * @return \DateTimeImmutable|null
-     */
-    public function getDate();
+    public function occurredAt();
 
     /**
      * @return mixed
      */
-    public function getResponse();
+    public function response();
 
     /**
      * @return mixed
      */
-    public function getReason();
+    public function reason();
 
     /**
      * @return mixed
      */
-    public function getCode();
+    public function code();
 
     /**
      * Normalized bounce severity, or null when this is not a bounce.
      *
      * @return string|null
      */
-    public function getBounceType();
+    public function bounceType();
 
     /**
      * The clicked URL for a click event, or null for any other event type
@@ -73,7 +80,7 @@ interface Adapter
      *
      * @return string|null
      */
-    public function getUrl();
+    public function clickedUrl();
 
     /**
      * @return bool
@@ -83,15 +90,15 @@ interface Adapter
     /**
      * @return Collection
      */
-    public function getTags();
+    public function tags();
 
     /**
      * @return Collection
      */
-    public function getData();
+    public function data();
 
     /**
      * @return array
      */
-    public function getPayload();
+    public function payload();
 }

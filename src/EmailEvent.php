@@ -2,33 +2,34 @@
 
 namespace STS\Postmaster;
 
+use DateTimeInterface;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Support\Collection;
 use STS\Postmaster\Contracts\Adapter;
 
 /**
- * Class EmailEvent
- * @package STS\EmailEventParser
+ * A normalized inbound email event. Every webhook becomes one of these
+ * regardless of provider; consumers see the same shape whatever the source.
  */
 class EmailEvent
 {
     use Dispatchable;
 
-    const EMAIL_ACCEPTED = "accepted";
-    const EVENT_SENT = "sent";
+    const STATUS_ACCEPTED   = "accepted";
+    const STATUS_SENT       = "sent";
     // Terminal status for a message intercepted by sandbox delivery mode: it
     // was recorded but never handed to a provider, so no webhooks will follow.
-    const EVENT_SANDBOX = "sandbox";
-    const EVENT_DEFERRED = "deferred";
-    const EVENT_DELIVERED = "delivered";
-    const EVENT_BOUNCED = "bounced";
-    const EVENT_DROPPED = "dropped";
-    const EVENT_COMPLAINED = "complained";
-    const EVENT_OPENED = "opened";
-    const EVENT_CLICKED = "clicked";
+    const STATUS_SANDBOX    = "sandbox";
+    const STATUS_DEFERRED   = "deferred";
+    const STATUS_DELIVERED  = "delivered";
+    const STATUS_BOUNCED    = "bounced";
+    const STATUS_DROPPED    = "dropped";
+    const STATUS_COMPLAINED = "complained";
+    const STATUS_OPENED     = "opened";
+    const STATUS_CLICKED    = "clicked";
 
-    const BOUNCE_HARD = "hard";   // permanent — safe to suppress
-    const BOUNCE_SOFT = "soft";   // transient — retry later
+    const BOUNCE_HARD  = "hard";  // permanent — safe to suppress
+    const BOUNCE_SOFT  = "soft";  // transient — retry later
     const BOUNCE_BLOCK = "block"; // blocked by reputation/policy
 
     /**
@@ -53,8 +54,6 @@ class EmailEvent
     public $emailMessage;
 
     /**
-     * EmailEvent constructor.
-     *
      * @param Adapter $adapter
      */
     public function __construct( Adapter $adapter )
@@ -77,7 +76,7 @@ class EmailEvent
     /**
      * @return Adapter
      */
-    public function getAdapter()
+    public function adapter()
     {
         return $this->adapter;
     }
@@ -85,97 +84,96 @@ class EmailEvent
     /**
      * @return string
      */
-    public function getProvider()
+    public function provider()
     {
-        return $this->adapter->getProvider();
+        return $this->adapter->provider();
+    }
+
+    /**
+     * The normalized lifecycle status — one of the STATUS_* constants.
+     *
+     * @return string|null
+     */
+    public function status()
+    {
+        return $this->adapter->status();
     }
 
     /**
      * @return string|null
      */
-    public function getAction()
+    public function providerMessageId()
     {
-        return $this->adapter->getAction();
+        return $this->adapter->providerMessageId();
     }
 
     /**
+     * The address this event is about.
+     *
      * @return string|null
      */
-    public function getMessageId()
+    public function toAddress()
     {
-        return $this->adapter->getMessageId();
+        return $this->adapter->toAddress();
     }
 
     /**
-     * @return string|null
-     */
-    public function getRecipient()
-    {
-        return $this->adapter->getRecipient();
-    }
-
-    /**
-     * @return int|null
-     */
-    public function getTimestamp()
-    {
-        return $this->adapter->getTimestamp();
-    }
-
-    /**
+     * When the event happened, per the provider — or null if no usable
+     * timestamp was supplied.
+     *
      * @return \DateTimeImmutable|null
      */
-    public function getDate()
+    public function occurredAt()
     {
-        return $this->adapter->getDate();
+        return $this->adapter->occurredAt();
     }
 
     /**
      * @return mixed
      */
-    public function getResponse()
+    public function response()
     {
-        return $this->adapter->getResponse();
+        return $this->adapter->response();
     }
 
     /**
      * @return mixed
      */
-    public function getReason()
+    public function reason()
     {
-        return $this->adapter->getReason();
+        return $this->adapter->reason();
     }
 
     /**
      * @return mixed
      */
-    public function getCode()
+    public function code()
     {
-        return $this->adapter->getCode();
+        return $this->adapter->code();
     }
 
     /**
      * @return Collection
      */
-    public function getTags()
+    public function tags()
     {
-        return $this->adapter->getTags();
+        return $this->adapter->tags();
     }
 
     /**
      * @return Collection
      */
-    public function getData()
+    public function data()
     {
-        return $this->adapter->getData();
+        return $this->adapter->data();
     }
 
     /**
      * @return string|null
      */
-    public function getBounceType()
+    public function bounceType()
     {
-        return $this->adapter->getBounceType();
+        return $this->adapter->bounceType();
     }
 
     /**
@@ -192,17 +190,17 @@ class EmailEvent
      *
      * @return string|null
      */
-    public function getUrl()
+    public function clickedUrl()
     {
-        return $this->adapter->getUrl();
+        return $this->adapter->clickedUrl();
     }
 
     /**
      * @return array
      */
-    public function getPayload()
+    public function payload()
     {
-        return $this->adapter->getPayload();
+        return $this->adapter->payload();
     }
 
     /**
@@ -211,18 +209,18 @@ class EmailEvent
     public function toArray()
     {
         return [
-            'provider'  => $this->adapter->getProvider(),
-            'event'     => $this->adapter->getAction(),
-            'timestamp' => $this->adapter->getTimestamp(),
-            'date'      => $this->adapter->getDate()?->format(\DateTimeInterface::ATOM),
-            'recipient' => $this->adapter->getRecipient(),
-            'messageId' => $this->adapter->getMessageId(),
-            'tags'      => $this->adapter->getTags()->toArray(),
-            'data'      => $this->adapter->getData()->toArray(),
-            'response'  => $this->adapter->getResponse(),
-            'reason'    => $this->adapter->getReason(),
-            'code'      => $this->adapter->getCode(),
-            'bounceType' => $this->adapter->getBounceType(),
+            'provider'            => $this->adapter->provider(),
+            'status'              => $this->adapter->status(),
+            'provider_message_id' => $this->adapter->providerMessageId(),
+            'to_address'          => $this->adapter->toAddress(),
+            'occurred_at'         => $this->adapter->occurredAt()?->format(DateTimeInterface::ATOM),
+            'bounce_type'         => $this->adapter->bounceType(),
+            'reason'              => $this->adapter->reason(),
+            'response'            => $this->adapter->response(),
+            'code'                => $this->adapter->code(),
+            'clicked_url'         => $this->adapter->clickedUrl(),
+            'tags'                => $this->adapter->tags()->toArray(),
+            'data'                => $this->adapter->data()->toArray(),
         ];
     }
 }

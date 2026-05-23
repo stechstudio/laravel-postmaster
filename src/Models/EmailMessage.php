@@ -45,9 +45,9 @@ class EmailMessage extends Model
      * @var array<int, string>
      */
     public const FAILED_STATUSES = [
-        EmailEvent::EVENT_BOUNCED,
-        EmailEvent::EVENT_DROPPED,
-        EmailEvent::EVENT_COMPLAINED,
+        EmailEvent::STATUS_BOUNCED,
+        EmailEvent::STATUS_DROPPED,
+        EmailEvent::STATUS_COMPLAINED,
     ];
 
     protected $guarded = [];
@@ -167,7 +167,7 @@ class EmailMessage extends Model
     /** @return Builder */
     public function scopeSent( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_SENT);
+        return $query->where('status', EmailEvent::STATUS_SENT);
     }
 
     /**
@@ -178,43 +178,43 @@ class EmailMessage extends Model
      */
     public function scopeSandbox( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_SANDBOX);
+        return $query->where('status', EmailEvent::STATUS_SANDBOX);
     }
 
     /** @return Builder */
     public function scopeAccepted( Builder $query )
     {
-        return $query->where('status', EmailEvent::EMAIL_ACCEPTED);
+        return $query->where('status', EmailEvent::STATUS_ACCEPTED);
     }
 
     /** @return Builder */
     public function scopeDeferred( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_DEFERRED);
+        return $query->where('status', EmailEvent::STATUS_DEFERRED);
     }
 
     /** @return Builder */
     public function scopeDelivered( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_DELIVERED);
+        return $query->where('status', EmailEvent::STATUS_DELIVERED);
     }
 
     /** @return Builder */
     public function scopeBounced( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_BOUNCED);
+        return $query->where('status', EmailEvent::STATUS_BOUNCED);
     }
 
     /** @return Builder */
     public function scopeDropped( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_DROPPED);
+        return $query->where('status', EmailEvent::STATUS_DROPPED);
     }
 
     /** @return Builder */
     public function scopeComplained( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_COMPLAINED);
+        return $query->where('status', EmailEvent::STATUS_COMPLAINED);
     }
 
     /**
@@ -233,13 +233,13 @@ class EmailMessage extends Model
     /** @return Builder */
     public function scopeOpened( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_OPENED);
+        return $query->where('status', EmailEvent::STATUS_OPENED);
     }
 
     /** @return Builder */
     public function scopeClicked( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_CLICKED);
+        return $query->where('status', EmailEvent::STATUS_CLICKED);
     }
 
     /**

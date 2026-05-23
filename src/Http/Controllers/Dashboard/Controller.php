@@ -263,16 +263,16 @@ abstract class Controller
     protected function statuses()
     {
         return [
-            EmailEvent::EVENT_SENT,
-            EmailEvent::EVENT_SANDBOX,
-            EmailEvent::EMAIL_ACCEPTED,
-            EmailEvent::EVENT_DEFERRED,
-            EmailEvent::EVENT_DELIVERED,
-            EmailEvent::EVENT_BOUNCED,
-            EmailEvent::EVENT_DROPPED,
-            EmailEvent::EVENT_COMPLAINED,
-            EmailEvent::EVENT_OPENED,
-            EmailEvent::EVENT_CLICKED,
+            EmailEvent::STATUS_SENT,
+            EmailEvent::STATUS_SANDBOX,
+            EmailEvent::STATUS_ACCEPTED,
+            EmailEvent::STATUS_DEFERRED,
+            EmailEvent::STATUS_DELIVERED,
+            EmailEvent::STATUS_BOUNCED,
+            EmailEvent::STATUS_DROPPED,
+            EmailEvent::STATUS_COMPLAINED,
+            EmailEvent::STATUS_OPENED,
+            EmailEvent::STATUS_CLICKED,
         ];
     }
 

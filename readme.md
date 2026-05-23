@@ -88,7 +88,7 @@ Event::listen(function (EmailEvent $event) {
     if ($event->isPermanent()) {
         // Uh oh, a hard bounce or a block. This address won't accept mail again.
         // What happens next is your call: pause sends, flag the account, alert the team.
-        logger()->warning("Email permanently failed for {$event->getRecipient()}");
+        logger()->warning("Email permanently failed for {$event->toAddress()}");
     }
 });
 ```
@@ -186,31 +186,30 @@ Every webhook becomes an `EmailEvent` with a normalized API. The methods are
 the same whatever the provider:
 
 ```php
-$event->getProvider();    // "SendGrid", "Postmark", "Mailgun", "SES", "Resend"
-$event->getAction();      // one of the EmailEvent::EVENT_* constants
-$event->getRecipient();   // the recipient email address
-$event->getMessageId();   // the provider's message id
-$event->getTimestamp();   // unix timestamp (int)
-$event->getDate();        // the timestamp as a DateTimeImmutable (UTC)
-$event->getBounceType();  // normalized bounce severity, or null
-$event->isPermanent();    // true for a hard bounce or a block
-$event->getResponse();    // the provider's response/diagnostic detail
-$event->getReason();      // the provider's reason string
-$event->getCode();        // the provider's status code
-$event->getUrl();         // the URL clicked on a click event (else null)
-$event->getTags();        // Collection of tags/categories
-$event->getData();        // Collection of custom data
-$event->getPayload();     // the raw provider payload
-$event->toArray();        // everything above as an array
+$event->provider();           // "SendGrid", "Postmark", "Mailgun", "SES", "Resend"
+$event->status();             // one of the EmailEvent::STATUS_* constants
+$event->toAddress();          // the recipient email address
+$event->providerMessageId();  // the provider's message id
+$event->occurredAt();         // when the event happened (DateTimeImmutable, UTC)
+$event->bounceType();         // normalized bounce severity, or null
+$event->isPermanent();        // true for a hard bounce or a block
+$event->response();           // the provider's response/diagnostic detail
+$event->reason();             // the provider's reason string
+$event->code();               // the provider's status code
+$event->clickedUrl();         // the URL clicked on a click event (else null)
+$event->tags();               // Collection of tags/categories
+$event->data();               // Collection of custom data
+$event->payload();            // the raw provider payload
+$event->toArray();            // everything above as an array
 ```
 
-### Actions
+### Statuses
 
-`getAction()` returns one of:
+`status()` returns one of:
 
-`EmailEvent::EMAIL_ACCEPTED`, `EVENT_DEFERRED`, `EVENT_DELIVERED`,
-`EVENT_BOUNCED`, `EVENT_DROPPED`, `EVENT_COMPLAINED`, `EVENT_OPENED`,
-`EVENT_CLICKED`.
+`EmailEvent::STATUS_ACCEPTED`, `STATUS_DEFERRED`, `STATUS_DELIVERED`,
+`STATUS_BOUNCED`, `STATUS_DROPPED`, `STATUS_COMPLAINED`, `STATUS_OPENED`,
+`STATUS_CLICKED`.
 
 ### Bounce classification
 
@@ -221,7 +220,7 @@ Beyond the action, bounces are normalized into a severity, so you can answer
 - `EmailEvent::BOUNCE_SOFT`: transient, so retry later.
 - `EmailEvent::BOUNCE_BLOCK`: blocked by reputation or policy.
 
-`getBounceType()` returns one of these (or `null` when the event is not a
+`bounceType()` returns one of these (or `null` when the event is not a
 bounce). `isPermanent()` is a shortcut for "hard or block".
 
 ## Invalid payloads
@@ -794,12 +793,18 @@ New API surface:
 - `Postmaster::resolveRecipientUsing($closure)` registers a global resolver
   used when the Mailable didn't declare one.
 - `IsEmailRecipient` trait — User-side counterpart to `HasEmailMessages`.
-- `EmailEvent::getUrl()` returns the clicked URL on a click event.
+- `EmailEvent::clickedUrl()` returns the clicked URL on a click event.
 - `Postmaster::useEmailMessageModel()`, `useEmailEventModel()`,
   `useEmailAddressModel()` — runtime setters parallel to `useTenantModel()`.
 
-There are no behavioural breaks unless your app reads the renamed column
-directly. Everything else is additive.
+The `EmailEvent` API was rewritten without `get` prefixes — `provider()`,
+`status()`, `toAddress()`, `providerMessageId()`, `occurredAt()`, `response()`,
+`reason()`, `code()`, `bounceType()`, `clickedUrl()`, `tags()`, `data()`,
+`payload()`, `adapter()`. The `EVENT_*` constants (which named statuses, not
+events) are now `STATUS_*`. `getTimestamp()` and `getDate()` collapsed into
+`occurredAt()` (DateTimeImmutable). `toArray()` keys snake_case the same way
+the columns do: `status`, `to_address`, `provider_message_id`, `occurred_at`,
+`bounce_type`, `clicked_url`. Update any caller that read the old shape.
 
 ## License
 

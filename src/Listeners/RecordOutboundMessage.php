@@ -30,7 +30,7 @@ class RecordOutboundMessage
      */
     public function handle( MessageSent $event )
     {
-        $this->record($event->message, $event->sent->getMessageId(), EmailEvent::EVENT_SENT);
+        $this->record($event->message, $event->sent->getMessageId(), EmailEvent::STATUS_SENT);
     }
 
     /**
@@ -45,7 +45,7 @@ class RecordOutboundMessage
      *
      * @return \Illuminate\Database\Eloquent\Model
      */
-    public function record( Email $message, $messageId, $status = EmailEvent::EVENT_SENT )
+    public function record( Email $message, $messageId, $status = EmailEvent::STATUS_SENT )
     {
         $to = $message->getTo();
 

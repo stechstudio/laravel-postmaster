@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Providers\Mailgun;
 
+use DateTimeImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use STS\Postmaster\EmailEvent;
@@ -25,11 +26,11 @@ class Adapter extends AbstractAdapter
      * @var array
      */
     protected $eventMap = [
-        'delivered'  => EmailEvent::EVENT_DELIVERED,
-        'failed'     => EmailEvent::EVENT_BOUNCED,
-        'complained' => EmailEvent::EVENT_COMPLAINED,
-        'opened'     => EmailEvent::EVENT_OPENED,
-        'clicked'    => EmailEvent::EVENT_CLICKED
+        'delivered'  => EmailEvent::STATUS_DELIVERED,
+        'failed'     => EmailEvent::STATUS_BOUNCED,
+        'complained' => EmailEvent::STATUS_COMPLAINED,
+        'opened'     => EmailEvent::STATUS_OPENED,
+        'clicked'    => EmailEvent::STATUS_CLICKED
     ];
 
     public function __construct( $payload )
@@ -40,34 +41,38 @@ class Adapter extends AbstractAdapter
     }
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getAction()
+    public function status()
     {
         return Arr::get($this->eventMap, Arr::get($this->payload, 'event'));
     }
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getRecipient()
+    public function toAddress()
     {
         return Arr::get($this->payload, 'recipient');
-
     }
 
     /**
-     * @return mixed
+     * Mailgun's timestamp is unix seconds with millisecond precision (a
+     * float); take the integer portion.
+     *
+     * @return DateTimeImmutable|null
      */
-    public function getTimestamp()
+    public function occurredAt()
     {
-        return Arr::get($this->payload, 'timestamp');
+        $ts = Arr::get($this->payload, 'timestamp');
+
+        return static::dateFromUnix(is_numeric($ts) ? (int) $ts : null);
     }
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getMessageId()
+    public function providerMessageId()
     {
         return Arr::get($this->payload, "id");
     }
@@ -75,7 +80,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
-    public function getTags()
+    public function tags()
     {
         return collect((array)Arr::get($this->payload, 'tags'));
     }
@@ -83,7 +88,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
-    public function getData()
+    public function data()
     {
         return collect((array)Arr::get($this->payload, 'user-variables'));
     }
@@ -91,7 +96,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getResponse()
+    public function response()
     {
         return Arr::has($this->payload, 'delivery-status.description')
             ? Arr::get($this->payload, 'delivery-status.description')
@@ -101,7 +106,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getCode()
+    public function code()
     {
         return Arr::get($this->payload, 'delivery-status.code');
     }
@@ -109,7 +114,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getReason()
+    public function reason()
     {
         return Arr::get($this->payload, 'reason');
     }
@@ -119,9 +124,9 @@ class Adapter extends AbstractAdapter
      *
      * @return string|null
      */
-    public function getBounceType()
+    public function bounceType()
     {
-        if ($this->getAction() !== EmailEvent::EVENT_BOUNCED) {
+        if ($this->status() !== EmailEvent::STATUS_BOUNCED) {
             return null;
         }
 
@@ -133,7 +138,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
-    public function getUrl()
+    public function clickedUrl()
     {
         return Arr::get($this->payload, 'url');
     }

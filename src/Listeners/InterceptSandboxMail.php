@@ -43,7 +43,7 @@ class InterceptSandboxMail
             $this->recorder->record(
                 $event->message,
                 $this->syntheticMessageId(),
-                EmailEvent::EVENT_SANDBOX
+                EmailEvent::STATUS_SANDBOX
             );
         }
 

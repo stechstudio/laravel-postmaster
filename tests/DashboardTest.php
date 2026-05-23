@@ -49,7 +49,7 @@ class DashboardTest extends TestCase
     public function testOverviewLoadsWhenTheGatePasses()
     {
         Postmaster::auth(fn () => true);
-        EmailMessage::create(['provider_message_id' => 'm1', 'status' => EmailEvent::EVENT_DELIVERED]);
+        EmailMessage::create(['provider_message_id' => 'm1', 'status' => EmailEvent::STATUS_DELIVERED]);
 
         $this->get('/postmaster')
             ->assertOk()
@@ -59,8 +59,8 @@ class DashboardTest extends TestCase
     public function testMessagesListFiltersByStatus()
     {
         Postmaster::auth(fn () => true);
-        EmailMessage::create(['provider_message_id' => 'd1', 'to_address' => 'delivered@example.com', 'status' => EmailEvent::EVENT_DELIVERED]);
-        EmailMessage::create(['provider_message_id' => 'b1', 'to_address' => 'bounced@example.com', 'status' => EmailEvent::EVENT_BOUNCED]);
+        EmailMessage::create(['provider_message_id' => 'd1', 'to_address' => 'delivered@example.com', 'status' => EmailEvent::STATUS_DELIVERED]);
+        EmailMessage::create(['provider_message_id' => 'b1', 'to_address' => 'bounced@example.com', 'status' => EmailEvent::STATUS_BOUNCED]);
 
         $this->get('/postmaster/messages?status=bounced')
             ->assertOk()
@@ -390,7 +390,7 @@ class DashboardTest extends TestCase
         $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'seen@example.com']);
         EmailMessageEvent::create([
             'email_message_id' => $message->getKey(),
-            'status'           => EmailEvent::EVENT_DELIVERED,
+            'status'           => EmailEvent::STATUS_DELIVERED,
             'occurred_at'      => now(),
         ]);
 
@@ -405,14 +405,14 @@ class DashboardTest extends TestCase
         $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'r@example.com']);
         EmailMessageEvent::create([
             'email_message_id' => $message->getKey(),
-            'status'           => EmailEvent::EVENT_DELIVERED,
+            'status'           => EmailEvent::STATUS_DELIVERED,
             'occurred_at'      => now(),
         ]);
 
         $this->getJson('/postmaster/activity/feed')
             ->assertOk()
             ->assertJsonStructure(['events', 'lastId'])
-            ->assertJsonFragment(['status' => EmailEvent::EVENT_DELIVERED]);
+            ->assertJsonFragment(['status' => EmailEvent::STATUS_DELIVERED]);
     }
 
     public function testAddressesListLoads()

@@ -28,7 +28,7 @@ class UpdateMessageFromEvent
      */
     public function handle( EmailEvent $event )
     {
-        $messageId = $event->getMessageId();
+        $messageId = $event->providerMessageId();
 
         if (empty($messageId)) {
             return;
@@ -46,14 +46,14 @@ class UpdateMessageFromEvent
         $this->applyEventToAddress($event);
 
         $this->recordEvent($record, [
-            'provider'    => $event->getProvider(),
-            'status'      => $event->getAction(),
-            'bounce_type' => $event->getBounceType(),
-            'response'    => $this->flatten($event->getResponse()),
-            'reason'      => $this->flatten($event->getReason()),
-            'code'        => $this->flatten($event->getCode()),
-            'url'         => $event->getUrl(),
-            'occurred_at' => $event->getDate() ?? now(),
+            'provider'    => $event->provider(),
+            'status'      => $event->status(),
+            'bounce_type' => $event->bounceType(),
+            'response'    => $this->flatten($event->response()),
+            'reason'      => $this->flatten($event->reason()),
+            'code'        => $this->flatten($event->code()),
+            'url'         => $event->clickedUrl(),
+            'occurred_at' => $event->occurredAt() ?? now(),
         ]);
     }
 
@@ -84,8 +84,8 @@ class UpdateMessageFromEvent
 
         return $this->messageModel()->newQuery()->create([
             'provider_message_id' => $messageId,
-            'provider'            => $event->getProvider(),
-            'to_address'          => $event->getRecipient(),
+            'provider'            => $event->provider(),
+            'to_address'          => $event->toAddress(),
         ]);
     }
 
@@ -102,21 +102,21 @@ class UpdateMessageFromEvent
     protected function refreshSummary( EmailMessage $record, EmailEvent $event )
     {
         if (empty($record->provider)) {
-            $record->provider = $event->getProvider();
+            $record->provider = $event->provider();
         }
 
         if (empty($record->to_address)) {
-            $record->to_address = $event->getRecipient();
+            $record->to_address = $event->toAddress();
         }
 
-        $occurredAt = $event->getDate() ?? now();
+        $occurredAt = $event->occurredAt() ?? now();
 
         if ($record->last_event_at === null || $occurredAt >= $record->last_event_at) {
-            $record->status = $event->getAction();
+            $record->status = $event->status();
             $record->last_event_at = $occurredAt;
 
-            if ($event->getBounceType() !== null) {
-                $record->bounce_type = $event->getBounceType();
+            if ($event->bounceType() !== null) {
+                $record->bounce_type = $event->bounceType();
             }
         }
 

@@ -39,7 +39,7 @@ class SandboxDeliveryTest extends TestCase
         $record = EmailMessage::first();
         $this->assertSame('recipient@example.com', $record->to_address);
         $this->assertSame('Greetings', $record->subject);
-        $this->assertSame(EmailEvent::EVENT_SANDBOX, $record->status);
+        $this->assertSame(EmailEvent::STATUS_SANDBOX, $record->status);
 
         // ...but never handed to the transport.
         $this->assertTrue(Mail::getSymfonyTransport()->messages()->isEmpty());
@@ -65,7 +65,7 @@ class SandboxDeliveryTest extends TestCase
         $this->assertSame($order->getMorphClass(), $record->related_type);
         $this->assertSame((string) $order->getKey(), (string) $record->related_id);
         $this->assertSame('7', (string) $record->tenant_id);
-        $this->assertSame(EmailEvent::EVENT_SANDBOX, $record->status);
+        $this->assertSame(EmailEvent::STATUS_SANDBOX, $record->status);
     }
 
     public function testSandboxScopeReturnsSandboxedMessages()

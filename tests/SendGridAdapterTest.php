@@ -34,13 +34,13 @@ class SendGridAdapterTest extends TestCase
         $adapter = new SendGrid($this->deliveredPayload());
 
         $this->assertTrue($adapter->isValid());
-        $this->assertSame('SendGrid', $adapter->getProvider());
-        $this->assertSame(EmailEvent::EVENT_DELIVERED, $adapter->getAction());
-        $this->assertSame('recipient@example.com', $adapter->getRecipient());
-        $this->assertSame(1609459200, $adapter->getTimestamp());
-        $this->assertSame('<message-id@example.com>', $adapter->getMessageId());
-        $this->assertSame('250 OK', $adapter->getResponse());
-        $this->assertSame('2.0.0', $adapter->getCode());
+        $this->assertSame('SendGrid', $adapter->provider());
+        $this->assertSame(EmailEvent::STATUS_DELIVERED, $adapter->status());
+        $this->assertSame('recipient@example.com', $adapter->toAddress());
+        $this->assertSame(1609459200, $adapter->occurredAt()->getTimestamp());
+        $this->assertSame('<message-id@example.com>', $adapter->providerMessageId());
+        $this->assertSame('250 OK', $adapter->response());
+        $this->assertSame('2.0.0', $adapter->code());
     }
 
     public function testClickEventCarriesTheClickedUrl()
@@ -51,22 +51,22 @@ class SendGridAdapterTest extends TestCase
 
         $adapter = new SendGrid($payload);
 
-        $this->assertSame(EmailEvent::EVENT_CLICKED, $adapter->getAction());
-        $this->assertSame('https://example.com/promo', $adapter->getUrl());
+        $this->assertSame(EmailEvent::STATUS_CLICKED, $adapter->status());
+        $this->assertSame('https://example.com/promo', $adapter->clickedUrl());
     }
 
     public function testNonClickEventHasNoUrl()
     {
         $adapter = new SendGrid($this->deliveredPayload());
 
-        $this->assertNull($adapter->getUrl());
+        $this->assertNull($adapter->clickedUrl());
     }
 
-    public function testGetDate()
+    public function testOccurredAt()
     {
         $adapter = new SendGrid($this->deliveredPayload());
 
-        $date = $adapter->getDate();
+        $date = $adapter->occurredAt();
 
         $this->assertInstanceOf(\DateTimeImmutable::class, $date);
         $this->assertSame(1609459200, $date->getTimestamp());
@@ -77,8 +77,8 @@ class SendGridAdapterTest extends TestCase
     {
         $adapter = new SendGrid($this->deliveredPayload());
 
-        $this->assertSame(['newsletter', 'welcome'], $adapter->getTags()->all());
-        $this->assertSame(['custom_field' => 'custom_value'], $adapter->getData()->all());
+        $this->assertSame(['newsletter', 'welcome'], $adapter->tags()->all());
+        $this->assertSame(['custom_field' => 'custom_value'], $adapter->data()->all());
     }
 
     public function testMapsBounceEvent()
@@ -89,8 +89,8 @@ class SendGridAdapterTest extends TestCase
 
         $adapter = new SendGrid($payload);
 
-        $this->assertSame(EmailEvent::EVENT_BOUNCED, $adapter->getAction());
-        $this->assertSame('550 mailbox unavailable', $adapter->getReason());
+        $this->assertSame(EmailEvent::STATUS_BOUNCED, $adapter->status());
+        $this->assertSame('550 mailbox unavailable', $adapter->reason());
     }
 
     public function testUnknownEventIsInvalid()
@@ -100,7 +100,7 @@ class SendGridAdapterTest extends TestCase
 
         $adapter = new SendGrid($payload);
 
-        $this->assertNull($adapter->getAction());
+        $this->assertNull($adapter->status());
         $this->assertFalse($adapter->isValid());
         $this->assertNull(EmailEvent::create($adapter));
     }
@@ -111,18 +111,18 @@ class SendGridAdapterTest extends TestCase
 
         $this->assertInstanceOf(EmailEvent::class, $event);
         $this->assertSame([
-            'provider'  => 'SendGrid',
-            'event'     => EmailEvent::EVENT_DELIVERED,
-            'timestamp' => 1609459200,
-            'date'      => '2021-01-01T00:00:00+00:00',
-            'recipient' => 'recipient@example.com',
-            'messageId' => '<message-id@example.com>',
-            'tags'      => ['newsletter', 'welcome'],
-            'data'      => ['custom_field' => 'custom_value'],
-            'response'  => '250 OK',
-            'reason'    => null,
-            'code'      => '2.0.0',
-            'bounceType' => null,
+            'provider'            => 'SendGrid',
+            'status'              => EmailEvent::STATUS_DELIVERED,
+            'provider_message_id' => '<message-id@example.com>',
+            'to_address'          => 'recipient@example.com',
+            'occurred_at'         => '2021-01-01T00:00:00+00:00',
+            'bounce_type'         => null,
+            'reason'              => null,
+            'response'            => '250 OK',
+            'code'                => '2.0.0',
+            'clicked_url'         => null,
+            'tags'                => ['newsletter', 'welcome'],
+            'data'                => ['custom_field' => 'custom_value'],
         ], $event->toArray());
     }
 
@@ -130,7 +130,7 @@ class SendGridAdapterTest extends TestCase
     {
         $adapter = new SendGrid($this->deliveredPayload());
 
-        $this->assertNull($adapter->getBounceType());
+        $this->assertNull($adapter->bounceType());
         $this->assertFalse($adapter->isPermanent());
     }
 
@@ -142,7 +142,7 @@ class SendGridAdapterTest extends TestCase
 
         $adapter = new SendGrid($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->bounceType());
         $this->assertTrue($adapter->isPermanent());
     }
 
@@ -154,7 +154,7 @@ class SendGridAdapterTest extends TestCase
 
         $adapter = new SendGrid($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_BLOCK, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_BLOCK, $adapter->bounceType());
         $this->assertTrue($adapter->isPermanent());
     }
 
@@ -165,7 +165,7 @@ class SendGridAdapterTest extends TestCase
 
         $adapter = new SendGrid($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->bounceType());
         $this->assertTrue($adapter->isPermanent());
     }
 }

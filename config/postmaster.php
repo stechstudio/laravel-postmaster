@@ -147,9 +147,13 @@ return [
         /*
          * Days to retain stored content before the postmaster:prune-content
          * command purges it (the record itself is kept). The command is
-         * scheduled automatically when this is set. Null disables pruning.
+         * scheduled automatically when this is set. Set to 0 or null to
+         * disable pruning entirely.
+         *
+         * Default is 30 days — stored content can contain personal data or
+         * secrets, so the default is short on purpose.
          */
-        'prune_content_after_days' => env('POSTMASTER_PRUNE_CONTENT_AFTER_DAYS'),
+        'prune_content_after_days' => env('POSTMASTER_PRUNE_CONTENT_AFTER_DAYS', 30),
 
         /*
          * Record a full delivery timeline. With this on, the initial send and
@@ -168,10 +172,13 @@ return [
         /*
          * Days to retain timeline events before the postmaster:prune-events
          * command deletes them (whole rows, summary records untouched). The
-         * command is scheduled automatically when this is set. Null disables
-         * pruning.
+         * command is scheduled automatically when this is set. Set to 0 or
+         * null to disable pruning entirely.
+         *
+         * Default is 90 days — operational debug window without letting the
+         * events table grow unbounded.
          */
-        'prune_events_after_days' => env('POSTMASTER_PRUNE_EVENTS_AFTER_DAYS'),
+        'prune_events_after_days' => env('POSTMASTER_PRUNE_EVENTS_AFTER_DAYS', 90),
 
         /*
          * Track per-address deliverability. With this on, the email_addresses

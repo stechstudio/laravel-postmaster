@@ -206,7 +206,7 @@ class PostmasterServiceProvider extends ServiceProvider
             $this->commands([PruneEmailContent::class, PruneEmailMessageEvents::class]);
 
             // Auto-schedule content pruning when a retention window is set.
-            if ($this->app['config']->get('postmaster.persistence.prune_content_after_days') !== null) {
+            if ((int) $this->app['config']->get('postmaster.persistence.prune_content_after_days') > 0) {
                 $this->app->booted(function () {
                     $this->app->make(Schedule::class)
                         ->command('postmaster:prune-content')
@@ -215,7 +215,7 @@ class PostmasterServiceProvider extends ServiceProvider
             }
 
             // Auto-schedule timeline pruning when a retention window is set.
-            if ($this->app['config']->get('postmaster.persistence.prune_events_after_days') !== null) {
+            if ((int) $this->app['config']->get('postmaster.persistence.prune_events_after_days') > 0) {
                 $this->app->booted(function () {
                     $this->app->make(Schedule::class)
                         ->command('postmaster:prune-events')

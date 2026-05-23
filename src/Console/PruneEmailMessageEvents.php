@@ -18,10 +18,10 @@ class PruneEmailMessageEvents extends Command
 
     public function handle(): int
     {
-        $days = config('postmaster.persistence.prune_events_after_days');
+        $days = (int) config('postmaster.persistence.prune_events_after_days');
 
-        if ($days === null) {
-            $this->info('No event retention window configured (persistence.prune_events_after_days); nothing to prune.');
+        if ($days <= 0) {
+            $this->info('Event pruning is disabled (persistence.prune_events_after_days).');
 
             return self::SUCCESS;
         }
@@ -29,7 +29,7 @@ class PruneEmailMessageEvents extends Command
         $class = config('postmaster.persistence.event_model', EmailMessageEvent::class);
 
         $pruned = (new $class)->newQuery()
-            ->where('occurred_at', '<', now()->subDays((int) $days))
+            ->where('occurred_at', '<', now()->subDays($days))
             ->delete();
 
         $this->info("Pruned {$pruned} email timeline event(s).");

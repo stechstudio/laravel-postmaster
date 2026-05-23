@@ -371,12 +371,14 @@ advances only on the newest event, so out-of-order webhooks can't make its
 status regress. Query `EmailMessage` for current state, walk `events()` for
 history.
 
-Timeline rows accumulate one per event, so pair them with a retention window.
-Set the number of days to keep events and the package schedules a daily prune
-automatically. It deletes whole rows and leaves the summary records untouched:
+Timeline rows accumulate one per event, so the package prunes them on a
+schedule. Default retention is **90 days**; the daily prune runs automatically.
+It deletes whole rows and leaves the summary records untouched. Adjust or
+disable it from `.env`:
 
 ```
-POSTMASTER_PRUNE_EVENTS_AFTER_DAYS=90
+POSTMASTER_PRUNE_EVENTS_AFTER_DAYS=180   # keep half a year
+POSTMASTER_PRUNE_EVENTS_AFTER_DAYS=0     # disable pruning entirely
 ```
 
 You can also run it on demand:
@@ -463,12 +465,13 @@ POSTMASTER_STORE_CONTENT=true
 > content is captured before sending, it won't reflect the click-tracking link
 > rewriting some providers apply afterward.
 
-Because of the size and sensitivity, pair it with a retention window. Set the
-number of days to keep content and the package schedules a daily prune
-automatically. The record is kept; only the content columns are cleared:
+Because of the size and sensitivity, content carries a short retention window
+by default — **30 days**, after which the daily prune clears the content
+columns and leaves the record itself in place. Adjust or disable from `.env`:
 
 ```
-POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=30
+POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=14   # tighter
+POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=0    # disable pruning entirely (not advised for content)
 ```
 
 You can also run it on demand:

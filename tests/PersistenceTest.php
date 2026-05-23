@@ -497,6 +497,17 @@ class PersistenceTest extends TestCase
         $this->assertTrue($tenant->is($record->tenant));
     }
 
+    public function testUseEmailModelSettersSetTheConfigKeys()
+    {
+        Postmaster::useEmailMessageModel('App\\Models\\MyEmail');
+        Postmaster::useEmailEventModel('App\\Models\\MyEvent');
+        Postmaster::useEmailAddressModel('App\\Models\\MyAddress');
+
+        $this->assertSame('App\\Models\\MyEmail',   config('postmaster.persistence.model'));
+        $this->assertSame('App\\Models\\MyEvent',   config('postmaster.persistence.event_model'));
+        $this->assertSame('App\\Models\\MyAddress', config('postmaster.persistence.address_model'));
+    }
+
     public function testFullMessageContentIsStoredWhenEnabled()
     {
         config(['postmaster.persistence.store_content' => true]);

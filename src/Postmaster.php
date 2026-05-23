@@ -189,6 +189,51 @@ class Postmaster
     }
 
     /**
+     * Swap in a custom EmailMessage model at runtime. Equivalent to setting
+     * postmaster.persistence.model in the config; useful when an app keeps
+     * the config un-published and configures everything from a service
+     * provider.
+     *
+     * @param string $class
+     *
+     * @return $this
+     */
+    public function useEmailMessageModel( string $class )
+    {
+        config(['postmaster.persistence.model' => $class]);
+
+        return $this;
+    }
+
+    /**
+     * Swap in a custom EmailMessageEvent model at runtime.
+     *
+     * @param string $class
+     *
+     * @return $this
+     */
+    public function useEmailEventModel( string $class )
+    {
+        config(['postmaster.persistence.event_model' => $class]);
+
+        return $this;
+    }
+
+    /**
+     * Swap in a custom EmailAddress model at runtime.
+     *
+     * @param string $class
+     *
+     * @return $this
+     */
+    public function useEmailAddressModel( string $class )
+    {
+        config(['postmaster.persistence.address_model' => $class]);
+
+        return $this;
+    }
+
+    /**
      * Build a callback that associates a message with the given model.
      *
      * Pass it to any message exposing withSymfonyMessage() — a Mailable or a

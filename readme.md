@@ -751,6 +751,11 @@ environment**, so the dashboard is never unguarded in production by accident.
   from the timeline (on by default with persistence).
 - **Addresses.** The suppression list.
 
+Every datetime is stored UTC and displayed in the viewer's browser timezone
+by default. A small clock toggle in the header swaps between that and UTC;
+the choice is per-browser (localStorage). The chart's daily buckets stay
+UTC-anchored either way.
+
 There are no assets to publish and no CDN. The dashboard serves its own
 stylesheet and its one client-side dependency (Alpine) straight from the
 package. The path and middleware are configurable under the `dashboard` config

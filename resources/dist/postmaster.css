@@ -104,8 +104,31 @@ a { color: inherit; text-decoration: none; }
 .pm-header {
     border-bottom: 1px solid var(--pm-border);
     padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 .pm-header h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+
+/* Header timezone toggle. Tucked to the right of the page title. */
+.pm-tz-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    background: transparent;
+    color: var(--pm-muted-fg);
+    border: 1px solid var(--pm-border);
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pm-tz-btn:hover { color: var(--pm-fg); border-color: var(--pm-border-strong, var(--pm-border)); }
+.pm-tz-btn svg { opacity: 0.7; }
 .pm-content { padding: 28px; max-width: 1200px; }
 
 /* Cards */

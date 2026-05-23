@@ -48,7 +48,7 @@
                             <dd>{{ collect($recipients[$key])->pluck('address')->implode(', ') }}</dd>
                         @endif
                     @endforeach
-                    <dt>Date</dt><dd>{{ $message->sent_at?->format('M j, Y g:ia') ?? '—' }}</dd>
+                    <dt>Date</dt><dd>@include('postmaster::partials.datetime', ['when' => $message->sent_at, 'style' => 'long'])</dd>
                 </dl>
             </div>
 
@@ -116,7 +116,7 @@
                             @endforeach
                         </dd>
                     @endif
-                    <dt>Last event</dt><dd>{{ $message->last_event_at?->format('M j, g:ia') ?? '—' }}</dd>
+                    <dt>Last event</dt><dd>@include('postmaster::partials.datetime', ['when' => $message->last_event_at])</dd>
                 </dl>
             </div>
 
@@ -136,7 +136,7 @@
                                     </div>
                                 @endif
                             </div>
-                            <div class="pm-timeline-when">{{ $event->occurred_at?->format('M j, g:ia') }}</div>
+                            <div class="pm-timeline-when">@include('postmaster::partials.datetime', ['when' => $event->occurred_at])</div>
                         </div>
                     @empty
                         <div class="pm-dim">No timeline events recorded.</div>

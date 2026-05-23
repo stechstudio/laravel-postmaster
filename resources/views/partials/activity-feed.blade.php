@@ -8,7 +8,7 @@
             </div>
             <div class="pm-feed-line">
                 <span class="pm-feed-secondary" x-text="event.to || '—'"></span>
-                <span class="pm-feed-meta" x-text="event.at"></span>
+                <time class="pm-feed-meta pm-when" :datetime="event.at" data-style="short" x-text="event.at"></time>
             </div>
         </div>
     </template>

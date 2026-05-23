@@ -293,7 +293,7 @@ abstract class Controller
             'to'        => $event->emailMessage?->getAttribute('to_address'),
             'subject'   => $event->emailMessage?->getAttribute('subject'),
             'messageId' => $event->email_message_id,
-            'at'        => $event->occurred_at?->format('M j, g:ia'),
+            'at'        => $event->occurred_at?->toIso8601String(),
         ];
     }
 }

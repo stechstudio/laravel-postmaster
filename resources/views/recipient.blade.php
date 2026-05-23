@@ -40,7 +40,7 @@
                         @if ($hasTenants)
                             <td class="pm-dim">{{ $tenants[$message->{$tenantColumn}] ?? '—' }}</td>
                         @endif
-                        <td class="pm-dim pm-cell-meta">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</td>
+                        <td class="pm-dim pm-cell-meta">@include('postmaster::partials.datetime', ['when' => $message->sent_at])</td>
                     </tr>
                 @empty
                     <tr class="pm-row-empty"><td class="pm-cell-full" colspan="{{ $columns }}"><div class="pm-empty">No messages recorded for this recipient yet.</div></td></tr>

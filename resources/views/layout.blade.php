@@ -39,6 +39,16 @@
     <main class="pm-main">
         <header class="pm-header">
             <h1>@yield('title', 'Dashboard')</h1>
+            <div x-data="pmTimezone()" x-init="init()">
+                <button type="button" class="pm-tz-btn" @click="toggle()" :title="title" :aria-label="title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"/>
+                        <polyline points="12 7 12 12 15 14"/>
+                    </svg>
+                    <span x-text="label"></span>
+                </button>
+            </div>
         </header>
         <div class="pm-content">
             @if (session('postmasterFlash'))
@@ -51,5 +61,70 @@
         </div>
     </main>
 </div>
+<script>
+    // Reformats every <time class="pm-when"> into the viewer's chosen
+    // timezone, defaulting to whatever the browser reports and falling
+    // back to UTC. The header toggle swaps between them; the choice
+    // persists in localStorage. A MutationObserver catches <time>
+    // elements added later (by the live activity feed) so they're
+    // formatted the same way.
+    function pmTimezone() {
+        return {
+            zone: 'UTC',
+            detected: 'UTC',
+            init() {
+                try {
+                    this.detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+                } catch (e) { /* keep UTC */ }
+                this.zone = localStorage.getItem('pm-tz') || this.detected;
+                this.formatAll();
+                new MutationObserver((records) => {
+                    for (const record of records) {
+                        for (const node of record.addedNodes) {
+                            if (node.nodeType !== 1) continue;
+                            if (node.matches && node.matches('time.pm-when')) {
+                                this.formatOne(node);
+                            }
+                            if (node.querySelectorAll) {
+                                node.querySelectorAll('time.pm-when').forEach((el) => this.formatOne(el));
+                            }
+                        }
+                    }
+                }).observe(document.body, { childList: true, subtree: true });
+            },
+            toggle() {
+                this.zone = this.zone === 'UTC' ? this.detected : 'UTC';
+                localStorage.setItem('pm-tz', this.zone);
+                this.formatAll();
+            },
+            formatAll() {
+                document.querySelectorAll('time.pm-when').forEach((el) => this.formatOne(el));
+            },
+            formatOne(el) {
+                const iso = el.getAttribute('datetime');
+                if (!iso) return;
+                const d = new Date(iso);
+                if (isNaN(d.getTime())) return;
+                const base = { hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' };
+                const opts = el.dataset.style === 'long' ? { ...base, year: 'numeric' } : base;
+                el.textContent = new Intl.DateTimeFormat('en-US', { timeZone: this.zone, ...opts }).format(d);
+            },
+            get label() {
+                if (this.zone === 'UTC') return 'UTC';
+                try {
+                    return new Intl.DateTimeFormat('en-US', { timeZone: this.zone, timeZoneName: 'short' })
+                        .formatToParts(new Date())
+                        .find((p) => p.type === 'timeZoneName')?.value || this.zone;
+                } catch (e) {
+                    return this.zone;
+                }
+            },
+            get title() {
+                const other = this.zone === 'UTC' ? this.detected : 'UTC';
+                return 'Showing times in ' + this.zone + '. Click to switch to ' + other + '.';
+            },
+        };
+    }
+</script>
 </body>
 </html>

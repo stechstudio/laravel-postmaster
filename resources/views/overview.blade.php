@@ -72,7 +72,7 @@
                         </div>
                         <div class="pm-feed-line">
                             <span class="pm-feed-secondary">{{ $message->to_address ?? '—' }}</span>
-                            <span class="pm-feed-meta">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</span>
+                            <span class="pm-feed-meta">@include('postmaster::partials.datetime', ['when' => $message->sent_at])</span>
                         </div>
                     </div>
                 @empty

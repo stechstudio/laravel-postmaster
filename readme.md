@@ -62,7 +62,7 @@ nothing to publish until you opt into a feature that needs it.
 
 ## Getting started
 
-The core of Postmaster is one webhook endpoint and one event. Two steps and
+The core of Postmaster is one webhook endpoint and one event. Three steps and
 you're reacting to delivery events from any provider.
 
 ### 1. Point your provider at the webhook
@@ -76,7 +76,21 @@ https://your-app.com/webhooks/postmaster/{provider}
 
 …where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, or `resend`.
 
-### 2. Listen for the event
+### 2. Configure verification
+
+Postmaster verifies every inbound webhook and rejects anything it can't trust.
+Set the credential your provider needs in `.env`:
+
+- **SendGrid** — `POSTMASTER_SENDGRID_VERIFICATION_KEY` (from the Signed Event Webhook settings).
+- **Mailgun** — `POSTMASTER_MAILGUN_SIGNING_KEY` (falls back to `MAILGUN_SECRET`).
+- **Resend** — `POSTMASTER_RESEND_SIGNING_SECRET`.
+- **Amazon SES** — no secret to configure; the package verifies the SNS message signature against AWS's certs and completes the subscription-confirmation handshake automatically.
+- **Postmark** — `POSTMASTER_AUTH_USERNAME` and `POSTMASTER_AUTH_PASSWORD` (Postmark doesn't sign payloads; HTTP basic auth is the default). Use the same credentials in the webhook URL you registered with Postmark.
+
+See [Securing webhooks](#securing-webhooks) for the per-provider details, the
+alternative `token` and `basic` modes, and custom authorizer classes.
+
+### 3. Listen for the event
 
 Every webhook, from any provider, is dispatched as a normalized `EmailEvent`.
 Listen for it in a service provider's `boot()` method:
@@ -120,10 +134,6 @@ Event::listen(function (EmailEvent $event) {
 It renders a short summary (address, status, bounce type, the provider's
 reason). Subclass it to customise the body or to add `database`/`slack`
 channels.
-
-> **Before you go live**, set up [webhook verification](#securing-webhooks).
-> Postmaster rejects unverified webhooks by default. It's one credential per
-> provider.
 
 ## Securing webhooks
 

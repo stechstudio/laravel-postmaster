@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $response
  * @property string|null $reason
  * @property string|null $code
+ * @property string|null $url
  * @property \Illuminate\Support\Carbon|null $occurred_at
  * @property \Illuminate\Support\Carbon|null $created_at
  */

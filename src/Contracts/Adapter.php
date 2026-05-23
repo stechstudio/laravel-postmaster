@@ -68,6 +68,14 @@ interface Adapter
     public function getBounceType();
 
     /**
+     * The clicked URL for a click event, or null for any other event type
+     * (or providers that don't expose one).
+     *
+     * @return string|null
+     */
+    public function getUrl();
+
+    /**
      * @return bool
      */
     public function isPermanent();

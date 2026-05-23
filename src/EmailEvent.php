@@ -187,6 +187,17 @@ class EmailEvent
     }
 
     /**
+     * The URL clicked on a click event (null for other events, or providers
+     * that don't expose one).
+     *
+     * @return string|null
+     */
+    public function getUrl()
+    {
+        return $this->adapter->getUrl();
+    }
+
+    /**
      * @return array
      */
     public function getPayload()

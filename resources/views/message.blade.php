@@ -120,6 +120,11 @@
                                 @if ($event->reason)
                                     <span class="pm-dim">— {{ $event->reason }}</span>
                                 @endif
+                                @if ($event->url)
+                                    <div class="pm-timeline-url pm-dim pm-truncate">
+                                        → <a class="pm-link" href="{{ $event->url }}" target="_blank" rel="noopener">{{ $event->url }}</a>
+                                    </div>
+                                @endif
                             </div>
                             <div class="pm-timeline-when">{{ $event->occurred_at?->format('M j, g:ia') }}</div>
                         </div>

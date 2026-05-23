@@ -52,6 +52,7 @@ class UpdateMessageFromEvent
             'response'    => $this->flatten($event->getResponse()),
             'reason'      => $this->flatten($event->getReason()),
             'code'        => $this->flatten($event->getCode()),
+            'url'         => $event->getUrl(),
             'occurred_at' => $event->getDate() ?? now(),
         ]);
     }

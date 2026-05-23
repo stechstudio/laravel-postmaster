@@ -98,6 +98,17 @@ abstract class AbstractAdapter implements Adapter
     abstract public function getBounceType();
 
     /**
+     * The clicked URL for a click event. The default returns null — adapters
+     * for providers that expose a click URL override this.
+     *
+     * @return string|null
+     */
+    public function getUrl()
+    {
+        return null;
+    }
+
+    /**
      * Whether this event represents a permanent failure — a hard bounce or a
      * block. These are safe to suppress; soft bounces are not.
      *

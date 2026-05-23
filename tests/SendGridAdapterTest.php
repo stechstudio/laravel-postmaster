@@ -43,6 +43,25 @@ class SendGridAdapterTest extends TestCase
         $this->assertSame('2.0.0', $adapter->getCode());
     }
 
+    public function testClickEventCarriesTheClickedUrl()
+    {
+        $payload = $this->deliveredPayload();
+        $payload['event'] = 'click';
+        $payload['url']   = 'https://example.com/promo';
+
+        $adapter = new SendGrid($payload);
+
+        $this->assertSame(EmailEvent::EVENT_CLICKED, $adapter->getAction());
+        $this->assertSame('https://example.com/promo', $adapter->getUrl());
+    }
+
+    public function testNonClickEventHasNoUrl()
+    {
+        $adapter = new SendGrid($this->deliveredPayload());
+
+        $this->assertNull($adapter->getUrl());
+    }
+
     public function testGetDate()
     {
         $adapter = new SendGrid($this->deliveredPayload());

@@ -688,6 +688,29 @@ class PersistenceTest extends TestCase
         $this->assertCount(1, $record->refresh()->events);
     }
 
+    public function testClickEventStoresTheClickedUrlOnTheTimeline()
+    {
+        config(['postmaster.persistence.record_events' => true]);
+
+        EmailMessage::create([
+            'provider_message_id' => 'postmark-click',
+            'recipient'           => 'recipient@example.com',
+            'status'              => EmailEvent::EVENT_SENT,
+        ]);
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType'   => 'Click',
+            'MessageID'    => 'postmark-click',
+            'Recipient'    => 'recipient@example.com',
+            'OriginalLink' => 'https://example.com/promo',
+            'ReceivedAt'   => '2021-01-01T00:00:00Z',
+        ])));
+
+        $event = EmailMessageEvent::where('status', EmailEvent::EVENT_CLICKED)->first();
+        $this->assertNotNull($event);
+        $this->assertSame('https://example.com/promo', $event->url);
+    }
+
     public function testTimelineIsRecordedByDefault()
     {
         Mail::raw('Hello', function ($message) {

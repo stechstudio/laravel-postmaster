@@ -120,6 +120,14 @@ class Adapter extends AbstractAdapter
     }
 
     /**
+     * @return string|null
+     */
+    public function getUrl()
+    {
+        return Arr::get($this->payload, 'data.click.link');
+    }
+
+    /**
      * @param array $payload
      *
      * @return bool

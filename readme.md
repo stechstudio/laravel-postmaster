@@ -252,21 +252,22 @@ POSTMASTER_ON_INVALID=log
 ## Tracking delivery
 
 Everything above is the core: a verified webhook endpoint and a normalized
-event. Everything from here on is opt-in.
+event.
 
-Enable persistence and Postmaster also **records every outbound email**. As
-webhook events arrive it keeps each record current, matching them up by
-provider message id, so you end up with a queryable delivery history.
-
-```
-POSTMASTER_PERSISTENCE=true
-```
-
-Publish and run the migration:
+Postmaster also **records every outbound email** and keeps each record current
+from the webhook stream, matching them up by provider message id, so you end
+up with a queryable delivery history. Publish and run the migrations:
 
 ```bash
 php artisan vendor:publish --tag=postmaster.migrations
 php artisan migrate
+```
+
+That's it — persistence is on. To run the package as a pure event dispatcher
+with no database writes, set:
+
+```
+POSTMASTER_PERSISTENCE=false
 ```
 
 This creates an `email_messages` table. Each row tracks a message's
@@ -736,12 +737,12 @@ EmailMessage::sandbox()->get();   // everything intercepted in sandbox mode
 ```
 
 A sandboxed message is **terminal**: it never reached a provider, so no
-delivery/open/bounce webhooks will ever follow. Render the `sandbox` status
+delivery/open/bounce webhooks will ever follow. Render the `sandboxed` status
 distinctly in your UI rather than as a pending send.
 
 > Sandbox is provider-agnostic. It works the same no matter which provider you
-> send through. It needs persistence (`POSTMASTER_PERSISTENCE=true`) to record
-> anything. Without it, mail is still suppressed but nothing is stored, at
+> send through. It needs persistence on to record anything (the default).
+> Without persistence, mail is still suppressed but nothing is stored, at
 > which point Laravel's `log` mailer is the simpler tool.
 
 Because sandbox silently drops *all* mail, enabling it in `production` is almost

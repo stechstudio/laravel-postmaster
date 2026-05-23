@@ -101,11 +101,12 @@ return [
     /*
      * Optional persistence. When enabled, the package records every outbound
      * email and updates that record as webhook events arrive, correlated by
-     * provider message id. Off by default — the package works as a pure event
-     * dispatcher without it.
+     * provider message id. On by default — publishing and running the
+     * migrations is all that's needed. Set this to false to run the package
+     * as a pure event dispatcher with no database writes.
      */
     'persistence' => [
-        'enabled' => env('POSTMASTER_PERSISTENCE', false),
+        'enabled' => env('POSTMASTER_PERSISTENCE', true),
         'model'   => \STS\Postmaster\Models\EmailMessage::class,
         'table'   => 'email_messages',
 

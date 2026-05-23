@@ -309,6 +309,42 @@ class PersistenceTest extends TestCase
         $this->assertSame((string) $declared->getKey(), (string) $record->recipient_model_id);
     }
 
+    public function testIsEmailRecipientLoadsEveryEmailSentToTheModel()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        Schema::create('orders', fn ($table) => $table->id());
+        $alice = User::create();
+        $bob   = User::create();
+        $order = Order::create();
+
+        // An email about an Order, sent to Alice — Alice should still find it.
+        Mail::to('alice@example.com')->send(new DeclaredMail(order: $order, user: $alice));
+        // A second email to Alice, unrelated to anything.
+        Mail::to('alice@example.com')->send(new DeclaredMail(user: $alice));
+        // One to Bob, to prove the scope is per-user.
+        Mail::to('bob@example.com')->send(new DeclaredMail(user: $bob));
+
+        $this->assertCount(2, $alice->emailMessages);
+        $this->assertCount(1, $bob->emailMessages);
+        $this->assertTrue($alice->is($alice->emailMessages->first()->recipientModel));
+
+        // HasEmailMessages still scopes the Order to its own emails, untouched
+        // by the recipient-side link.
+        $this->assertCount(1, $order->emailMessages);
+    }
+
+    public function testIsEmailRecipientReportsLatestFailureStatus()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        $user = User::create();
+
+        Mail::to('alice@example.com')->send(new DeclaredMail(user: $user));
+        $this->assertFalse($user->emailDeliveryFailed());
+
+        $user->latestEmailMessage()->update(['status' => EmailEvent::EVENT_BOUNCED]);
+        $this->assertTrue($user->fresh()->emailDeliveryFailed());
+    }
+
     public function testRecipientHeadersAreStrippedBeforeSending()
     {
         Schema::create('users', fn ($table) => $table->id());

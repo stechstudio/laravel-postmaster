@@ -44,19 +44,12 @@ class EmailEvent
 
     /**
      * The persisted email record this event was correlated to, by provider
-     * message id. Set by the package's UpdateMessageFromEvent listener, so it
-     * gives any listener of your own a path back to the originating message —
-     * and, through its related() relation, to the model it was sent for:
-     *
-     *     $event->emailMessage?->related
-     *
-     * Null when persistence is disabled, when the event carries no message id,
-     * or for a listener that runs before UpdateMessageFromEvent (the package's
-     * listener is registered first, so a normal app listener runs after it).
+     * message id. Set by UpdateMessageFromEvent; read by app listeners via
+     * the emailMessage() accessor below.
      *
      * @var \STS\Postmaster\Models\EmailMessage|null
      */
-    public $emailMessage;
+    protected $emailMessage;
 
     /**
      * @param Adapter $adapter
@@ -84,6 +77,40 @@ class EmailEvent
     public function adapter()
     {
         return $this->adapter;
+    }
+
+    /**
+     * The persisted email record this event was correlated to, by provider
+     * message id. Gives any listener of your own a path back to the
+     * originating message — and, through its related() / recipient()
+     * relations, to the app models it was sent for:
+     *
+     *     $event->emailMessage()?->related
+     *     $event->emailMessage()?->recipient
+     *
+     * Null when persistence is disabled, when the event carries no message
+     * id, or for a listener that runs before the package's
+     * UpdateMessageFromEvent (which is registered first, so an app listener
+     * runs after it by default).
+     *
+     * @return \STS\Postmaster\Models\EmailMessage|null
+     */
+    public function emailMessage()
+    {
+        return $this->emailMessage;
+    }
+
+    /**
+     * Associate the event with its persisted record. Called by
+     * UpdateMessageFromEvent after the correlation lookup.
+     *
+     * @param \STS\Postmaster\Models\EmailMessage $message
+     *
+     * @return void
+     */
+    public function setEmailMessage( $message )
+    {
+        $this->emailMessage = $message;
     }
 
     /**

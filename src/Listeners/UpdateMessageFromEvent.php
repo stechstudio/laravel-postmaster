@@ -39,7 +39,7 @@ class UpdateMessageFromEvent
         // Hand the correlated record to the event so any later listener can
         // reach the originating message — and, via related(), the app model
         // behind it — without repeating the message-id lookup.
-        $event->emailMessage = $record;
+        $event->setEmailMessage($record);
 
         $this->refreshSummary($record, $event);
 

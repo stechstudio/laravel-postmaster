@@ -102,7 +102,7 @@ class PersistenceTest extends TestCase
         $captured = null;
 
         Event::listen(EmailEvent::class, function (EmailEvent $event) use (&$captured) {
-            $captured = $event->emailMessage;
+            $captured = $event->emailMessage();
         });
 
         event(EmailEvent::create(new Postmark([
@@ -127,7 +127,7 @@ class PersistenceTest extends TestCase
         $captured = 'unset';
 
         Event::listen(EmailEvent::class, function (EmailEvent $event) use (&$captured) {
-            $captured = $event->emailMessage;
+            $captured = $event->emailMessage();
         });
 
         // No message id on the payload — nothing to correlate to.

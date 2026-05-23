@@ -64,8 +64,8 @@ class EmailDeliveryFailed extends Notification
             $message->line("Diagnostic: {$response}");
         }
 
-        if ($event->emailMessage) {
-            $message->line("Subject of the original email: ".($event->emailMessage->subject ?: '(no subject)'));
+        if ($record = $event->emailMessage()) {
+            $message->line("Subject of the original email: ".($record->subject ?: '(no subject)'));
         }
 
         return $message;

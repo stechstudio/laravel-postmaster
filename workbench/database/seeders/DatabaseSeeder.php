@@ -36,51 +36,74 @@ class DatabaseSeeder extends Seeder
             ->all();
 
         foreach (range(1, 90) as $i) {
-            $sentAt = now()->subDays(rand(0, 13))->subMinutes(rand(0, 1439));
-            $status = $statuses[array_rand($statuses)];
-            $subject = $subjects[array_rand($subjects)];
-            $recipient = $names[array_rand($names)].rand(1, 99).'@'.$domains[array_rand($domains)];
-            $isBounce = $status === EmailEvent::STATUS_BOUNCED;
+            $sentAt    = now()->subDays(rand(0, 13))->subMinutes(rand(0, 1439));
+            $status    = $statuses[array_rand($statuses)];
+            $subject   = $subjects[array_rand($subjects)];
+            $isBounce  = $status === EmailEvent::STATUS_BOUNCED;
+            $providerId = 'wb-'.$i.'-'.bin2hex(random_bytes(4));
 
-            $message = EmailMessage::create([
-                'provider'      => $providers[array_rand($providers)],
-                'provider_message_id'    => 'wb-'.$i.'-'.bin2hex(random_bytes(4)),
-                'to_address'     => $recipient,
-                'subject'       => $subject,
-                'from_address'  => 'hello@acme.test',
-                'status'        => $status,
-                'bounce_type'   => $isBounce ? EmailEvent::BOUNCE_HARD : null,
-                'tenant_id'     => $tenantIds[array_rand($tenantIds)],
-                'sent_at'       => $sentAt,
-                'last_event_at' => $status === EmailEvent::STATUS_SENT ? null : $sentAt->copy()->addMinutes(rand(2, 240)),
-                'tags'          => $this->tagsFor($subject),
-                'html_body'     => $this->messageBody($i),
-                'created_at'    => $sentAt,
-                'updated_at'    => $sentAt,
-            ]);
+            // Shared columns across this submission's per-recipient rows.
+            $shared = [
+                'provider'            => $providers[array_rand($providers)],
+                'provider_message_id' => $providerId,
+                'subject'             => $subject,
+                'from_address'        => 'hello@acme.test',
+                'status'              => $status,
+                'bounce_type'         => $isBounce ? EmailEvent::BOUNCE_HARD : null,
+                'tenant_id'           => $tenantIds[array_rand($tenantIds)],
+                'sent_at'             => $sentAt,
+                'last_event_at'       => $status === EmailEvent::STATUS_SENT ? null : $sentAt->copy()->addMinutes(rand(2, 240)),
+                'tags'                => $this->tagsFor($subject),
+                'html_body'           => $this->messageBody($i),
+                'created_at'          => $sentAt,
+                'updated_at'          => $sentAt,
+            ];
 
-            $timeline = [[EmailEvent::STATUS_SENT, $sentAt]];
+            // Roughly 15% of messages get a Cc; ~10% get a Bcc. Most stay
+            // single-recipient (the realistic transactional case).
+            $envelope = [['to', $names[array_rand($names)].rand(1, 99).'@'.$domains[array_rand($domains)]]];
 
-            if ($status !== EmailEvent::STATUS_SENT) {
-                $timeline[] = [
-                    $isBounce ? EmailEvent::STATUS_BOUNCED : EmailEvent::STATUS_DELIVERED,
-                    $sentAt->copy()->addMinutes(3),
-                ];
+            if ($i % 7 === 0) {
+                $envelope[] = ['cc', $names[array_rand($names)].rand(100, 199).'@'.$domains[array_rand($domains)]];
             }
 
-            if (in_array($status, [EmailEvent::STATUS_OPENED, EmailEvent::STATUS_CLICKED], true)) {
-                $timeline[] = [$status, $sentAt->copy()->addMinutes(rand(20, 200))];
+            if ($i % 11 === 0) {
+                $envelope[] = ['bcc', 'audit'.rand(1, 5).'@acme.test'];
             }
 
-            foreach ($timeline as [$eventStatus, $occurredAt]) {
-                EmailMessageEvent::create([
-                    'email_message_id' => $message->getKey(),
-                    'provider'         => $message->provider,
-                    'status'           => $eventStatus,
-                    'bounce_type'      => $eventStatus === EmailEvent::STATUS_BOUNCED ? EmailEvent::BOUNCE_HARD : null,
-                    'occurred_at'      => $occurredAt,
-                    'created_at'       => $occurredAt,
+            $primary = null;
+
+            foreach ($envelope as [$role, $address]) {
+                $row = EmailMessage::create($shared + [
+                    'to_address'     => $address,
+                    'recipient_role' => $role,
                 ]);
+
+                $primary = $primary ?? $row;
+
+                $timeline = [[EmailEvent::STATUS_SENT, $sentAt]];
+
+                if ($status !== EmailEvent::STATUS_SENT) {
+                    $timeline[] = [
+                        $isBounce ? EmailEvent::STATUS_BOUNCED : EmailEvent::STATUS_DELIVERED,
+                        $sentAt->copy()->addMinutes(3),
+                    ];
+                }
+
+                if (in_array($status, [EmailEvent::STATUS_OPENED, EmailEvent::STATUS_CLICKED], true)) {
+                    $timeline[] = [$status, $sentAt->copy()->addMinutes(rand(20, 200))];
+                }
+
+                foreach ($timeline as [$eventStatus, $occurredAt]) {
+                    EmailMessageEvent::create([
+                        'email_message_id' => $row->getKey(),
+                        'provider'         => $row->provider,
+                        'status'           => $eventStatus,
+                        'bounce_type'      => $eventStatus === EmailEvent::STATUS_BOUNCED ? EmailEvent::BOUNCE_HARD : null,
+                        'occurred_at'      => $occurredAt,
+                        'created_at'       => $occurredAt,
+                    ]);
+                }
             }
         }
 

@@ -58,14 +58,14 @@ class PersistenceTest extends TestCase
         $this->assertSame('recipient@example.com', $record->recipient);
         $this->assertSame('Greetings', $record->subject);
         $this->assertSame(EmailEvent::EVENT_SENT, $record->status);
-        $this->assertNotEmpty($record->message_id);
+        $this->assertNotEmpty($record->provider_message_id);
         $this->assertNotNull($record->sent_at);
     }
 
     public function testWebhookEventUpdatesTheExistingRecord()
     {
         $record = EmailMessage::create([
-            'message_id' => 'postmark-message-1',
+            'provider_message_id' => 'postmark-message-1',
             'recipient'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
@@ -91,7 +91,7 @@ class PersistenceTest extends TestCase
         $order = Order::create();
 
         $record = EmailMessage::create([
-            'message_id'   => 'postmark-message-9',
+            'provider_message_id'   => 'postmark-message-9',
             'recipient'    => 'recipient@example.com',
             'status'       => EmailEvent::EVENT_SENT,
             'related_type' => $order->getMorphClass(),
@@ -141,7 +141,7 @@ class PersistenceTest extends TestCase
     public function testBounceEventRecordsTheBounceType()
     {
         EmailMessage::create([
-            'message_id' => 'postmark-message-2',
+            'provider_message_id' => 'postmark-message-2',
             'recipient'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
@@ -154,7 +154,7 @@ class PersistenceTest extends TestCase
             'BouncedAt'  => '2021-01-01T00:00:00Z',
         ])));
 
-        $record = EmailMessage::where('message_id', 'postmark-message-2')->first();
+        $record = EmailMessage::where('provider_message_id', 'postmark-message-2')->first();
         $this->assertSame(EmailEvent::EVENT_BOUNCED, $record->status);
         $this->assertSame(EmailEvent::BOUNCE_HARD, $record->bounce_type);
     }
@@ -375,9 +375,9 @@ class PersistenceTest extends TestCase
 
     public function testForTenantScopeFiltersByTenant()
     {
-        EmailMessage::create(['message_id' => 'a', 'tenant_id' => 1]);
-        EmailMessage::create(['message_id' => 'b', 'tenant_id' => 2]);
-        EmailMessage::create(['message_id' => 'c', 'tenant_id' => 1]);
+        EmailMessage::create(['provider_message_id' => 'a', 'tenant_id' => 1]);
+        EmailMessage::create(['provider_message_id' => 'b', 'tenant_id' => 2]);
+        EmailMessage::create(['provider_message_id' => 'c', 'tenant_id' => 1]);
 
         $this->assertCount(2, EmailMessage::forTenant(1)->get());
         $this->assertCount(1, EmailMessage::forTenant(2)->get());
@@ -389,7 +389,7 @@ class PersistenceTest extends TestCase
         config(['postmaster.persistence.tenant_model' => Tenant::class]);
         $tenant = Tenant::create();
 
-        $record = EmailMessage::create(['message_id' => 'a', 'tenant_id' => $tenant->getKey()]);
+        $record = EmailMessage::create(['provider_message_id' => 'a', 'tenant_id' => $tenant->getKey()]);
 
         $this->assertTrue($tenant->is($record->tenant));
     }
@@ -400,7 +400,7 @@ class PersistenceTest extends TestCase
         Postmaster::useTenantModel(Tenant::class);
         $tenant = Tenant::create();
 
-        $record = EmailMessage::create(['message_id' => 'a', 'tenant_id' => $tenant->getKey()]);
+        $record = EmailMessage::create(['provider_message_id' => 'a', 'tenant_id' => $tenant->getKey()]);
 
         $this->assertTrue($tenant->is($record->tenant));
     }
@@ -443,7 +443,7 @@ class PersistenceTest extends TestCase
         config(['postmaster.persistence.prune_content_after_days' => 30]);
 
         $old = EmailMessage::create([
-            'message_id'   => 'old',
+            'provider_message_id'   => 'old',
             'status'       => EmailEvent::EVENT_SENT,
             'html_body'    => '<p>old</p>',
             'from_address' => 'sender@example.com',
@@ -452,7 +452,7 @@ class PersistenceTest extends TestCase
         $old->save();
 
         $recent = EmailMessage::create([
-            'message_id' => 'recent',
+            'provider_message_id' => 'recent',
             'html_body'  => '<p>recent</p>',
         ]);
 
@@ -468,9 +468,9 @@ class PersistenceTest extends TestCase
 
     public function testStatusScopesFilterRecords()
     {
-        EmailMessage::create(['message_id' => 'a', 'status' => EmailEvent::EVENT_DELIVERED]);
-        EmailMessage::create(['message_id' => 'b', 'status' => EmailEvent::EVENT_BOUNCED]);
-        EmailMessage::create(['message_id' => 'c', 'status' => EmailEvent::EVENT_DELIVERED]);
+        EmailMessage::create(['provider_message_id' => 'a', 'status' => EmailEvent::EVENT_DELIVERED]);
+        EmailMessage::create(['provider_message_id' => 'b', 'status' => EmailEvent::EVENT_BOUNCED]);
+        EmailMessage::create(['provider_message_id' => 'c', 'status' => EmailEvent::EVENT_DELIVERED]);
 
         $this->assertCount(2, EmailMessage::delivered()->get());
         $this->assertCount(1, EmailMessage::bounced()->get());
@@ -479,13 +479,13 @@ class PersistenceTest extends TestCase
 
     public function testFailedScopeCoversBouncedDroppedAndComplained()
     {
-        EmailMessage::create(['message_id' => 'a', 'status' => EmailEvent::EVENT_DELIVERED]);
-        EmailMessage::create(['message_id' => 'b', 'status' => EmailEvent::EVENT_BOUNCED]);
-        EmailMessage::create(['message_id' => 'c', 'status' => EmailEvent::EVENT_DROPPED]);
-        EmailMessage::create(['message_id' => 'd', 'status' => EmailEvent::EVENT_COMPLAINED]);
-        EmailMessage::create(['message_id' => 'e', 'status' => EmailEvent::EVENT_SENT]);
+        EmailMessage::create(['provider_message_id' => 'a', 'status' => EmailEvent::EVENT_DELIVERED]);
+        EmailMessage::create(['provider_message_id' => 'b', 'status' => EmailEvent::EVENT_BOUNCED]);
+        EmailMessage::create(['provider_message_id' => 'c', 'status' => EmailEvent::EVENT_DROPPED]);
+        EmailMessage::create(['provider_message_id' => 'd', 'status' => EmailEvent::EVENT_COMPLAINED]);
+        EmailMessage::create(['provider_message_id' => 'e', 'status' => EmailEvent::EVENT_SENT]);
 
-        $failed = EmailMessage::failed()->pluck('message_id')->all();
+        $failed = EmailMessage::failed()->pluck('provider_message_id')->all();
 
         sort($failed);
         $this->assertSame(['b', 'c', 'd'], $failed);
@@ -500,13 +500,13 @@ class PersistenceTest extends TestCase
         $this->assertFalse($order->emailDeliveryFailed());
 
         EmailMessage::create([
-            'message_id'   => 'first',
+            'provider_message_id'   => 'first',
             'status'       => EmailEvent::EVENT_DELIVERED,
             'related_type' => $order->getMorphClass(),
             'related_id'   => $order->getKey(),
         ]);
         $latest = EmailMessage::create([
-            'message_id'   => 'reminder',
+            'provider_message_id'   => 'reminder',
             'status'       => EmailEvent::EVENT_BOUNCED,
             'related_type' => $order->getMorphClass(),
             'related_id'   => $order->getKey(),
@@ -521,7 +521,7 @@ class PersistenceTest extends TestCase
         config(['postmaster.persistence.model' => ScopedEmailMessage::class]);
 
         EmailMessage::create([
-            'message_id' => 'scoped-message-1',
+            'provider_message_id' => 'scoped-message-1',
             'recipient'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
@@ -536,7 +536,7 @@ class PersistenceTest extends TestCase
         $this->assertDatabaseCount('email_messages', 1);
         $this->assertSame(
             EmailEvent::EVENT_DELIVERED,
-            EmailMessage::where('message_id', 'scoped-message-1')->first()->status
+            EmailMessage::where('provider_message_id', 'scoped-message-1')->first()->status
         );
     }
 
@@ -552,7 +552,7 @@ class PersistenceTest extends TestCase
 
         $this->assertDatabaseCount('email_messages', 1);
 
-        $record = EmailMessage::where('message_id', 'never-seen-before')->first();
+        $record = EmailMessage::where('provider_message_id', 'never-seen-before')->first();
         $this->assertNotNull($record);
         $this->assertSame('recipient@example.com', $record->recipient);
         $this->assertSame(EmailEvent::EVENT_BOUNCED, $record->status);
@@ -600,7 +600,7 @@ class PersistenceTest extends TestCase
         config(['postmaster.persistence.record_events' => true]);
 
         $record = EmailMessage::create([
-            'message_id' => 'postmark-timeline-1',
+            'provider_message_id' => 'postmark-timeline-1',
             'recipient'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
@@ -625,7 +625,7 @@ class PersistenceTest extends TestCase
         config(['postmaster.persistence.record_events' => true]);
 
         $record = EmailMessage::create([
-            'message_id' => 'postmark-timeline-2',
+            'provider_message_id' => 'postmark-timeline-2',
             'recipient'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
@@ -650,7 +650,7 @@ class PersistenceTest extends TestCase
         config(['postmaster.persistence.record_events' => true]);
 
         $record = EmailMessage::create([
-            'message_id' => 'postmark-timeline-3',
+            'provider_message_id' => 'postmark-timeline-3',
             'recipient'  => 'recipient@example.com',
             'status'     => EmailEvent::EVENT_SENT,
         ]);
@@ -681,7 +681,7 @@ class PersistenceTest extends TestCase
     {
         config(['postmaster.persistence.prune_events_after_days' => 30]);
 
-        $record = EmailMessage::create(['message_id' => 'postmark-timeline-4']);
+        $record = EmailMessage::create(['provider_message_id' => 'postmark-timeline-4']);
 
         $old = EmailMessageEvent::create([
             'email_message_id' => $record->getKey(),

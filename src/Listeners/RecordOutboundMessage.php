@@ -50,11 +50,11 @@ class RecordOutboundMessage
         $to = $message->getTo();
 
         $attributes = [
-            'message_id' => $messageId,
-            'recipient'  => $to ? $to[0]->getAddress() : null,
-            'subject'    => $message->getSubject(),
-            'status'     => $status,
-            'sent_at'    => now(),
+            'provider_message_id' => $messageId,
+            'recipient'           => $to ? $to[0]->getAddress() : null,
+            'subject'             => $message->getSubject(),
+            'status'              => $status,
+            'sent_at'             => now(),
         ];
 
         $metadata = OutboundMetadata::pull(spl_object_id($message));

@@ -51,7 +51,7 @@ class SandboxDeliveryTest extends TestCase
             $message->to('recipient@example.com')->subject('Greetings');
         });
 
-        $this->assertStringStartsWith('sandbox-', EmailMessage::first()->message_id);
+        $this->assertStringStartsWith('sandbox-', EmailMessage::first()->provider_message_id);
     }
 
     public function testSandboxCapturesRelatedModelAndTenant()

@@ -21,7 +21,7 @@ return new class extends Migration
         Schema::create($this->table(), function (Blueprint $table) {
             $table->id();
             $table->string('provider')->nullable();
-            $table->string('message_id')->nullable()->index();
+            $table->string('provider_message_id')->nullable()->index();
             $table->string('recipient')->nullable()->index();
             $table->string('subject')->nullable();
             // Full message representation, captured at send time only when
@@ -37,6 +37,11 @@ return new class extends Migration
             // Apps using UUID/ULID primary keys should change related_id to
             // match (e.g. $table->nullableUuidMorphs('related')).
             $table->nullableMorphs('related');
+            // Optional polymorphic link to the *person* the email is intended
+            // for — separate from `related` so an email about an Order can
+            // still answer "every email this User has received." Set via a
+            // Mailable's Tracking(recipient: ...) or a global resolver.
+            $table->nullableMorphs('recipient_model');
             // Optional owning tenant, for multitenant apps. Apps with
             // UUID/ULID tenant keys should change this column type to match.
             $table->unsignedBigInteger($this->tenantColumn())->nullable()->index();

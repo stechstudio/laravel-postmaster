@@ -73,7 +73,7 @@ class UpdateMessageFromEvent
     {
         $record = $this->messageModel()->newQuery()
             ->withoutGlobalScopes()
-            ->where('message_id', $messageId)
+            ->where('provider_message_id', $messageId)
             ->latest('id')
             ->first();
 
@@ -82,9 +82,9 @@ class UpdateMessageFromEvent
         }
 
         return $this->messageModel()->newQuery()->create([
-            'message_id' => $messageId,
-            'provider'   => $event->getProvider(),
-            'recipient'  => $event->getRecipient(),
+            'provider_message_id' => $messageId,
+            'provider'            => $event->getProvider(),
+            'recipient'           => $event->getRecipient(),
         ]);
     }
 

@@ -84,7 +84,7 @@
                         <dt>Bounce</dt><dd>{{ $message->bounce_type }}</dd>
                     @endif
                     <dt>Provider</dt><dd>{{ $message->provider ?? '—' }}</dd>
-                    <dt>Message ID</dt><dd class="pm-mono pm-truncate">{{ $message->message_id ?? '—' }}</dd>
+                    <dt>Message ID</dt><dd class="pm-mono pm-truncate">{{ $message->provider_message_id ?? '—' }}</dd>
                     @if ($message->{$tenantColumn})
                         <dt>{{ $tenantTerm }}</dt>
                         <dd>{{ $tenants[$message->{$tenantColumn}] ?? $message->{$tenantColumn} }}</dd>

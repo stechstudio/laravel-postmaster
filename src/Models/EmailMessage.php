@@ -17,8 +17,10 @@ use STS\Postmaster\EmailEvent;
  * "postmaster.persistence.model" config key.
  *
  * @property string|null $provider
- * @property string|null $message_id
+ * @property string|null $provider_message_id
  * @property string|null $recipient
+ * @property string|null $recipient_model_type
+ * @property int|string|null $recipient_model_id
  * @property string|null $subject
  * @property string|null $from_address
  * @property array|null $recipients

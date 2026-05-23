@@ -23,6 +23,11 @@ return new class extends Migration
             // Why the address is suppressed: bounced, complained, dropped, or
             // manual. Null while the address is active.
             $table->string('reason')->nullable();
+            // Provider names that have touched this address — typically
+            // either via a delivery webhook (bounce / complaint / drop)
+            // or via a suppression-list sync. Used by the dashboard to
+            // decide whether an API-driven Unsuppress is even possible.
+            $table->json('providers')->nullable();
             $table->timestamp('suppressed_at')->nullable();
             $table->timestamp('last_event_at')->nullable();
             $table->timestamps();

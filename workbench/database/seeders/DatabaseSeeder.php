@@ -159,13 +159,35 @@ class DatabaseSeeder extends Seeder
      */
     protected function seedAddresses(array $names, array $domains): void
     {
+        // Five suppression-causing providers in our demo data. Most rows
+        // get an API-syncable provider (SendGrid, Postmark, etc.); a small
+        // share are Resend-only so the dashboard shows the "Manage in
+        // Resend" hint instead of an Unsuppress button.
+        $providersByIndex = ['SendGrid', 'Postmark', 'Mailgun', 'SES', 'Resend'];
+
         foreach (range(1, 28) as $i) {
             $suppressed = $i % 4 === 0;
+            $address    = $names[array_rand($names)].$i.'@'.$domains[array_rand($domains)];
+
+            // Mix in a couple of manual suppressions so the dashboard's
+            // Unsuppress button shows under composer serve even when no
+            // provider SDK is installed (manual suppressions don't need
+            // an API).
+            $manual = $suppressed && $i % 8 === 0;
 
             EmailAddress::create([
-                'address'       => $names[array_rand($names)].$i.'@'.$domains[array_rand($domains)],
+                'address'       => $address,
                 'status'        => $suppressed ? EmailAddress::STATUS_SUPPRESSED : EmailAddress::STATUS_ACTIVE,
-                'reason'        => $suppressed ? [EmailEvent::STATUS_BOUNCED, EmailEvent::STATUS_COMPLAINED][rand(0, 1)] : null,
+                'reason'        => match (true) {
+                    $manual     => EmailAddress::REASON_MANUAL,
+                    $suppressed => [EmailEvent::STATUS_BOUNCED, EmailEvent::STATUS_COMPLAINED][rand(0, 1)],
+                    default     => null,
+                },
+                'providers'     => match (true) {
+                    $manual     => null,
+                    $suppressed => [$providersByIndex[$i % count($providersByIndex)]],
+                    default     => null,
+                },
                 'suppressed_at' => $suppressed ? now()->subDays(rand(0, 13)) : null,
                 'last_event_at' => now()->subDays(rand(0, 13)),
             ]);

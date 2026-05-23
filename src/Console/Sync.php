@@ -46,6 +46,13 @@ class Sync extends Command
     }
 
     /**
+     * The provider currently being synced — stashed so reconcile() can stamp
+     * it onto each row it adds, without having to plumb the name through
+     * every internal call.
+     */
+    protected ?string $currentProvider = null;
+
+    /**
      * @return array<int, string>
      */
     protected function resolveProviders(): array
@@ -74,6 +81,7 @@ class Sync extends Command
         }
 
         try {
+            $this->currentProvider = $provider;
             $remote   = $this->fetchRemote($sync);
             $local    = $this->fetchLocal();
             $written  = $this->reconcile($remote, $local, $dryRun);
@@ -154,6 +162,7 @@ class Sync extends Command
                 $row->reason        = $entry['reason'];
                 $row->suppressed_at = $entry['suppressed_at'] ?? now();
                 $row->status        = EmailAddress::STATUS_SUPPRESSED;
+                $row->recordProvider($this->currentProvider);
                 $row->save();
             }
 

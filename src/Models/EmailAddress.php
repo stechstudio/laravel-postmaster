@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $address
  * @property string $status
  * @property string|null $reason
+ * @property array<int, string>|null $providers
  * @property \Illuminate\Support\Carbon|null $suppressed_at
  * @property \Illuminate\Support\Carbon|null $last_event_at
  */
@@ -59,9 +60,93 @@ class EmailAddress extends Model
     ];
 
     protected $casts = [
+        'providers'     => 'array',
         'suppressed_at' => 'datetime',
         'last_event_at' => 'datetime',
     ];
+
+    /**
+     * Append a provider name to this row's providers list (deduped),
+     * persisting the change. A no-op when the name is empty.
+     *
+     * @param string|null $provider
+     *
+     * @return void
+     */
+    public function recordProvider( $provider )
+    {
+        if (! is_string($provider) || $provider === '') {
+            return;
+        }
+
+        $providers = $this->providers ?? [];
+
+        if (in_array($provider, $providers, true)) {
+            return;
+        }
+
+        $providers[] = $provider;
+        $this->providers = $providers;
+    }
+
+    /**
+     * Whether at least one provider in this row's `providers` list has a
+     * usable suppression-sync API — i.e. an Unsuppress from the dashboard
+     * could actually clear *something* upstream, not just lift the local
+     * row. Manual suppressions and legacy rows (no providers recorded)
+     * always report true; for them the local lift is the whole point.
+     *
+     * @return bool
+     */
+    public function canApiUnsuppress()
+    {
+        if ($this->reason === self::REASON_MANUAL) {
+            return true;
+        }
+
+        $providers = $this->providers ?? [];
+
+        if (empty($providers)) {
+            return true;
+        }
+
+        $postmaster = app(\STS\Postmaster\Postmaster::class);
+
+        foreach ($providers as $provider) {
+            $sync = $postmaster->sync($provider);
+
+            if ($sync !== null && $sync->isAvailable()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Provider names attached to this row whose sync isn't available — i.e.
+     * an Unsuppress action can't clear them via API; the operator has to
+     * remove the address from each one's dashboard by hand. Used by the
+     * dashboard to show a "manage in {provider}" hint.
+     *
+     * @return array<int, string>
+     */
+    public function providersWithoutApiUnsuppress()
+    {
+        $providers = $this->providers ?? [];
+
+        if (empty($providers)) {
+            return [];
+        }
+
+        $postmaster = app(\STS\Postmaster\Postmaster::class);
+
+        return array_values(array_filter($providers, function ($provider) use ($postmaster) {
+            $sync = $postmaster->sync($provider);
+
+            return $sync === null || ! $sync->isAvailable();
+        }));
+    }
 
     public function getTable()
     {

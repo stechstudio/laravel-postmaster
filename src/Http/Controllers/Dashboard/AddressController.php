@@ -48,9 +48,33 @@ class AddressController extends Controller
                 ->with('postmasterError', 'That is not a valid email address.');
         }
 
-        $postmaster->unsuppress($address);
+        $result = $postmaster->unsuppress($address);
 
         return redirect()->route('postmaster.addresses')
-            ->with('postmasterFlash', "Unsuppressed {$address}.");
+            ->with('postmasterFlash', $this->flashFor($address, $result));
+    }
+
+    /**
+     * Build a single-line flash message describing what got cleared and
+     * what still needs manual cleanup at the provider's dashboard.
+     *
+     * @param string $address
+     * @param array{cleared: array<int, string>, manual: array<int, string>} $result
+     *
+     * @return string
+     */
+    protected function flashFor( string $address, array $result ): string
+    {
+        $parts = ["Unsuppressed {$address}."];
+
+        if (! empty($result['cleared'])) {
+            $parts[] = 'Cleared at: '.implode(', ', $result['cleared']).'.';
+        }
+
+        if (! empty($result['manual'])) {
+            $parts[] = 'Manual cleanup needed at: '.implode(', ', $result['manual']).'.';
+        }
+
+        return implode(' ', $parts);
     }
 }

@@ -42,12 +42,18 @@
                         <td class="pm-dim pm-cell-meta">@include('postmaster::partials.datetime', ['when' => $address->suppressed_at])</td>
                         <td class="pm-cell-action">
                             @if ($address->status === 'suppressed')
-                                <form method="POST" action="{{ route('postmaster.addresses.unsuppress') }}"
-                                      onsubmit="return confirm('Unsuppress {{ $address->address }}? This clears it both locally and at every configured provider.')">
-                                    @csrf
-                                    <input type="hidden" name="address" value="{{ $address->address }}">
-                                    <button type="submit" class="pm-btn pm-btn--sm pm-btn--ghost">Unsuppress</button>
-                                </form>
+                                @if ($address->canApiUnsuppress())
+                                    <form method="POST" action="{{ route('postmaster.addresses.unsuppress') }}"
+                                          onsubmit="return confirm('Unsuppress {{ $address->address }}? This clears it locally and at every provider that supports it.')">
+                                        @csrf
+                                        <input type="hidden" name="address" value="{{ $address->address }}">
+                                        <button type="submit" class="pm-btn pm-btn--sm pm-btn--ghost">Unsuppress</button>
+                                    </form>
+                                @else
+                                    <span class="pm-dim pm-cell-meta" title="No suppression-list API available for {{ implode(', ', $address->providersWithoutApiUnsuppress()) }}.">
+                                        Manage in {{ implode('/', $address->providersWithoutApiUnsuppress()) }}
+                                    </span>
+                                @endif
                             @endif
                         </td>
                     </tr>

@@ -77,6 +77,7 @@ trait InteractsWithEmailAddresses
 
         $occurredAt = $event->occurredAt() ?? now();
         $record->last_event_at = $occurredAt;
+        $record->recordProvider($event->provider());
 
         $reason = $this->suppressionReason($event);
 

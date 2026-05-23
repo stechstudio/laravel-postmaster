@@ -405,39 +405,60 @@ class Postmaster
     }
 
     /**
-     * Lift the suppression on an address, returning it to active. Also asks
-     * every configured provider to remove it from their own suppression
-     * list — what happens locally has to happen upstream too, or the next
-     * sync would just put it back.
+     * Lift the suppression on an address. Lifts the local row AND asks
+     * every provider this address is associated with (per the local row's
+     * `providers` list) to clear it from their list too — what happens
+     * locally has to happen upstream, or the next sync would just put it
+     * back.
      *
      * @param string $address
      *
-     * @return EmailAddress
+     * @return array{address: EmailAddress, cleared: array<int, string>, manual: array<int, string>}
+     *
+     * Keys:
+     *   - 'address'  the EmailAddress row, in its post-unsuppress (active) state.
+     *   - 'cleared'  provider names whose sync was called successfully via API.
+     *   - 'manual'   provider names whose sync wasn't available (SDK missing
+     *                or no API key) or threw — operator has to clear those
+     *                in the provider's dashboard manually.
      */
     public function unsuppress( string $address )
     {
-        $model = $this->addressModel();
+        $model      = $this->addressModel();
+        $normalized = $model::normalize($address);
 
-        $record = $model->newQuery()->firstOrNew([
-            'address' => $model::normalize($address),
-        ]);
+        $record = $model->newQuery()->firstOrNew(['address' => $normalized]);
 
-        foreach (array_keys($this->config['providers'] ?? []) as $provider) {
+        $cleared = [];
+        $manual  = [];
+
+        foreach ($record->providers ?? [] as $provider) {
+            $sync = $this->sync($provider);
+
+            if ($sync === null || ! $sync->isAvailable()) {
+                $manual[] = $provider;
+                continue;
+            }
+
             try {
-                $sync = $this->sync($provider);
-
-                if ($sync !== null && $sync->isAvailable()) {
-                    $sync->unsuppress($model::normalize($address));
-                }
+                $sync->unsuppress($normalized);
+                $cleared[] = $provider;
             } catch (\Throwable $e) {
                 logger()->warning(
-                    "Postmaster: provider unsuppress failed for {$provider}; the local row was lifted anyway.",
+                    "Postmaster: provider unsuppress failed for {$provider}; the local row will still be lifted.",
                     ['address' => $address, 'error' => $e->getMessage()]
                 );
+                $manual[] = $provider;
             }
         }
 
-        return $record->unsuppress();
+        $record->unsuppress();
+
+        return [
+            'address' => $record,
+            'cleared' => $cleared,
+            'manual'  => $manual,
+        ];
     }
 
     /**

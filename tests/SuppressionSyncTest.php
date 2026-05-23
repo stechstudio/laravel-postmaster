@@ -118,20 +118,46 @@ class SuppressionSyncTest extends TestCase
 
     public function testPostmasterUnsuppressAlsoCallsTheProviderSync()
     {
-        // Pre-existing suppression in the local table.
+        // Pre-existing suppression in the local table — with the provider
+        // recorded on the row, so unsuppress knows where to forward.
         EmailAddress::create([
             'address'       => 'alice@example.com',
             'status'        => EmailAddress::STATUS_SUPPRESSED,
             'reason'        => EmailAddress::REASON_BOUNCED,
+            'providers'     => ['fake'],
             'suppressed_at' => now(),
         ]);
 
-        Postmaster::unsuppress('Alice@Example.com');
+        $result = Postmaster::unsuppress('Alice@Example.com');
 
         // Local row lifted.
         $this->assertSame(EmailAddress::STATUS_ACTIVE, EmailAddress::first()->status);
 
         // Provider's API was called too, with the lowercased address.
         $this->assertSame(['alice@example.com'], FakeSync::$unsuppressed);
+
+        // The result reports which providers were cleared and which need
+        // manual cleanup — the dashboard's flash message uses this.
+        $this->assertSame(['fake'], $result['cleared']);
+        $this->assertSame([], $result['manual']);
+    }
+
+    public function testUnsuppressReportsProvidersThatNeedManualCleanup()
+    {
+        FakeSync::$available = false;
+
+        EmailAddress::create([
+            'address'       => 'alice@example.com',
+            'status'        => EmailAddress::STATUS_SUPPRESSED,
+            'reason'        => EmailAddress::REASON_BOUNCED,
+            'providers'     => ['fake'],
+            'suppressed_at' => now(),
+        ]);
+
+        $result = Postmaster::unsuppress('alice@example.com');
+
+        $this->assertSame(EmailAddress::STATUS_ACTIVE, EmailAddress::first()->status);
+        $this->assertSame([], $result['cleared']);
+        $this->assertSame(['fake'], $result['manual']);
     }
 }

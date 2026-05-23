@@ -494,10 +494,20 @@ missing, that provider is skipped with an informative line:
 | Amazon SES | `composer require aws/aws-sdk-php` | Uses the standard AWS credential chain |
 | Resend | — | Resend has a full API but no suppression-list resource (suppressions are dashboard-only); sync is a no-op for Resend, and the local table is fed entirely by the webhook stream |
 
-**Unsuppress is two-way too.** `Postmaster::unsuppress($address)` clears
-the local row *and* asks every configured provider to clear theirs — what
-happens locally has to happen upstream, or the next sync would just put
-the suppression back.
+**Unsuppress is two-way too.** Each suppression row records which
+provider(s) put it on the list (via webhook events or sync). When you
+call `Postmaster::unsuppress($address)` — or click Unsuppress in the
+dashboard — the local row is lifted and every recorded provider with
+API support is asked to clear theirs. The method returns an array
+with `cleared` (providers we successfully called) and `manual`
+(providers without API support, where the suppression has to be
+cleared in the provider's own dashboard).
+
+The dashboard reflects this: the Unsuppress button appears only when
+at least one of an address's recorded providers has a usable API. For
+rows whose only source is a provider without one (Resend today), the
+button is replaced with a "Manage in {Provider}" hint instead of
+implying an action that can't actually do what it suggests.
 
 ### Storing message content
 

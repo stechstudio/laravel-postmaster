@@ -36,6 +36,12 @@
         "orchestra/testbench": "^10.0|^11.0",
         "larastan/larastan": "^3.0"
     },
+    "suggest": {
+        "sendgrid/sendgrid":    "Required to sync SendGrid's suppression list (postmaster:sync).",
+        "wildbit/postmark-php": "Required to sync Postmark's suppression list.",
+        "mailgun/mailgun-php":  "Required to sync Mailgun's suppression list.",
+        "aws/aws-sdk-php":      "Required to sync Amazon SES's suppression list."
+    },
     "autoload": {
         "psr-4": {
             "STS\\Postmaster\\": "src/"

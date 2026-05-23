@@ -30,6 +30,7 @@
                     <th>Status</th>
                     <th>Reason</th>
                     <th>Suppressed</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -39,9 +40,19 @@
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $address->status])</td>
                         <td class="pm-dim pm-cell-sub">{{ $address->reason ?? '—' }}</td>
                         <td class="pm-dim pm-cell-meta">@include('postmaster::partials.datetime', ['when' => $address->suppressed_at])</td>
+                        <td class="pm-cell-action">
+                            @if ($address->status === 'suppressed')
+                                <form method="POST" action="{{ route('postmaster.addresses.unsuppress') }}"
+                                      onsubmit="return confirm('Unsuppress {{ $address->address }}? This clears it both locally and at every configured provider.')">
+                                    @csrf
+                                    <input type="hidden" name="address" value="{{ $address->address }}">
+                                    <button type="submit" class="pm-btn pm-btn--sm pm-btn--ghost">Unsuppress</button>
+                                </form>
+                            @endif
+                        </td>
                     </tr>
                 @empty
-                    <tr class="pm-row-empty"><td class="pm-cell-full" colspan="4"><div class="pm-empty">No addresses match these filters.</div></td></tr>
+                    <tr class="pm-row-empty"><td class="pm-cell-full" colspan="5"><div class="pm-empty">No addresses match these filters.</div></td></tr>
                 @endforelse
             </tbody>
         </table>

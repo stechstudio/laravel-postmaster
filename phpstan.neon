@@ -5,6 +5,14 @@ parameters:
     level: 5
     paths:
         - src
+    # The per-provider SuppressionSync classes integrate with optional
+    # third-party SDKs (sendgrid/sendgrid, wildbit/postmark-php,
+    # mailgun/mailgun-php, aws/aws-sdk-php, resend/resend-php) listed in
+    # composer.json's "suggest". Those packages aren't installed for static
+    # analysis or unit tests; their correctness is exercised at runtime
+    # when the operator installs the SDK they need.
+    excludePaths:
+        - src/Providers/*/SuppressionSync.php
     # Docblocks in this package are intentionally loose (e.g. "@return string"
     # on accessors that may return null); trust runtime checks over PHPDoc.
     treatPhpDocTypesAsCertain: false

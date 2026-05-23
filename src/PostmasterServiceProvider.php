@@ -11,6 +11,7 @@ use STS\Postmaster\Auth\BasicHttpAuth;
 use STS\Postmaster\Auth\TokenAuth;
 use STS\Postmaster\Console\Prune;
 use STS\Postmaster\Console\Install;
+use STS\Postmaster\Console\Sync;
 use STS\Postmaster\Console\VerifySetup;
 use STS\Postmaster\Http\Middleware\AuthorizeDashboard;
 use STS\Postmaster\Listeners\InterceptSandboxMail;
@@ -203,15 +204,23 @@ class PostmasterServiceProvider extends ServiceProvider
         $this->commands([Install::class, VerifySetup::class]);
 
         if ($this->app['config']->get('postmaster.persistence.enabled')) {
-            $this->commands([Prune::class]);
+            $this->commands([Prune::class, Sync::class]);
 
-            // One daily pass handles both content and event pruning. The
-            // command no-ops the buckets whose retention windows are off,
-            // so an "everything disabled" install still costs nothing.
             $this->app->booted(function () {
+                // One daily pass handles both content and event pruning.
+                // The command no-ops the buckets whose retention windows
+                // are off, so an "everything disabled" install costs
+                // nothing.
                 $this->app->make(Schedule::class)
                     ->command('postmaster:prune')
                     ->dailyAt('03:00');
+
+                // One hour after pruning, mirror each configured provider's
+                // suppression list. The command skips providers whose SDK
+                // isn't installed or whose API key isn't configured.
+                $this->app->make(Schedule::class)
+                    ->command('postmaster:sync')
+                    ->dailyAt('04:00');
             });
         }
     }

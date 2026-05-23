@@ -415,6 +415,33 @@ class DashboardTest extends TestCase
             ->assertJsonFragment(['status' => EmailEvent::STATUS_DELIVERED]);
     }
 
+    public function testDashboardUnsuppressLiftsTheLocalSuppression()
+    {
+        Postmaster::auth(fn () => true);
+
+        EmailAddress::create([
+            'address'       => 'alice@example.com',
+            'status'        => EmailAddress::STATUS_SUPPRESSED,
+            'reason'        => EmailAddress::REASON_BOUNCED,
+            'suppressed_at' => now(),
+        ]);
+
+        $this->post('/postmaster/addresses/unsuppress', ['address' => 'alice@example.com'])
+            ->assertRedirect('/postmaster/addresses')
+            ->assertSessionHas('postmasterFlash');
+
+        $this->assertSame(EmailAddress::STATUS_ACTIVE, EmailAddress::first()->status);
+    }
+
+    public function testDashboardUnsuppressRejectsAnInvalidAddress()
+    {
+        Postmaster::auth(fn () => true);
+
+        $this->post('/postmaster/addresses/unsuppress', ['address' => 'not-an-email'])
+            ->assertRedirect('/postmaster/addresses')
+            ->assertSessionHas('postmasterError');
+    }
+
     public function testAddressesListLoads()
     {
         Postmaster::auth(fn () => true);

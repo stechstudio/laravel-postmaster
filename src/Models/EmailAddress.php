@@ -28,10 +28,29 @@ use Illuminate\Database\Eloquent\Model;
  */
 class EmailAddress extends Model
 {
-    public const STATUS_ACTIVE = 'active';
-    public const STATUS_SUPPRESSED = 'suppressed';
+    public const string STATUS_ACTIVE     = 'active';
+    public const string STATUS_SUPPRESSED = 'suppressed';
 
-    public const REASON_MANUAL = 'manual';
+    public const string REASON_MANUAL     = 'manual';
+    public const string REASON_BOUNCED    = 'bounced';
+    public const string REASON_DROPPED    = 'dropped';
+    public const string REASON_COMPLAINED = 'complained';
+
+    /**
+     * Reasons that count as "automatic" — recorded by the webhook stream
+     * or by the suppression sync. Suppression sync may auto-clear these
+     * when the provider's authoritative list no longer holds them.
+     *
+     * Manual suppressions, by contrast, are operator-asserted and never
+     * cleared by sync; they're cleared only by an explicit unsuppress.
+     *
+     * @var array<int, string>
+     */
+    public const array AUTOMATIC_REASONS = [
+        self::REASON_BOUNCED,
+        self::REASON_DROPPED,
+        self::REASON_COMPLAINED,
+    ];
 
     protected $guarded = [];
 

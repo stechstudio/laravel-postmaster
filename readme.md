@@ -460,10 +460,44 @@ the mail transport, recorded with status `blocked` (so the attempt is visible
 in the dashboard), and dropped. Bypass it per send by lifting the suppression
 or by skipping the check yourself — there's no per-message bypass flag.
 
-> This table is built from the webhooks you receive, so it reflects
-> suppressions caused by mail sent through this package. Pulling a provider's
-> full suppression list, or clearing suppressions back on the provider's side,
-> would need each provider's API and isn't part of this layer.
+#### Two-way sync with your provider
+
+The webhook stream is one feed into the suppression table — every time a
+provider tells us about a bounce or complaint, we record it. But it's not
+the only source of truth. The provider has its own authoritative list, and
+admins can clear suppressions in the provider's dashboard or via their API.
+If you only listen to webhooks you can't see those clearances and your
+local table drifts out of date.
+
+`postmaster:sync` pulls each configured provider's current suppression list
+and reconciles it with our local table — new provider suppressions land
+here, and addresses the provider no longer holds are cleared locally
+(unless they're **manual** suppressions, which are operator decisions and
+never auto-cleared). It runs daily at 04:00 once persistence is on, and
+can be invoked by hand:
+
+```bash
+php artisan postmaster:sync                    # all configured providers
+php artisan postmaster:sync --provider=sendgrid
+php artisan postmaster:sync --dry-run          # report without writing
+```
+
+Each provider needs two things: its official SDK installed (suggested in
+`composer.json`, not required) and an API key configured. With either
+missing, that provider is skipped with an informative line:
+
+| Provider | SDK | Config key |
+|---|---|---|
+| SendGrid | `composer require sendgrid/sendgrid` | `POSTMASTER_SENDGRID_API_KEY` (or `SENDGRID_API_KEY`) |
+| Postmark | `composer require wildbit/postmark-php` | `POSTMASTER_POSTMARK_SERVER_TOKEN` (or `POSTMARK_TOKEN`) |
+| Mailgun  | `composer require mailgun/mailgun-php` | `POSTMASTER_MAILGUN_API_KEY` (or `MAILGUN_SECRET`) + `POSTMASTER_MAILGUN_DOMAIN` |
+| Amazon SES | `composer require aws/aws-sdk-php` | Uses the standard AWS credential chain |
+| Resend | — | Resend doesn't yet expose a public suppression list API; sync is a no-op until they do |
+
+**Unsuppress is two-way too.** `Postmaster::unsuppress($address)` clears
+the local row *and* asks every configured provider to clear theirs — what
+happens locally has to happen upstream, or the next sync would just put
+the suppression back.
 
 ### Storing message content
 

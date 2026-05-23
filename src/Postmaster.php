@@ -405,7 +405,10 @@ class Postmaster
     }
 
     /**
-     * Lift the suppression on an address, returning it to active.
+     * Lift the suppression on an address, returning it to active. Also asks
+     * every configured provider to remove it from their own suppression
+     * list — what happens locally has to happen upstream too, or the next
+     * sync would just put it back.
      *
      * @param string $address
      *
@@ -419,7 +422,43 @@ class Postmaster
             'address' => $model::normalize($address),
         ]);
 
+        foreach (array_keys($this->config['providers'] ?? []) as $provider) {
+            try {
+                $sync = $this->sync($provider);
+
+                if ($sync !== null && $sync->isAvailable()) {
+                    $sync->unsuppress($model::normalize($address));
+                }
+            } catch (\Throwable $e) {
+                logger()->warning(
+                    "Postmaster: provider unsuppress failed for {$provider}; the local row was lifted anyway.",
+                    ['address' => $address, 'error' => $e->getMessage()]
+                );
+            }
+        }
+
         return $record->unsuppress();
+    }
+
+    /**
+     * Resolve the suppression sync for the given provider — or null if the
+     * provider isn't registered, has no sync class configured, or the
+     * configured class isn't loadable.
+     *
+     * @param string $provider
+     *
+     * @return \STS\Postmaster\Contracts\SuppressionSync|null
+     */
+    public function sync( $provider )
+    {
+        $config = $this->config['providers'][$provider] ?? null;
+        $class  = $config['sync'] ?? null;
+
+        if (! is_string($class) || ! class_exists($class)) {
+            return null;
+        }
+
+        return new $class($config);
     }
 
     /**

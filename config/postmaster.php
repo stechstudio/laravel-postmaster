@@ -98,33 +98,50 @@ return [
         'sendgrid' => [
             'adapter' => \STS\Postmaster\Providers\SendGrid\Adapter::class,
             'auth'    => env('POSTMASTER_SENDGRID_AUTH', \STS\Postmaster\Providers\SendGrid\SignatureAuth::class),
+            'sync'    => \STS\Postmaster\Providers\SendGrid\SuppressionSync::class,
             // The base64 "Verification Key" from SendGrid's Signed Event Webhook settings.
             'verification_key' => env('POSTMASTER_SENDGRID_VERIFICATION_KEY'),
+            // SendGrid API key used by the suppression sync. Falls back to
+            // SENDGRID_API_KEY so apps already using Laravel's SendGrid
+            // mailer don't have to add a second key.
+            'api_key' => env('POSTMASTER_SENDGRID_API_KEY', env('SENDGRID_API_KEY')),
         ],
 
         'postmark' => [
             'adapter' => \STS\Postmaster\Providers\Postmark\Adapter::class,
             // Postmark does not sign webhook payloads; use basic auth or a token.
             'auth'    => env('POSTMASTER_POSTMARK_AUTH', 'basic'),
+            'sync'    => \STS\Postmaster\Providers\Postmark\SuppressionSync::class,
+            'server_token' => env('POSTMASTER_POSTMARK_SERVER_TOKEN', env('POSTMARK_TOKEN')),
         ],
 
         'mailgun' => [
             'adapter' => \STS\Postmaster\Providers\Mailgun\Adapter::class,
             'auth'    => env('POSTMASTER_MAILGUN_AUTH', \STS\Postmaster\Providers\Mailgun\SignatureAuth::class),
+            'sync'    => \STS\Postmaster\Providers\Mailgun\SuppressionSync::class,
             'signing_key' => env('POSTMASTER_MAILGUN_SIGNING_KEY', env('MAILGUN_SECRET')),
+            'api_key'     => env('POSTMASTER_MAILGUN_API_KEY', env('MAILGUN_SECRET')),
+            'domain'      => env('POSTMASTER_MAILGUN_DOMAIN', env('MAILGUN_DOMAIN')),
         ],
 
         'ses' => [
             'adapter' => \STS\Postmaster\Providers\Ses\Adapter::class,
             // SES delivers via SNS; the SNS message is verified against its x509 cert.
             'auth'    => env('POSTMASTER_SES_AUTH', \STS\Postmaster\Providers\Ses\SignatureAuth::class),
+            'sync'    => \STS\Postmaster\Providers\Ses\SuppressionSync::class,
+            // SES uses the standard AWS credential chain — the Laravel config
+            // is read directly, no extra env. Override the region here when
+            // SES sends from somewhere other than the app's default region.
+            'region'  => env('POSTMASTER_SES_REGION', env('AWS_DEFAULT_REGION', 'us-east-1')),
         ],
 
         'resend' => [
             'adapter' => \STS\Postmaster\Providers\Resend\Adapter::class,
             'auth'    => env('POSTMASTER_RESEND_AUTH', \STS\Postmaster\Providers\Resend\SignatureAuth::class),
+            'sync'    => \STS\Postmaster\Providers\Resend\SuppressionSync::class,
             // The "whsec_..." signing secret from Resend's webhook settings.
             'signing_secret' => env('POSTMASTER_RESEND_SIGNING_SECRET'),
+            'api_key'        => env('POSTMASTER_RESEND_API_KEY', env('RESEND_KEY')),
         ],
 
     ],

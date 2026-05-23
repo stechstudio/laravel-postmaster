@@ -101,6 +101,25 @@ Laravel auto-discovers it, and it can implement
 `Illuminate\Contracts\Queue\ShouldQueue` to process webhooks off the request
 cycle.
 
+For the common "alert ops when a hard bounce lands" case the package ships
+a drop-in notification:
+
+```php
+use Illuminate\Support\Facades\Notification;
+use STS\Postmaster\Notifications\EmailDeliveryFailed;
+
+Event::listen(function (EmailEvent $event) {
+    if ($event->isPermanent()) {
+        Notification::route('mail', config('ops.alerts_to'))
+            ->notify(new EmailDeliveryFailed($event));
+    }
+});
+```
+
+It renders a short summary (address, status, bounce type, the provider's
+reason). Subclass it to customise the body or to add `database`/`slack`
+channels.
+
 > **Before you go live**, set up [webhook verification](#securing-webhooks).
 > Postmaster rejects unverified webhooks by default. It's one credential per
 > provider.

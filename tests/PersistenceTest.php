@@ -500,6 +500,28 @@ class PersistenceTest extends TestCase
         $this->assertFalse($record->fresh()->isFailed());
     }
 
+    public function testEmailDeliveryFailedNotificationRendersTheKeyDetails()
+    {
+        $event = EmailEvent::create(new Postmark([
+            'RecordType'  => 'Bounce',
+            'Type'        => 'HardBounce',
+            'MessageID'   => 'm1',
+            'Email'       => 'alice@example.com',
+            'BouncedAt'   => '2021-01-01T00:00:00Z',
+            'Description' => 'Mailbox does not exist.',
+        ]));
+
+        $notification = new \STS\Postmaster\Notifications\EmailDeliveryFailed($event);
+        $mail = $notification->toMail((object) []);
+
+        $this->assertSame('Email delivery failed: alice@example.com', $mail->subject);
+        $this->assertSame('error', $mail->level);
+        $rendered = implode("\n", $mail->introLines);
+        $this->assertStringContainsString('alice@example.com', $rendered);
+        $this->assertStringContainsString('bounced', $rendered);
+        $this->assertStringContainsString('Postmark', $rendered);
+    }
+
     public function testStatusPredicatesOnEmailEvent()
     {
         $event = EmailEvent::create(new Postmark([

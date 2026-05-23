@@ -492,7 +492,7 @@ missing, that provider is skipped with an informative line:
 | Postmark | `composer require wildbit/postmark-php` | `POSTMASTER_POSTMARK_SERVER_TOKEN` (or `POSTMARK_TOKEN`) |
 | Mailgun  | `composer require mailgun/mailgun-php` | `POSTMASTER_MAILGUN_API_KEY` (or `MAILGUN_SECRET`) + `POSTMASTER_MAILGUN_DOMAIN` |
 | Amazon SES | `composer require aws/aws-sdk-php` | Uses the standard AWS credential chain |
-| Resend | — | Resend doesn't yet expose a public suppression list API; sync is a no-op until they do |
+| Resend | — | Resend has a full API but no suppression-list resource (suppressions are dashboard-only); sync is a no-op for Resend, and the local table is fed entirely by the webhook stream |
 
 **Unsuppress is two-way too.** `Postmaster::unsuppress($address)` clears
 the local row *and* asks every configured provider to clear theirs — what

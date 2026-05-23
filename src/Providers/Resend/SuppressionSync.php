@@ -6,14 +6,18 @@ use Resend\Resend as ResendClient;
 use STS\Postmaster\Contracts\SuppressionSync as Contract;
 
 /**
- * A scaffold for Resend suppression sync. Resend doesn't currently expose
- * a documented "list all suppressed addresses" API — the package's local
- * suppression list is fed entirely by the webhook stream (bounces,
- * complaints) which arrives the same way the other providers do.
+ * Resend has a full REST API (Emails, Contacts, Domains, Webhooks,
+ * Broadcasts, ...) but suppressions are a dashboard-only concept there
+ * — there's no `/suppressions` resource to list against or delete from.
+ * Bounces and complaints are visible in the dashboard and fire as webhook
+ * events, but they aren't exposed as a queryable list.
  *
- * isAvailable() reports false on purpose, so the sync command logs a hint
- * and moves on. When Resend ships a public suppression API, fill pull()
- * and unsuppress() in; the rest of the architecture is already there.
+ * In practice that means the package's local suppression table for
+ * Resend is fed entirely by the webhook stream, which works the same way
+ * it does for the other four providers. isAvailable() reports false here
+ * on purpose so the sync command moves on with a clear hint; if Resend
+ * ever ships a suppression-list endpoint, fill pull() and unsuppress()
+ * in and flip the check — the rest of the architecture is already wired.
  *
  * Soft-depends on resend/resend-php (the official SDK).
  */

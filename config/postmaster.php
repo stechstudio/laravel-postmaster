@@ -4,9 +4,9 @@ return [
 
     /*
      * The path the webhook route is registered at. The provider name is
-     * appended, e.g. ".hooks/postmaster/sendgrid".
+     * appended, e.g. "webhooks/postmaster/sendgrid".
      */
-    'url' => env('POSTMASTER_URL', '.hooks/postmaster'),
+    'url' => env('POSTMASTER_URL', 'webhooks/postmaster'),
 
     /*
      * Whether the package registers its webhook route automatically. Disable

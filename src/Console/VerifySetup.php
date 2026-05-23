@@ -224,7 +224,7 @@ class VerifySetup extends Command
             return route('webhook.postmaster', ['provider' => $provider]);
         } catch (Throwable $e) {
             $base = rtrim((string) config('app.url'), '/');
-            $path = trim((string) config('postmaster.url', '.hooks/postmaster'), '/');
+            $path = trim((string) config('postmaster.url', 'webhooks/postmaster'), '/');
 
             return "{$base}/{$path}/{$provider}";
         }

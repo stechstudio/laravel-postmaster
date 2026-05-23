@@ -67,11 +67,11 @@ you're reacting to delivery events from any provider.
 
 ### 1. Point your provider at the webhook
 
-Postmaster serves `POST /.hooks/postmaster/{provider}`. In your email
+Postmaster serves `POST /webhooks/postmaster/{provider}`. In your email
 provider's dashboard, set the webhook URL to:
 
 ```
-https://your-app.com/.hooks/postmaster/{provider}
+https://your-app.com/webhooks/postmaster/{provider}
 ```
 
 …where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, or `resend`.
@@ -148,7 +148,7 @@ POSTMASTER_MAILGUN_SIGNING_KEY=...   # falls back to MAILGUN_SECRET
 ### Amazon SES
 
 SES delivers events through SNS. Subscribe an SNS topic to
-`.hooks/postmaster/ses`. The package verifies the SNS message signature and
+`webhooks/postmaster/ses`. The package verifies the SNS message signature and
 automatically completes the subscription-confirmation handshake. No secret to
 configure.
 

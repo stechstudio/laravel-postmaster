@@ -34,6 +34,15 @@ class BasicHttpAuth
      */
     public function __invoke( Request $request )
     {
-        return $request->getUser() == $this->username && $request->getPassword() == $this->password;
+        // Refuse unconfigured credentials. Without this guard, the loose
+        // comparison `null == null` below would accept any unauthenticated
+        // request when the env vars aren't set — a fail-open bug.
+        if ($this->username === null || $this->username === ''
+            || $this->password === null || $this->password === '') {
+            return false;
+        }
+
+        return hash_equals((string) $this->username, (string) $request->getUser())
+            && hash_equals((string) $this->password, (string) $request->getPassword());
     }
 }

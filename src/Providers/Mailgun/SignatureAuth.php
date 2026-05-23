@@ -31,11 +31,18 @@ class SignatureAuth
      */
     public function __invoke( Request $request )
     {
+        if (empty($this->signatureKey)) {
+            return false;
+        }
+
         if (abs(time() - $request->input('signature.timestamp')) > 15) {
             return false;
         }
 
-        return $this->buildSignature($request) === $request->input('signature.signature');
+        return hash_equals(
+            $this->buildSignature($request),
+            (string) $request->input('signature.signature')
+        );
     }
 
     /**

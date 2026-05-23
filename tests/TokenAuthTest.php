@@ -27,6 +27,15 @@ class TokenAuthTest extends TestCase
         $this->assertTrue($auth($request));
     }
 
+    public function testRejectsWhenNoTokenIsConfigured()
+    {
+        config(['postmaster.token' => null]);
+
+        // Without this guard, the loose comparison `null == null` against an
+        // un-supplied query parameter would accept any unauthenticated request.
+        $this->assertFalse(resolve(TokenAuth::class)(Request::capture()));
+    }
+
     public function testCustomTokenParam()
     {
         config([

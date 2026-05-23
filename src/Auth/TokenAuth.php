@@ -31,6 +31,13 @@ class TokenAuth
      */
     public function __invoke(Request $request)
     {
-        return $request->input($this->parameter) == $this->token;
+        // Refuse an unconfigured token. Without this guard, the loose
+        // comparison `null == null` below would accept any unauthenticated
+        // request when POSTMASTER_AUTH_TOKEN isn't set — a fail-open bug.
+        if ($this->token === null || $this->token === '') {
+            return false;
+        }
+
+        return hash_equals((string) $this->token, (string) $request->input($this->parameter));
     }
 }

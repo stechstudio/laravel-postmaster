@@ -24,4 +24,42 @@ class BasicHttpAuthTest extends TestCase
 
         $this->assertTrue($auth($request));
     }
+
+    public function testRejectsAnUnauthenticatedRequestWhenNoCredsAreConfigured()
+    {
+        config([
+            'postmaster.basic_username' => null,
+            'postmaster.basic_password' => null,
+        ]);
+
+        // Without this guard, BasicHttpAuth's loose comparison `null == null`
+        // would accept a request that supplied no credentials at all.
+        $this->assertFalse(resolve(BasicHttpAuth::class)(Request::capture()));
+    }
+
+    public function testRejectsWhenOnlyOneCredentialIsConfigured()
+    {
+        config([
+            'postmaster.basic_username' => 'user',
+            'postmaster.basic_password' => null,
+        ]);
+
+        // A half-configured credential is still unsafe.
+        $this->assertFalse(resolve(BasicHttpAuth::class)(Request::capture()));
+    }
+
+    public function testRejectsMismatchedCredentials()
+    {
+        config([
+            'postmaster.basic_username' => 'user',
+            'postmaster.basic_password' => 'pass',
+        ]);
+
+        $auth = resolve(BasicHttpAuth::class);
+        $request = Request::capture();
+        $request->headers->set('PHP_AUTH_USER', 'user');
+        $request->headers->set('PHP_AUTH_PW', 'wrong');
+
+        $this->assertFalse($auth($request));
+    }
 }

@@ -64,6 +64,16 @@ class RecordOutboundMessage
             $attributes['related_id']   = $metadata['related_id'];
         }
 
+        // A Mailable's Tracking(recipient: ...) declaration wins; otherwise
+        // fall back to the app-registered resolver against the to-address.
+        if (isset($metadata['recipient_model_type'], $metadata['recipient_model_id'])) {
+            $attributes['recipient_model_type'] = $metadata['recipient_model_type'];
+            $attributes['recipient_model_id']   = $metadata['recipient_model_id'];
+        } elseif ($recipient = $this->events->resolveRecipient($attributes['recipient'])) {
+            $attributes['recipient_model_type'] = $recipient->getMorphClass();
+            $attributes['recipient_model_id']   = $recipient->getKey();
+        }
+
         if (! empty($metadata['tags'])) {
             $attributes['tags'] = $metadata['tags'];
         }

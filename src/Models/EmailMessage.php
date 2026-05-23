@@ -90,6 +90,18 @@ class EmailMessage extends Model
     }
 
     /**
+     * The application model the email was sent *to* — usually a User. Set
+     * via a Mailable's Tracking(recipient: ...) or by an app-registered
+     * Postmaster::resolveRecipientUsing() resolver. Independent of related().
+     *
+     * @return MorphTo
+     */
+    public function recipientModel()
+    {
+        return $this->morphTo();
+    }
+
+    /**
      * The full delivery timeline — the send and every webhook event, oldest
      * first. Only populated when "postmaster.persistence.record_events" is on.
      *

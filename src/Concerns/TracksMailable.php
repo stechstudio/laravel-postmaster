@@ -71,6 +71,10 @@ trait TracksMailable
             $this->relatedTo($tracking->related);
         }
 
+        if ($tracking->recipient instanceof Model) {
+            $this->forRecipient($tracking->recipient);
+        }
+
         if ($tracking->tenant !== null) {
             $this->forTenant($tracking->tenant);
         }

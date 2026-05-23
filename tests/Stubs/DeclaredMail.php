@@ -20,6 +20,7 @@ class DeclaredMail extends Mailable
      */
     public function __construct(
         public ?Model $order = null,
+        public ?Model $user = null,
         public mixed $account = null,
         public array $labels = [],
         public ?bool $store = null,
@@ -30,6 +31,7 @@ class DeclaredMail extends Mailable
     {
         return new Tracking(
             related: $this->order,
+            recipient: $this->user,
             tenant: $this->account,
             tags: $this->labels,
             storeContent: $this->store,

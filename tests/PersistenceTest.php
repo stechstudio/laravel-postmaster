@@ -26,6 +26,7 @@ use STS\Postmaster\Tests\Stubs\ScopedEmailMessage;
 use STS\Postmaster\Tests\Stubs\Tenant;
 use STS\Postmaster\Tests\Stubs\TrackedMail;
 use STS\Postmaster\Tests\Stubs\TrackedMailMessage;
+use STS\Postmaster\Tests\Stubs\User;
 use Symfony\Component\Mime\Email;
 
 class PersistenceTest extends TestCase
@@ -266,6 +267,61 @@ class PersistenceTest extends TestCase
         $this->assertCount(1, $order->emailMessages);
         $this->assertSame(EmailEvent::EVENT_SENT, $order->emailMessages->first()->status);
         $this->assertTrue($order->is($order->emailMessages->first()->related));
+    }
+
+    public function testRecipientModelIsRecordedFromMailableDeclaration()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        $user = User::create();
+
+        Mail::to('alice@example.com')->send(new DeclaredMail(user: $user));
+
+        $record = EmailMessage::first();
+        $this->assertSame($user->getMorphClass(), $record->recipient_model_type);
+        $this->assertSame((string) $user->getKey(), (string) $record->recipient_model_id);
+    }
+
+    public function testRecipientModelIsRecordedFromTheGlobalResolver()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        $user = User::create();
+
+        Postmaster::resolveRecipientUsing(fn ($address) => $address === 'alice@example.com' ? $user : null);
+
+        Mail::to('alice@example.com')->send(new DeclaredMail);
+
+        $record = EmailMessage::first();
+        $this->assertSame($user->getMorphClass(), $record->recipient_model_type);
+        $this->assertSame((string) $user->getKey(), (string) $record->recipient_model_id);
+    }
+
+    public function testExplicitForRecipientOverridesTheResolver()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        $declared = User::create();
+        $resolved = User::create();
+
+        Postmaster::resolveRecipientUsing(fn () => $resolved);
+
+        Mail::to('alice@example.com')->send(new DeclaredMail(user: $declared));
+
+        $record = EmailMessage::first();
+        $this->assertSame((string) $declared->getKey(), (string) $record->recipient_model_id);
+    }
+
+    public function testRecipientHeadersAreStrippedBeforeSending()
+    {
+        Schema::create('users', fn ($table) => $table->id());
+        $user = User::create();
+
+        Mail::to('alice@example.com')->send(new DeclaredMail(user: $user));
+
+        $messages = Mail::getSymfonyTransport()->messages();
+        $headers = $messages[0]->getOriginalMessage()->getHeaders();
+
+        // The courier headers must never travel on the wire.
+        $this->assertFalse($headers->has('X-Postmaster-Recipient-Type'));
+        $this->assertFalse($headers->has('X-Postmaster-Recipient-Id'));
     }
 
     public function testTenantIsRecordedFromMailableForTenant()

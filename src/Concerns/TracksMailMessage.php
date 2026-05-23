@@ -43,6 +43,21 @@ trait TracksMailMessage
     }
 
     /**
+     * Record the recipient of this email as the given model — typically the
+     * User it is being sent to. Distinct from relatedTo(): the related model
+     * is what the email is *about* (an Order); the recipient is *who* the
+     * email is for. Takes precedence over the resolveRecipientUsing() resolver.
+     *
+     * @param Model $model
+     *
+     * @return $this
+     */
+    public function forRecipient( Model $model )
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->forRecipient($model));
+    }
+
+    /**
      * Associate this email with the given tenant. Use this when tenant
      * context is not available globally (e.g. inside a queued job) — it
      * takes precedence over the Postmaster::resolveTenantUsing() resolver.

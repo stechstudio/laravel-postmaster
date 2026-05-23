@@ -20,10 +20,12 @@ class OutboundMetadata
      * forTenant() / storeContent() builders, then read and removed by
      * StashOutboundMetadata before the message is handed to the transport.
      */
-    const HEADER_RELATED_TYPE  = 'X-Postmaster-Related-Type';
-    const HEADER_RELATED_ID    = 'X-Postmaster-Related-Id';
-    const HEADER_TENANT        = 'X-Postmaster-Tenant';
-    const HEADER_STORE_CONTENT = 'X-Postmaster-Store-Content';
+    const HEADER_RELATED_TYPE   = 'X-Postmaster-Related-Type';
+    const HEADER_RELATED_ID     = 'X-Postmaster-Related-Id';
+    const HEADER_RECIPIENT_TYPE = 'X-Postmaster-Recipient-Type';
+    const HEADER_RECIPIENT_ID   = 'X-Postmaster-Recipient-Id';
+    const HEADER_TENANT         = 'X-Postmaster-Tenant';
+    const HEADER_STORE_CONTENT  = 'X-Postmaster-Store-Content';
 
     /**
      * @var array<int, array<string, mixed>>

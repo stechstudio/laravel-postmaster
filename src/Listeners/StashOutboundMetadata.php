@@ -19,10 +19,12 @@ class StashOutboundMetadata
      * Courier headers mapped to the stash keys they populate.
      */
     const HEADER_MAP = [
-        OutboundMetadata::HEADER_RELATED_TYPE  => 'related_type',
-        OutboundMetadata::HEADER_RELATED_ID    => 'related_id',
-        OutboundMetadata::HEADER_TENANT        => 'tenant',
-        OutboundMetadata::HEADER_STORE_CONTENT => 'store_content',
+        OutboundMetadata::HEADER_RELATED_TYPE   => 'related_type',
+        OutboundMetadata::HEADER_RELATED_ID     => 'related_id',
+        OutboundMetadata::HEADER_RECIPIENT_TYPE => 'recipient_model_type',
+        OutboundMetadata::HEADER_RECIPIENT_ID   => 'recipient_model_id',
+        OutboundMetadata::HEADER_TENANT         => 'tenant',
+        OutboundMetadata::HEADER_STORE_CONTENT  => 'store_content',
     ];
 
     /**

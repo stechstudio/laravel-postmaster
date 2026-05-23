@@ -16,6 +16,27 @@ return [
     'register_route' => env('POSTMASTER_REGISTER_ROUTE', true),
 
     /*
+     * Process inbound webhooks on the queue instead of inline. When false
+     * (the default), the controller parses the payload, dispatches every
+     * resulting EmailEvent, and waits for all listeners to finish before
+     * responding to the provider. At low volume that's fine. At higher
+     * volume — or with slow database / heavy app listeners — set this true
+     * so the controller accepts the request, queues a ProcessWebhook job,
+     * and returns 202 immediately. Webhook signature verification still
+     * happens inline.
+     */
+    'queue_webhooks' => env('POSTMASTER_QUEUE_WEBHOOKS', false),
+
+    /*
+     * Optional queue connection / queue name for the ProcessWebhook job.
+     * Null on either falls back to the application's default. Useful for
+     * isolating webhook traffic onto its own queue so a backlog elsewhere
+     * doesn't delay event handling.
+     */
+    'queue_connection' => env('POSTMASTER_QUEUE_CONNECTION'),
+    'queue_name'       => env('POSTMASTER_QUEUE_NAME'),
+
+    /*
      * What to do with a webhook payload that no adapter can turn into a valid
      * event: "log" a warning, "throw" an exception, or silently "ignore" it.
      */

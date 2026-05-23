@@ -44,6 +44,37 @@ class WebhookRouteTest extends TestCase
         Event::assertDispatched(EmailEvent::class);
     }
 
+    public function testQueuedWebhooksReturn202AndEnqueueAJob()
+    {
+        config(['postmaster.queue_webhooks' => true]);
+        \Illuminate\Support\Facades\Queue::fake();
+        Event::fake();
+
+        $this->postJson('/webhooks/postmaster/sendgrid?auth=secret-token', $this->sendgridPayload())
+            ->assertStatus(202);
+
+        // Nothing dispatches inline; the job handles it on the queue.
+        Event::assertNotDispatched(EmailEvent::class);
+        \Illuminate\Support\Facades\Queue::assertPushed(
+            \STS\Postmaster\Jobs\ProcessWebhook::class,
+            fn ($job) => $job->provider === 'sendgrid'
+                && $job->payload['email'] === 'recipient@example.com'
+        );
+    }
+
+    public function testQueuedJobReproducesTheSynchronousDispatch()
+    {
+        config(['postmaster.queue_webhooks' => true]);
+        Event::fake();
+
+        // Pop the job off the queue and run it manually; the event it would
+        // have dispatched at the worker shows up the same way.
+        (new \STS\Postmaster\Jobs\ProcessWebhook('sendgrid', $this->sendgridPayload()))
+            ->handle(app(\STS\Postmaster\Postmaster::class));
+
+        Event::assertDispatched(EmailEvent::class);
+    }
+
     public function testWebhookWithBadTokenIsRejected()
     {
         Event::fake();

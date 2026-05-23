@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Http\Controllers;
 
 use Illuminate\Http\Request;
+use STS\Postmaster\Jobs\ProcessWebhook;
 use STS\Postmaster\Postmaster;
 use STS\Postmaster\Support\SnsSubscription;
 
@@ -27,14 +28,26 @@ class WebhookController
     {
         // SES is delivered via SNS, which first performs a subscription
         // handshake. The signature was already verified by the middleware.
+        // This always runs inline — the confirmation URL has to be hit
+        // before the response returns to complete the subscription.
         if ($url = SnsSubscription::confirmationUrl($request)) {
             SnsSubscription::confirm($url);
 
             return response('', 200);
         }
 
+        $payload = $this->payload($request);
+
+        if (config('postmaster.queue_webhooks')) {
+            ProcessWebhook::dispatch($provider, $payload);
+
+            // 202 Accepted — the request is queued for processing; events
+            // will dispatch from the worker, not before this response.
+            return response('', 202);
+        }
+
         $this->events->provider($provider)
-            ->adapt($this->payload($request))
+            ->adapt($payload)
             ->dispatch();
 
         return response('', 200);

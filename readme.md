@@ -116,6 +116,14 @@ Laravel auto-discovers it, and it can implement
 `Illuminate\Contracts\Queue\ShouldQueue` to process webhooks off the request
 cycle.
 
+> **High-volume installs.** By default, parsing the webhook and dispatching
+> the event(s) runs inline before the response returns to the provider.
+> That's fine at low volume. Set `POSTMASTER_QUEUE_WEBHOOKS=true` to instead
+> push a `ProcessWebhook` job onto the queue and respond `202 Accepted`
+> immediately. Webhook signature verification stays inline either way.
+> Optional `POSTMASTER_QUEUE_CONNECTION` / `POSTMASTER_QUEUE_NAME` isolate
+> the job onto its own queue.
+
 For the common "alert ops when a hard bounce lands" case the package ships
 a drop-in notification:
 

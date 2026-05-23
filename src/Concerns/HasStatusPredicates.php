@@ -40,7 +40,7 @@ trait HasStatusPredicates
      */
     public function isSandboxed()
     {
-        return $this->currentStatus() === EmailEvent::STATUS_SANDBOX;
+        return $this->currentStatus() === EmailEvent::STATUS_SANDBOXED;
     }
 
     /** @return bool */

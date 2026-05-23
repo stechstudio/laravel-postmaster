@@ -25,7 +25,7 @@ use STS\Postmaster\Tests\Stubs\RelatedNotification;
 use STS\Postmaster\Tests\Stubs\ScopedEmailMessage;
 use STS\Postmaster\Tests\Stubs\Tenant;
 use STS\Postmaster\Tests\Stubs\TrackedMail;
-use STS\Postmaster\Tests\Stubs\TrackedMailMessage;
+use STS\Postmaster\Tests\Stubs\CustomTrackedMailMessage;
 use STS\Postmaster\Tests\Stubs\User;
 use Symfony\Component\Mime\Email;
 
@@ -427,12 +427,12 @@ class PersistenceTest extends TestCase
         $this->assertSame('7', (string) $record->tenant_id);
     }
 
-    public function testTracksMailMessageTraitWorksOnAMailMessageSubclass()
+    public function testWithTrackingTraitWorksOnACustomMailMessageSubclass()
     {
         Schema::create('orders', fn ($table) => $table->id());
         $order = Order::create();
 
-        $message = (new TrackedMailMessage)->relatedTo($order);
+        $message = (new CustomTrackedMailMessage)->relatedTo($order);
 
         $email = new Email;
         foreach ($message->callbacks as $callback) {
@@ -447,7 +447,7 @@ class PersistenceTest extends TestCase
 
     public function testDontStoreContentIsAvailableFluentlyOnAMailMessage()
     {
-        $message = (new TrackedMailMessage)->dontStoreContent();
+        $message = (new CustomTrackedMailMessage)->dontStoreContent();
 
         $email = new Email;
         foreach ($message->callbacks as $callback) {

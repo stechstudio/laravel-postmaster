@@ -21,7 +21,7 @@ class EmailEvent
     const STATUS_SENT       = "sent";
     // Terminal status for a message intercepted by sandbox delivery mode: it
     // was recorded but never handed to a provider, so no webhooks will follow.
-    const STATUS_SANDBOX    = "sandbox";
+    const STATUS_SANDBOXED  = "sandboxed";
     const STATUS_DEFERRED   = "deferred";
     const STATUS_DELIVERED  = "delivered";
     const STATUS_BOUNCED    = "bounced";

@@ -22,7 +22,7 @@
             limit: limit,
             tones: {
                 delivered: 'ok', opened: 'info', clicked: 'info',
-                sent: 'muted', accepted: 'muted', sandbox: 'warn', deferred: 'warn',
+                sent: 'muted', accepted: 'muted', sandboxed: 'warn', deferred: 'warn',
                 bounced: 'bad', dropped: 'bad', complained: 'bad',
             },
             tone(status) {

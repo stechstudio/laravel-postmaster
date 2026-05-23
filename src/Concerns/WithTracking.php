@@ -6,12 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use STS\Postmaster\Postmaster;
 
 /**
- * Adds the fluent relatedTo() / forTenant() / storeContent() /
- * dontStoreContent() methods to a notification's MailMessage, declaring what
+ * Adds the fluent relatedTo() / forRecipient() / forTenant() / storeContent()
+ * / dontStoreContent() methods to whatever it's applied to, declaring what
  * the email is about and how it should be recorded. When persistence is
  * enabled, the recorded email_messages row reflects each of them.
  *
- * For notifications, the package ships STS\Postmaster\Notifications\MailMessage
+ * For notifications, the package ships STS\Postmaster\Notifications\TrackedMailMessage
  * with this trait already applied — return that from toMail() and chain the
  * methods, no extra wiring. Add the trait directly only if you maintain your
  * own MailMessage subclass. (To skip subclassing entirely, call the matching
@@ -28,7 +28,7 @@ use STS\Postmaster\Postmaster;
  *
  * Requires the optional persistence layer (POSTMASTER_PERSISTENCE=true).
  */
-trait TracksMailMessage
+trait WithTracking
 {
     /**
      * Associate this email with the given model.

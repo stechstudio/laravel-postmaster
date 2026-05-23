@@ -43,7 +43,7 @@ class InterceptSandboxMail
             $this->recorder->record(
                 $event->message,
                 $this->syntheticMessageId(),
-                EmailEvent::STATUS_SANDBOX
+                EmailEvent::STATUS_SANDBOXED
             );
         }
 
@@ -53,13 +53,13 @@ class InterceptSandboxMail
 
     /**
      * A unique, unmistakably-synthetic message id for a sandboxed email. The
-     * "sandbox-" prefix keeps it from ever colliding with a real provider id
-     * or being matched by an inbound webhook.
+     * "sandboxed-" prefix keeps it from ever colliding with a real provider
+     * id or being matched by an inbound webhook.
      *
      * @return string
      */
     protected function syntheticMessageId()
     {
-        return 'sandbox-'.Str::uuid()->toString();
+        return 'sandboxed-'.Str::uuid()->toString();
     }
 }

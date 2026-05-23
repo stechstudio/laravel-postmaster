@@ -5,7 +5,7 @@
         'clicked'    => 'info',
         'sent'       => 'muted',
         'accepted'   => 'muted',
-        'sandbox'    => 'warn',
+        'sandboxed'  => 'warn',
         'deferred'   => 'warn',
         'bounced'    => 'bad',
         'dropped'    => 'bad',

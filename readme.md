@@ -209,7 +209,7 @@ $event->toArray();            // everything above as an array
 
 `EmailEvent::STATUS_ACCEPTED`, `STATUS_DEFERRED`, `STATUS_DELIVERED`,
 `STATUS_BOUNCED`, `STATUS_DROPPED`, `STATUS_COMPLAINED`, `STATUS_OPENED`,
-`STATUS_CLICKED`. (Plus `STATUS_SENT` and `STATUS_SANDBOX` for outbound
+`STATUS_CLICKED`. (Plus `STATUS_SENT` and `STATUS_SANDBOXED` for outbound
 records the package writes itself.)
 
 For comparing against a single value, every status has a matching `is*()`
@@ -563,7 +563,7 @@ notification's `toMail()` returns a `MailMessage` rather than a Mailable, so to
 subclass with the same fluent `relatedTo()` and `forTenant()` methods:
 
 ```php
-use STS\Postmaster\Notifications\MailMessage;
+use STS\Postmaster\Notifications\TrackedMailMessage;
 
 public function toMail($notifiable)
 {
@@ -576,10 +576,10 @@ public function toMail($notifiable)
 ```
 
 Only the import changes. Postmaster's `MailMessage` is Laravel's with the
-`TracksMailMessage` trait applied, so every notification builder method
+`WithTracking` trait applied, so every notification builder method
 (`line()`, `action()`, and so on) works unchanged.
 
-Already maintain your own `MailMessage` subclass? Add the `TracksMailMessage`
+Already maintain your own `MailMessage` subclass? Add the `WithTracking`
 trait to it directly. It works on anything exposing `withSymfonyMessage()`.
 
 Or, to skip subclassing entirely, pass the `Postmaster` builders straight to

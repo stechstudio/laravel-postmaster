@@ -32,7 +32,7 @@ use STS\Postmaster\Tracking;
  */
 trait TracksMailable
 {
-    use TracksMailMessage;
+    use WithTracking;
 
     /**
      * Apply anything the Mailable declared, then hand off to its own send().

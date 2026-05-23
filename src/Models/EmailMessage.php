@@ -192,7 +192,7 @@ class EmailMessage extends Model
      */
     public function scopeSandbox( Builder $query )
     {
-        return $query->where('status', EmailEvent::STATUS_SANDBOX);
+        return $query->where('status', EmailEvent::STATUS_SANDBOXED);
     }
 
     /** @return Builder */

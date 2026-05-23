@@ -170,15 +170,23 @@ return [
         'event_model'   => \STS\Postmaster\Models\EmailMessageEvent::class,
 
         /*
-         * Days to retain timeline events before the postmaster:prune-events
-         * command deletes them (whole rows, summary records untouched). The
-         * command is scheduled automatically when this is set. Set to 0 or
-         * null to disable pruning entirely.
-         *
-         * Default is 90 days — operational debug window without letting the
-         * events table grow unbounded.
+         * Days to retain *routine* timeline events (sent, accepted, deferred,
+         * delivered, opened, clicked, sandboxed, blocked) before the daily
+         * postmaster:prune command deletes them. Operational debug window;
+         * keeps the events table from growing unbounded. Set to 0 or null
+         * to disable.
          */
-        'prune_events_after_days' => env('POSTMASTER_PRUNE_EVENTS_AFTER_DAYS', 90),
+        'prune_routine_events_after_days' => env('POSTMASTER_PRUNE_ROUTINE_EVENTS_AFTER_DAYS', 90),
+
+        /*
+         * Days to retain *failure* timeline events (bounced, dropped,
+         * complained) before the daily postmaster:prune command deletes
+         * them. Failures keep their raw provider diagnostic for forensic
+         * use — useful when investigating why a domain is misbehaving
+         * months later — so they're kept much longer than routine events.
+         * Set to 0 or null to disable.
+         */
+        'prune_failed_events_after_days' => env('POSTMASTER_PRUNE_FAILED_EVENTS_AFTER_DAYS', 365),
 
         /*
          * Track per-address deliverability. With this on, the email_addresses

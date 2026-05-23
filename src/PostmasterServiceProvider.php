@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use STS\Postmaster\Auth\BasicHttpAuth;
 use STS\Postmaster\Auth\TokenAuth;
-use STS\Postmaster\Console\PruneEmailContent;
-use STS\Postmaster\Console\PruneEmailMessageEvents;
+use STS\Postmaster\Console\Prune;
 use STS\Postmaster\Console\VerifySetup;
 use STS\Postmaster\Http\Middleware\AuthorizeDashboard;
 use STS\Postmaster\Listeners\InterceptSandboxMail;
@@ -203,25 +202,16 @@ class PostmasterServiceProvider extends ServiceProvider
         $this->commands([VerifySetup::class]);
 
         if ($this->app['config']->get('postmaster.persistence.enabled')) {
-            $this->commands([PruneEmailContent::class, PruneEmailMessageEvents::class]);
+            $this->commands([Prune::class]);
 
-            // Auto-schedule content pruning when a retention window is set.
-            if ((int) $this->app['config']->get('postmaster.persistence.prune_content_after_days') > 0) {
-                $this->app->booted(function () {
-                    $this->app->make(Schedule::class)
-                        ->command('postmaster:prune-content')
-                        ->daily();
-                });
-            }
-
-            // Auto-schedule timeline pruning when a retention window is set.
-            if ((int) $this->app['config']->get('postmaster.persistence.prune_events_after_days') > 0) {
-                $this->app->booted(function () {
-                    $this->app->make(Schedule::class)
-                        ->command('postmaster:prune-events')
-                        ->daily();
-                });
-            }
+            // One daily pass handles both content and event pruning. The
+            // command no-ops the buckets whose retention windows are off,
+            // so an "everything disabled" install still costs nothing.
+            $this->app->booted(function () {
+                $this->app->make(Schedule::class)
+                    ->command('postmaster:prune')
+                    ->dailyAt('03:00');
+            });
         }
     }
 }

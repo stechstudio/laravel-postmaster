@@ -372,20 +372,17 @@ status regress. Query `EmailMessage` for current state, walk `events()` for
 history.
 
 Timeline rows accumulate one per event, so the package prunes them on a
-schedule. Default retention is **90 days**; the daily prune runs automatically.
-It deletes whole rows and leaves the summary records untouched. Adjust or
-disable it from `.env`:
+schedule with two windows — routine activity (sent, delivered, opened, clicked,
+…) and failures (bounced, dropped, complained) — because a six-month-old open
+is noise but a six-month-old bounce is still evidence:
 
-```
-POSTMASTER_PRUNE_EVENTS_AFTER_DAYS=180   # keep half a year
-POSTMASTER_PRUNE_EVENTS_AFTER_DAYS=0     # disable pruning entirely
-```
+| Bucket | Default | `.env` |
+|---|---|---|
+| Routine | **90 days** | `POSTMASTER_PRUNE_ROUTINE_EVENTS_AFTER_DAYS` |
+| Failures | **365 days** | `POSTMASTER_PRUNE_FAILED_EVENTS_AFTER_DAYS` |
 
-You can also run it on demand:
-
-```bash
-php artisan postmaster:prune-events
-```
+Set either to `0` to disable that bucket. The pruner deletes whole rows;
+summary records are left untouched.
 
 ### Tracking address suppression
 
@@ -466,7 +463,7 @@ POSTMASTER_STORE_CONTENT=true
 > rewriting some providers apply afterward.
 
 Because of the size and sensitivity, content carries a short retention window
-by default — **30 days**, after which the daily prune clears the content
+by default — **30 days** — after which the daily prune clears the content
 columns and leaves the record itself in place. Adjust or disable from `.env`:
 
 ```
@@ -474,10 +471,13 @@ POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=14   # tighter
 POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=0    # disable pruning entirely (not advised for content)
 ```
 
-You can also run it on demand:
+Stored content and timeline events share one daily prune command. Run it by
+hand any time:
 
 ```bash
-php artisan postmaster:prune-content
+php artisan postmaster:prune              # both content and events
+php artisan postmaster:prune --content    # only stored content
+php artisan postmaster:prune --events     # only timeline events
 ```
 
 A single email can override the global setting. A Mailable's `Tracking` carries

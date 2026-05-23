@@ -610,7 +610,7 @@ class PersistenceTest extends TestCase
             'html_body'  => '<p>recent</p>',
         ]);
 
-        $this->artisan('postmaster:prune-content')->assertSuccessful();
+        $this->artisan('postmaster:prune', ['--content' => true])->assertSuccessful();
 
         $old->refresh();
         $this->assertNull($old->html_body);
@@ -880,9 +880,9 @@ class PersistenceTest extends TestCase
         $this->assertCount(2, $record->events);
     }
 
-    public function testPruneEventsCommandDeletesOldTimelineEvents()
+    public function testPruneRemovesRoutineTimelineEventsPastRetention()
     {
-        config(['postmaster.persistence.prune_events_after_days' => 30]);
+        config(['postmaster.persistence.prune_routine_events_after_days' => 30]);
 
         $record = EmailMessage::create(['provider_message_id' => 'postmark-timeline-4']);
 
@@ -898,10 +898,69 @@ class PersistenceTest extends TestCase
             'occurred_at'      => now()->subDays(5),
         ]);
 
-        $this->artisan('postmaster:prune-events')->assertSuccessful();
+        $this->artisan('postmaster:prune', ['--events' => true])->assertSuccessful();
 
         $this->assertDatabaseMissing('email_message_events', ['id' => $old->getKey()]);
         $this->assertDatabaseHas('email_message_events', ['id' => $recent->getKey()]);
+    }
+
+    public function testPruneKeepsFailureEventsLongerThanRoutineEvents()
+    {
+        // Routine events tidied at 30 days; failures get a 365-day window
+        // — a hard bounce six months ago is still useful evidence.
+        config([
+            'postmaster.persistence.prune_routine_events_after_days' => 30,
+            'postmaster.persistence.prune_failed_events_after_days'  => 365,
+        ]);
+
+        $record = EmailMessage::create(['provider_message_id' => 'rec']);
+
+        $oldDelivery = EmailMessageEvent::create([
+            'email_message_id' => $record->getKey(),
+            'status'           => EmailEvent::STATUS_DELIVERED,
+            'occurred_at'      => now()->subDays(60),
+        ]);
+        $oldBounce = EmailMessageEvent::create([
+            'email_message_id' => $record->getKey(),
+            'status'           => EmailEvent::STATUS_BOUNCED,
+            'occurred_at'      => now()->subDays(60),
+        ]);
+        $ancientBounce = EmailMessageEvent::create([
+            'email_message_id' => $record->getKey(),
+            'status'           => EmailEvent::STATUS_BOUNCED,
+            'occurred_at'      => now()->subDays(400),
+        ]);
+
+        $this->artisan('postmaster:prune', ['--events' => true])->assertSuccessful();
+
+        // 60-day delivery: gone (past routine window).
+        $this->assertDatabaseMissing('email_message_events', ['id' => $oldDelivery->getKey()]);
+        // 60-day bounce: kept (inside failure window).
+        $this->assertDatabaseHas('email_message_events', ['id' => $oldBounce->getKey()]);
+        // 400-day bounce: gone (past failure window).
+        $this->assertDatabaseMissing('email_message_events', ['id' => $ancientBounce->getKey()]);
+    }
+
+    public function testPruneSkipsBucketsThatAreDisabled()
+    {
+        // Both events buckets off; content stays at default.
+        config([
+            'postmaster.persistence.prune_routine_events_after_days' => 0,
+            'postmaster.persistence.prune_failed_events_after_days'  => 0,
+            'postmaster.persistence.prune_content_after_days'        => 30,
+        ]);
+
+        $record = EmailMessage::create(['provider_message_id' => 'r']);
+        $ancient = EmailMessageEvent::create([
+            'email_message_id' => $record->getKey(),
+            'status'           => EmailEvent::STATUS_BOUNCED,
+            'occurred_at'      => now()->subDays(1000),
+        ]);
+
+        $this->artisan('postmaster:prune')->assertSuccessful();
+
+        // The ancient bounce stayed put because both event windows were off.
+        $this->assertDatabaseHas('email_message_events', ['id' => $ancient->getKey()]);
     }
 
     public function testAddressesAreTrackedByDefault()

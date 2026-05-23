@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use STS\Postmaster\Mail\ResentMessage;

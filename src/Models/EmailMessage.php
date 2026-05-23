@@ -27,6 +27,7 @@ use STS\Postmaster\EmailEvent;
  * @property string|null $html_body
  * @property string|null $text_body
  * @property array|null $attachments
+ * @property array|null $tags
  * @property string|null $status
  * @property string|null $bounce_type
  * @property string|null $related_type

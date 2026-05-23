@@ -197,6 +197,7 @@ $event->isPermanent();    // true for a hard bounce or a block
 $event->getResponse();    // the provider's response/diagnostic detail
 $event->getReason();      // the provider's reason string
 $event->getCode();        // the provider's status code
+$event->getUrl();         // the URL clicked on a click event (else null)
 $event->getTags();        // Collection of tags/categories
 $event->getData();        // Collection of custom data
 $event->getPayload();     // the raw provider payload
@@ -425,13 +426,15 @@ return (new MailMessage)->subject('Your login code')->dontStoreContent();
 
 ### Relating emails to your models
 
-Recorded emails can be linked back to one of your own models, like an `Order`
-or a `User`, so that model can list its own delivery history. That's handy for
-an admin activity feed that highlights bounces and complaints.
+Recorded emails can be linked back to two of your models: the one the email
+is **about** (an `Order`, an `Invoice`) and the one the email is **for** (the
+`User` it was sent to). Keeping these distinct means a user can list every
+email they've ever received without having to traverse every business record
+they touch.
 
-Add the `TracksMailable` trait to a Mailable and declare what the email is
-about with a `postmaster()` method that returns a `Tracking` object. It works
-the same way as Laravel's own `envelope()` and `content()`:
+Add the `TracksMailable` trait to a Mailable and declare both with a
+`postmaster()` method that returns a `Tracking` object. It works the same way
+as Laravel's own `envelope()` and `content()`:
 
 ```php
 use Illuminate\Mail\Mailable;
@@ -447,7 +450,8 @@ class OrderConfirmation extends Mailable
     public function postmaster(): Tracking
     {
         return new Tracking(
-            related: $this->order,
+            related: $this->order,              // what the email is about
+            recipient: $this->order->customer,  // who the email is for
             tenant: $this->order->account_id,   // optional; see Multitenancy below
             tags: ['billing'],                  // optional; see below
         );
@@ -463,8 +467,24 @@ is dequeued (so it's queue-safe), and records what the `Tracking` declares.
 Every field is optional, so declare only the ones that apply.
 
 > Need to set something dynamically instead? `TracksMailable` also exposes
-> `relatedTo($model)`, `forTenant($tenant)`, `storeContent()` and
-> `dontStoreContent()`. Call them anywhere before the mailable is sent.
+> `relatedTo($model)`, `forRecipient($model)`, `forTenant($tenant)`,
+> `storeContent()` and `dontStoreContent()`. Call them anywhere before the
+> mailable is sent.
+
+For apps where every email is to a known `User`, the recipient can be
+resolved from the to-address automatically — declare a resolver once, in a
+service provider, and skip `recipient:` on every Mailable:
+
+```php
+use STS\Postmaster\Facades\Postmaster;
+
+Postmaster::resolveRecipientUsing(
+    fn ($address) => User::firstWhere('email', $address)
+);
+```
+
+An explicit `Tracking(recipient: …)` declaration always wins over the
+resolver — useful when an email about User A is sent to User B.
 
 ### Tagging
 
@@ -480,33 +500,43 @@ its native `tag()` method, and Symfony forwards them to providers whose
 transport supports tags. Postmaster reads and records whatever is there, so a
 plain Mailable calling `tag()` directly is recorded just the same.
 
-Add the `HasEmailMessages` trait to the related model:
+Add `HasEmailMessages` to the business-record model and `IsEmailRecipient` to
+the User-side model:
 
 ```php
 use STS\Postmaster\Concerns\HasEmailMessages;
+use STS\Postmaster\Concerns\IsEmailRecipient;
 
 class Order extends Model
 {
-    use HasEmailMessages;
+    use HasEmailMessages;   // emails this order is *about*
+}
+
+class User extends Model
+{
+    use IsEmailRecipient;   // emails this user has *received*
 }
 ```
 
-Now every email's lifecycle is queryable from the model:
+Both traits expose the same shape — `emailMessages()`, `latestEmailMessage()`,
+`emailDeliveryFailed()` — but key off different polymorphic links, so each
+model only sees the emails it owns:
 
 ```php
-$order->emailMessages;                        // every email sent for this order
-$order->emailMessages()->failed()->exists();  // did any fail to land?
-$order->latestEmailMessage();                 // the most recent send, or null
-$order->emailDeliveryFailed();                // did the latest one fail?
+$order->emailMessages;                        // every email about this order
+$order->emailMessages()->failed()->exists();  // did any of them fail?
+
+$user->emailMessages;                         // every email this user received
+$user->latestEmailMessage();                  // the most recent one, or null
 ```
 
-The association is carried on the message in-process only. It's written as a
-header, then read and stripped *before* the email is transmitted, so nothing
-about the related model is ever exposed in the outbound email.
+Both associations are carried on the message in-process only, written as
+headers and read and stripped *before* the email is transmitted, so nothing
+about the related or recipient model is ever exposed in the outbound email.
 
-> Uses a polymorphic relationship. If your models use UUID/ULID primary keys,
-> change `nullableMorphs('related')` to the matching variant in the published
-> migration.
+> Both use polymorphic relationships. If your models use UUID/ULID primary
+> keys, change `nullableMorphs('related')` and `nullableMorphs('recipient_model')`
+> to the matching variants in the published migration.
 
 ### From a notification
 
@@ -651,7 +681,15 @@ environment**, so the dashboard is never unguarded in production by accident.
   timeframe, plus recent-messages and live recent-activity cards.
 - **Messages.** A filterable inbox (status, provider, tag, tenant, recipient,
   subject, date range). Each message opens to its delivery timeline and stored
-  content, rendered in a sandboxed, CSP-restricted frame.
+  content, rendered in a sandboxed, CSP-restricted frame. Click events show
+  the URL the recipient clicked, inline on the timeline.
+- **Person view.** Click the Recipient row on a message detail page to land
+  on a page listing every email recorded against that recipient model — the
+  "all the email a user has received" view.
+- **Resend.** A button on the message detail page replays the stored email
+  through the configured mailer, keeping the original's related model,
+  recipient, tenant, and tags, plus a `resent` tag of its own. Requires
+  stored content; attachments are not restored.
 - **Activity.** A filterable, paginated stream of every recorded event, drawn
   from the timeline (on by default with persistence).
 - **Addresses.** The suppression list.
@@ -727,6 +765,34 @@ Postmaster::extend('myprovider', function (array $config) {
 
 An adapter implements `STS\Postmaster\Contracts\Adapter` (extending
 `STS\Postmaster\Providers\AbstractAdapter` covers most of it).
+
+## Upgrading
+
+### From 1.x to 2.0
+
+Schema changes shipped with 2.0:
+
+- `email_messages.message_id` was renamed to `provider_message_id`. If you've
+  already migrated against 1.x, rename the column (and any code reading
+  `$record->message_id`) — or write a one-off migration that does it for you.
+- `email_messages` gained `recipient_model_type` / `recipient_model_id`
+  (nullable polymorphic) for the new recipient-model link.
+- `email_message_events` gained a nullable `url` column to store the clicked
+  URL on click events.
+
+New API surface:
+
+- `Tracking(recipient: $model)` declares the recipient model on a Mailable
+  (see [Relating emails to your models](#relating-emails-to-your-models)).
+- `Postmaster::resolveRecipientUsing($closure)` registers a global resolver
+  used when the Mailable didn't declare one.
+- `IsEmailRecipient` trait — User-side counterpart to `HasEmailMessages`.
+- `EmailEvent::getUrl()` returns the clicked URL on a click event.
+- `Postmaster::useEmailMessageModel()`, `useEmailEventModel()`,
+  `useEmailAddressModel()` — runtime setters parallel to `useTenantModel()`.
+
+There are no behavioural breaks unless your app reads the renamed column
+directly. Everything else is additive.
 
 ## License
 

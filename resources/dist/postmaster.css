@@ -315,6 +315,16 @@ a { color: inherit; text-decoration: none; }
 .pm-meta dd { margin: 0; }
 .pm-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 
+/* The message detail's email-style header — subject over participants. */
+.pm-email-head { margin-bottom: 18px; }
+.pm-email-subject {
+    margin: 0 0 14px;
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+
 .pm-frame {
     width: 100%;
     height: 480px;
@@ -389,10 +399,6 @@ a { color: inherit; text-decoration: none; }
     font-size: 13px;
 }
 
-/* A wide table keeps its shape; its card scrolls sideways when space runs out
-   (a no-op on desktop, where the table fits). */
-.pm-card:has(.pm-table) { overflow-x: auto; }
-
 /* Responsive — phones and small tablets. The grids above already reflow via
    auto-fit; this handles the layout, the sidebar, and the fixed-width bits. */
 @media (max-width: 768px) {
@@ -435,7 +441,43 @@ a { color: inherit; text-decoration: none; }
     .pm-filters .pm-input,
     .pm-filters .pm-select { width: 100%; }
 
-    .pm-table { min-width: 560px; }
+    /* Data tables become a designed card per row, laid out like the
+       overview's recent-messages list: a title with the status badge on
+       top, a quieter secondary line (recipient, time) below. Cells with no
+       role — provider, tenant — drop off the card; they're on the detail. */
+    .pm-table thead { display: none; }
+    .pm-table,
+    .pm-table tbody { display: block; }
+    .pm-table tbody tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "title badge"
+            "sub   meta";
+        gap: 2px 12px;
+        align-items: baseline;
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--pm-border);
+    }
+    .pm-table tbody tr:last-child { border-bottom: 0; }
+    .pm-table tbody tr.pm-row-empty { display: block; }
+    .pm-table td {
+        display: none;
+        max-width: none;
+        padding: 0;
+        border: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .pm-table .pm-cell-title { display: block; grid-area: title; font-weight: 500; }
+    .pm-table .pm-cell-sub   { display: block; grid-area: sub; color: var(--pm-muted-fg); font-size: 12.5px; }
+    .pm-table .pm-cell-badge { display: block; grid-area: badge; justify-self: end; white-space: normal; }
+    .pm-table .pm-cell-meta  { display: block; grid-area: meta; justify-self: end; color: var(--pm-muted-fg); font-size: 12px; }
+    .pm-table .pm-cell-full  { display: block; white-space: normal; }
+
+    /* Too many bars to label every one on a narrow screen — keep every third. */
+    .pm-chart--dense .pm-chart-labels span:not(:nth-child(3n + 1)) { visibility: hidden; }
 
     .pm-detail-grid { grid-template-columns: 1fr; }
     .pm-frame { height: 360px; }

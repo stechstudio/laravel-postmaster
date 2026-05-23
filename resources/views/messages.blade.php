@@ -17,7 +17,7 @@
         {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
         <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
             @include('postmaster::partials.filters.status')
-            @include('postmaster::partials.filters.options', ['name' => 'provider', 'label' => 'Provider', 'options' => $providers])
+            @include('postmaster::partials.filters.options', ['name' => 'provider', 'label' => 'Provider', 'options' => $providers, 'min' => 2])
             @include('postmaster::partials.filters.options', ['name' => 'tag', 'label' => 'Tag', 'options' => $tags])
             @include('postmaster::partials.filters.text', ['name' => 'recipient', 'label' => 'Recipient'])
             @include('postmaster::partials.filters.text', ['name' => 'subject', 'label' => 'Subject'])
@@ -44,17 +44,17 @@
             <tbody>
                 @forelse ($messages as $message)
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $message) }}'">
-                        <td class="pm-mono">{{ $message->recipient ?? '—' }}</td>
-                        <td class="pm-truncate">{{ $message->subject ?? '—' }}</td>
-                        <td>@include('postmaster::partials.badge', ['status' => $message->status])</td>
+                        <td class="pm-cell-sub">{{ $message->recipient ?? '—' }}</td>
+                        <td class="pm-truncate pm-cell-title">{{ $message->subject ?? '—' }}</td>
+                        <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $message->status])</td>
                         <td class="pm-dim">{{ $message->provider ?? '—' }}</td>
                         @if ($hasTenants)
                             <td class="pm-dim">{{ $tenants[$message->{$tenantColumn}] ?? '—' }}</td>
                         @endif
-                        <td class="pm-dim">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</td>
+                        <td class="pm-dim pm-cell-meta">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="{{ $columns }}"><div class="pm-empty">No messages match these filters.</div></td></tr>
+                    <tr class="pm-row-empty"><td class="pm-cell-full" colspan="{{ $columns }}"><div class="pm-empty">No messages match these filters.</div></td></tr>
                 @endforelse
             </tbody>
         </table>

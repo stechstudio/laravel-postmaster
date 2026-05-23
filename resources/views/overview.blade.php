@@ -36,7 +36,8 @@
             $slot = 48; $barW = 26; $plotH = 100;
             $width = max(count($chart), 1) * $slot;
         @endphp
-        <div class="pm-chart">
+        {{-- Dense charts thin their x-axis labels on narrow screens. --}}
+        <div class="pm-chart {{ count($chart) > 8 ? 'pm-chart--dense' : '' }}">
             <svg class="pm-chart-bars" viewBox="0 0 {{ $width }} {{ $plotH }}" preserveAspectRatio="none">
                 @foreach ($chart as $i => $bar)
                     @php
@@ -70,7 +71,7 @@
                             @include('postmaster::partials.badge', ['status' => $message->status])
                         </div>
                         <div class="pm-feed-line">
-                            <span class="pm-feed-secondary pm-mono">{{ $message->recipient ?? '—' }}</span>
+                            <span class="pm-feed-secondary">{{ $message->recipient ?? '—' }}</span>
                             <span class="pm-feed-meta">{{ $message->sent_at?->format('M j, g:ia') ?? '—' }}</span>
                         </div>
                     </div>

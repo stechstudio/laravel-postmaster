@@ -651,6 +651,32 @@ class PersistenceTest extends TestCase
         $this->assertSame(EmailEvent::BOUNCE_HARD, $record->bounce_type);
     }
 
+    public function testDuplicateWebhookEventsAreDeduped()
+    {
+        config(['postmaster.persistence.record_events' => true]);
+
+        $record = EmailMessage::create([
+            'provider_message_id' => 'postmark-dup',
+            'recipient'           => 'recipient@example.com',
+            'status'              => EmailEvent::EVENT_SENT,
+        ]);
+
+        $payload = [
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'postmark-dup',
+            'Recipient'   => 'recipient@example.com',
+            'DeliveredAt' => '2021-01-01T00:00:00Z',
+        ];
+
+        // The same webhook is delivered twice (a provider retry on a
+        // transient failure). The timeline must not double up.
+        event(EmailEvent::create(new Postmark($payload)));
+        event(EmailEvent::create(new Postmark($payload)));
+
+        // One delivery row from the first webhook; the retry is dropped.
+        $this->assertCount(1, $record->refresh()->events);
+    }
+
     public function testTimelineIsRecordedByDefault()
     {
         Mail::raw('Hello', function ($message) {

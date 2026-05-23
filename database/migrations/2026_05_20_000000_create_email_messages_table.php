@@ -48,11 +48,13 @@ return new class extends Migration
             // Free-form labels set per email via a Mailable's Tracking, for
             // categorising and filtering recorded mail ("billing", etc.).
             $table->json('tags')->nullable();
-            $table->string('status')->nullable();
+            $table->string('status')->nullable()->index();
             $table->string('bounce_type')->nullable();
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('last_event_at')->nullable();
             $table->timestamps();
+            // Sorted by recency in every dashboard view.
+            $table->index('created_at');
         });
     }
 

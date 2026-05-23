@@ -20,7 +20,7 @@ return new class extends Migration
             // column type to match.
             $table->unsignedBigInteger('email_message_id')->index();
             $table->string('provider')->nullable();
-            $table->string('status')->nullable();
+            $table->string('status')->nullable()->index();
             $table->string('bounce_type')->nullable();
             $table->text('response')->nullable();
             $table->text('reason')->nullable();

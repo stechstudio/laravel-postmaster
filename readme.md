@@ -782,47 +782,6 @@ Postmaster::extend('myprovider', function (array $config) {
 An adapter implements `STS\Postmaster\Contracts\Adapter` (extending
 `STS\Postmaster\Providers\AbstractAdapter` covers most of it).
 
-## Upgrading
-
-### From 1.x to 2.0
-
-Schema changes shipped with 2.0:
-
-- `email_messages.message_id` was renamed to `provider_message_id`. The old
-  name read like a foreign-key cousin of `id`.
-- `email_messages.recipient` (the to-address string) was renamed to
-  `to_address`, mirroring the existing `from_address`.
-- `email_messages` gained `recipient_type` / `recipient_id` (nullable
-  polymorphic) for the new recipient-model link.
-- `email_message_events` gained a nullable `url` column to store the clicked
-  URL on click events.
-
-If you've already migrated against 1.x, rename `message_id` → `provider_message_id`
-and `recipient` → `to_address` on `email_messages`, and add the polymorphic
-columns and the events `url` — either in place or with one focused upgrade
-migration. Update any code reading `$record->message_id` or `$record->recipient`
-to the new names.
-
-New API surface:
-
-- `Tracking(recipient: $model)` declares the recipient model on a Mailable
-  (see [Relating emails to your models](#relating-emails-to-your-models)).
-- `Postmaster::resolveRecipientUsing($closure)` registers a global resolver
-  used when the Mailable didn't declare one.
-- `IsEmailRecipient` trait — User-side counterpart to `HasEmailMessages`.
-- `EmailEvent::clickedUrl()` returns the clicked URL on a click event.
-- `Postmaster::useEmailMessageModel()`, `useEmailEventModel()`,
-  `useEmailAddressModel()` — runtime setters parallel to `useTenantModel()`.
-
-The `EmailEvent` API was rewritten without `get` prefixes — `provider()`,
-`status()`, `toAddress()`, `providerMessageId()`, `occurredAt()`, `response()`,
-`reason()`, `code()`, `bounceType()`, `clickedUrl()`, `tags()`, `data()`,
-`payload()`, `adapter()`. The `EVENT_*` constants (which named statuses, not
-events) are now `STATUS_*`. `getTimestamp()` and `getDate()` collapsed into
-`occurredAt()` (DateTimeImmutable). `toArray()` keys snake_case the same way
-the columns do: `status`, `to_address`, `provider_message_id`, `occurred_at`,
-`bounce_type`, `clicked_url`. Update any caller that read the old shape.
-
 ## License
 
 MIT. See [LICENSE.md](LICENSE.md).

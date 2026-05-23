@@ -6,6 +6,7 @@
         'sent'       => 'muted',
         'accepted'   => 'muted',
         'sandboxed'  => 'warn',
+        'blocked'    => 'warn',
         'deferred'   => 'warn',
         'bounced'    => 'bad',
         'dropped'    => 'bad',

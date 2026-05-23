@@ -43,6 +43,17 @@ trait HasStatusPredicates
         return $this->currentStatus() === EmailEvent::STATUS_SANDBOXED;
     }
 
+    /**
+     * The terminal status for a send the package refused because the
+     * recipient is on our suppression list (block_suppressed mode).
+     *
+     * @return bool
+     */
+    public function isBlocked()
+    {
+        return $this->currentStatus() === EmailEvent::STATUS_BLOCKED;
+    }
+
     /** @return bool */
     public function isDeferred()
     {

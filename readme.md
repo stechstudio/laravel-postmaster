@@ -390,6 +390,20 @@ the `reason` / `suppressed_at` columns for the rest.
 hard-bouncing address across your whole account regardless of which tenant sent
 the mail, so a per-tenant view would just disagree with reality.
 
+#### Block suppressed sends automatically
+
+The check above is opt-in per send. To make every outbound to a suppressed
+address fail safely at the source, set:
+
+```
+POSTMASTER_BLOCK_SUPPRESSED=true
+```
+
+Anything addressed to a suppressed recipient is intercepted before it reaches
+the mail transport, recorded with status `blocked` (so the attempt is visible
+in the dashboard), and dropped. Bypass it per send by lifting the suppression
+or by skipping the check yourself — there's no per-message bypass flag.
+
 > This table is built from the webhooks you receive, so it reflects
 > suppressions caused by mail sent through this package. Pulling a provider's
 > full suppression list, or clearing suppressions back on the provider's side,

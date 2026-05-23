@@ -265,6 +265,7 @@ abstract class Controller
         return [
             EmailEvent::STATUS_SENT,
             EmailEvent::STATUS_SANDBOXED,
+            EmailEvent::STATUS_BLOCKED,
             EmailEvent::STATUS_ACCEPTED,
             EmailEvent::STATUS_DEFERRED,
             EmailEvent::STATUS_DELIVERED,

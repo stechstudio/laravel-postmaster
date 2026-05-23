@@ -89,6 +89,12 @@
                         <dt>{{ $tenantTerm }}</dt>
                         <dd>{{ $tenants[$message->{$tenantColumn}] ?? $message->{$tenantColumn} }}</dd>
                     @endif
+                    @if ($recipientLabel)
+                        <dt>Recipient</dt>
+                        <dd>
+                            <a class="pm-link" href="{{ route('postmaster.recipient', ['type' => $message->recipient_model_type, 'id' => $message->recipient_model_id]) }}">{{ $recipientLabel }}</a>
+                        </dd>
+                    @endif
                     @if ($message->related_type)
                         <dt>Related</dt><dd class="pm-mono">{{ class_basename($message->related_type) }} #{{ $message->related_id }}</dd>
                     @endif

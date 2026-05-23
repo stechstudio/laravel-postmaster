@@ -56,12 +56,88 @@ class MessageController extends Controller
             'events'     => $record->events()->get(),
             'tenants'    => $this->tenantLabels([$record->{$this->tenantColumn()}]),
             'tenantTerm' => $this->tenantTerm(),
+            'recipientLabel' => $this->labelForRecipientOnRecord($record),
             // Remote images are blocked by the preview CSP. The viewer can
             // opt in per view with ?images=1; the bar is offered only when
             // the message actually has a remote image to unblock.
             'showImages'      => request()->boolean('images'),
             'hasRemoteImages' => $this->hasRemoteImages($record->html_body),
         ]);
+    }
+
+    /**
+     * Every message recorded against a single recipient-model — the "person
+     * view." The morph type is taken straight from the URL (any morph map
+     * the app registered applies), so existing morph aliases work without
+     * extra wiring.
+     *
+     * @param string     $type
+     * @param int|string $id
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function forRecipient( $type, $id )
+    {
+        $messages = $this->messageQuery()
+            ->where('recipient_model_type', $type)
+            ->where('recipient_model_id', $id)
+            ->latest()
+            ->paginate(50)
+            ->withQueryString();
+
+        $recipient = $this->loadRecipient($type, $id);
+
+        return response()->view('postmaster::recipient', [
+            'messages'   => $messages,
+            'label'      => $recipient ? $this->recipientLabel($recipient) : class_basename($type).' #'.$id,
+            'type'       => $type,
+            'id'         => $id,
+            'tenants'    => $this->tenantLabels($messages->pluck($this->tenantColumn())->all()),
+            'tenantTerm' => $this->tenantTerm(),
+        ]);
+    }
+
+    /**
+     * Try to load the recipient model behind a (type, id) pair so we can
+     * label it. Returns null when the type does not resolve, the row no
+     * longer exists, or persistence is using a different connection — the
+     * person view still works in any of those cases, just without a name.
+     *
+     * @param string     $type
+     * @param int|string $id
+     *
+     * @return Model|null
+     */
+    protected function loadRecipient( $type, $id )
+    {
+        $class = $this->resolveMorphClass($type);
+
+        if ($class === null) {
+            return null;
+        }
+
+        return (new $class)->newQuery()->withoutGlobalScopes()->whereKey($id)->first();
+    }
+
+    /**
+     * The recipient-model label for the message detail page, or null when
+     * the message has no recipient model on file.
+     *
+     * @param \STS\Postmaster\Models\EmailMessage $record
+     *
+     * @return string|null
+     */
+    protected function labelForRecipientOnRecord( $record )
+    {
+        if (empty($record->recipient_model_type) || empty($record->recipient_model_id)) {
+            return null;
+        }
+
+        $recipient = $this->loadRecipient($record->recipient_model_type, $record->recipient_model_id);
+
+        return $recipient
+            ? $this->recipientLabel($recipient)
+            : class_basename($record->recipient_model_type).' #'.$record->recipient_model_id;
     }
 
     /**

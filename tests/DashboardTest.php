@@ -11,6 +11,7 @@ use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
 use STS\Postmaster\Tests\Stubs\Account;
 use STS\Postmaster\Tests\Stubs\Tenant;
+use STS\Postmaster\Tests\Stubs\User;
 
 class DashboardTest extends TestCase
 {
@@ -265,6 +266,61 @@ class DashboardTest extends TestCase
         $this->get('/postmaster/messages')
             ->assertOk()
             ->assertSee('<th>Account</th>', false);
+    }
+
+    public function testMessageDetailLinksToTheRecipientView()
+    {
+        Postmaster::auth(fn () => true);
+        Schema::create('users', function ($table) {
+            $table->id();
+            $table->string('name');
+        });
+        $user = User::create(['name' => 'Alice']);
+
+        $message = EmailMessage::create([
+            'provider_message_id'  => 'm1',
+            'recipient'            => 'alice@example.com',
+            'recipient_model_type' => $user->getMorphClass(),
+            'recipient_model_id'   => $user->getKey(),
+        ]);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSee('Recipient')
+            ->assertSee('Alice')
+            ->assertSee('/postmaster/recipient/', false);
+    }
+
+    public function testRecipientViewShowsOnlyMessagesForThatRecipient()
+    {
+        Postmaster::auth(fn () => true);
+        Schema::create('users', function ($table) {
+            $table->id();
+            $table->string('name');
+        });
+        $alice = User::create(['name' => 'Alice']);
+        $bob   = User::create(['name' => 'Bob']);
+
+        EmailMessage::create([
+            'provider_message_id'  => 'a',
+            'recipient'            => 'alice@example.com',
+            'subject'              => 'For Alice',
+            'recipient_model_type' => $alice->getMorphClass(),
+            'recipient_model_id'   => $alice->getKey(),
+        ]);
+        EmailMessage::create([
+            'provider_message_id'  => 'b',
+            'recipient'            => 'bob@example.com',
+            'subject'              => 'For Bob',
+            'recipient_model_type' => $bob->getMorphClass(),
+            'recipient_model_id'   => $bob->getKey(),
+        ]);
+
+        $this->get('/postmaster/recipient/'.urlencode($alice->getMorphClass()).'/'.$alice->getKey())
+            ->assertOk()
+            ->assertSee('Emails for Alice')
+            ->assertSee('For Alice')
+            ->assertDontSee('For Bob');
     }
 
     public function testActivityListLoads()

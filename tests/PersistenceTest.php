@@ -486,6 +486,35 @@ class PersistenceTest extends TestCase
         $this->assertTrue($tenant->is($record->tenant));
     }
 
+    public function testStatusPredicatesOnEmailMessage()
+    {
+        $record = EmailMessage::create(['status' => EmailEvent::STATUS_BOUNCED]);
+
+        $this->assertTrue($record->isBounced());
+        $this->assertTrue($record->isFailed());          // bounced rolls up into failed
+        $this->assertFalse($record->isDelivered());
+        $this->assertFalse($record->isSandboxed());
+
+        $record->update(['status' => EmailEvent::STATUS_DELIVERED]);
+        $this->assertTrue($record->fresh()->isDelivered());
+        $this->assertFalse($record->fresh()->isFailed());
+    }
+
+    public function testStatusPredicatesOnEmailEvent()
+    {
+        $event = EmailEvent::create(new Postmark([
+            'RecordType' => 'Bounce',
+            'Type'       => 'HardBounce',
+            'MessageID'  => 'm1',
+            'Email'      => 'r@example.com',
+            'BouncedAt'  => '2021-01-01T00:00:00Z',
+        ]));
+
+        $this->assertTrue($event->isBounced());
+        $this->assertTrue($event->isFailed());
+        $this->assertFalse($event->isDelivered());
+    }
+
     public function testUseTenantModelConfiguresTheTenantRelationship()
     {
         Schema::create('tenants', fn ($table) => $table->id());

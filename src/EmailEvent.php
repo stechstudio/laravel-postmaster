@@ -5,6 +5,7 @@ namespace STS\Postmaster;
 use DateTimeInterface;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Support\Collection;
+use STS\Postmaster\Concerns\HasStatusPredicates;
 use STS\Postmaster\Contracts\Adapter;
 
 /**
@@ -14,6 +15,7 @@ use STS\Postmaster\Contracts\Adapter;
 class EmailEvent
 {
     use Dispatchable;
+    use HasStatusPredicates;
 
     const STATUS_ACCEPTED   = "accepted";
     const STATUS_SENT       = "sent";
@@ -97,6 +99,16 @@ class EmailEvent
     public function status()
     {
         return $this->adapter->status();
+    }
+
+    /**
+     * Used by HasStatusPredicates to drive the is*() methods.
+     *
+     * @return string|null
+     */
+    protected function currentStatus()
+    {
+        return $this->status();
     }
 
     /**

@@ -209,7 +209,24 @@ $event->toArray();            // everything above as an array
 
 `EmailEvent::STATUS_ACCEPTED`, `STATUS_DEFERRED`, `STATUS_DELIVERED`,
 `STATUS_BOUNCED`, `STATUS_DROPPED`, `STATUS_COMPLAINED`, `STATUS_OPENED`,
-`STATUS_CLICKED`.
+`STATUS_CLICKED`. (Plus `STATUS_SENT` and `STATUS_SANDBOX` for outbound
+records the package writes itself.)
+
+For comparing against a single value, every status has a matching `is*()`
+predicate. They make a status check read clearly and they autocomplete:
+
+```php
+if ($event->isBounced())    { /* … */ }
+if ($event->isDelivered())  { /* … */ }
+if ($event->isFailed())     { /* bounced, dropped, or complained */ }
+```
+
+The same predicates are available on `EmailMessage` (where they answer
+against the latest recorded status):
+
+```php
+if ($message->isFailed())   { /* the latest event was a failure */ }
+```
 
 ### Bounce classification
 

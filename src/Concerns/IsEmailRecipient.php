@@ -50,9 +50,6 @@ trait IsEmailRecipient
      */
     public function emailDeliveryFailed()
     {
-        $latest = $this->latestEmailMessage();
-
-        return $latest !== null
-            && in_array($latest->getAttribute('status'), EmailMessage::FAILED_STATUSES, true);
+        return $this->latestEmailMessage()?->isFailed() ?? false;
     }
 }

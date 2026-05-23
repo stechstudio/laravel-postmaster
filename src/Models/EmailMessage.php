@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use RuntimeException;
+use STS\Postmaster\Concerns\HasStatusPredicates;
 use STS\Postmaster\EmailEvent;
 
 /**
@@ -38,6 +39,8 @@ use STS\Postmaster\EmailEvent;
  */
 class EmailMessage extends Model
 {
+    use HasStatusPredicates;
+
     /**
      * Statuses that mean the email did not reach the recipient. Exposed so a
      * caller can test an already-loaded record without re-deriving the set.
@@ -63,6 +66,17 @@ class EmailMessage extends Model
     public function getTable()
     {
         return config('postmaster.persistence.table', 'email_messages');
+    }
+
+    /**
+     * Used by HasStatusPredicates to drive the is*() methods. Returns the
+     * latest status recorded for this message.
+     *
+     * @return string|null
+     */
+    protected function currentStatus()
+    {
+        return $this->getAttribute('status');
     }
 
     public function getConnectionName()

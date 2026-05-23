@@ -28,7 +28,7 @@ class UpdateMessageFromEvent
      */
     public function handle( EmailEvent $event )
     {
-        $messageId = $event->getMessageId();
+        $messageId = $event->providerMessageId();
 
         if (empty($messageId)) {
             return;
@@ -39,20 +39,21 @@ class UpdateMessageFromEvent
         // Hand the correlated record to the event so any later listener can
         // reach the originating message — and, via related(), the app model
         // behind it — without repeating the message-id lookup.
-        $event->emailMessage = $record;
+        $event->setEmailMessage($record);
 
         $this->refreshSummary($record, $event);
 
         $this->applyEventToAddress($event);
 
         $this->recordEvent($record, [
-            'provider'    => $event->getProvider(),
-            'status'      => $event->getAction(),
-            'bounce_type' => $event->getBounceType(),
-            'response'    => $this->flatten($event->getResponse()),
-            'reason'      => $this->flatten($event->getReason()),
-            'code'        => $this->flatten($event->getCode()),
-            'occurred_at' => $event->getDate() ?? now(),
+            'provider'    => $event->provider(),
+            'status'      => $event->status(),
+            'bounce_type' => $event->bounceType(),
+            'response'    => $this->flatten($event->response()),
+            'reason'      => $this->flatten($event->reason()),
+            'code'        => $this->flatten($event->code()),
+            'url'         => $event->clickedUrl(),
+            'occurred_at' => $event->occurredAt() ?? now(),
         ]);
     }
 
@@ -73,7 +74,7 @@ class UpdateMessageFromEvent
     {
         $record = $this->messageModel()->newQuery()
             ->withoutGlobalScopes()
-            ->where('message_id', $messageId)
+            ->where('provider_message_id', $messageId)
             ->latest('id')
             ->first();
 
@@ -82,9 +83,9 @@ class UpdateMessageFromEvent
         }
 
         return $this->messageModel()->newQuery()->create([
-            'message_id' => $messageId,
-            'provider'   => $event->getProvider(),
-            'recipient'  => $event->getRecipient(),
+            'provider_message_id' => $messageId,
+            'provider'            => $event->provider(),
+            'to_address'          => $event->toAddress(),
         ]);
     }
 
@@ -101,21 +102,21 @@ class UpdateMessageFromEvent
     protected function refreshSummary( EmailMessage $record, EmailEvent $event )
     {
         if (empty($record->provider)) {
-            $record->provider = $event->getProvider();
+            $record->provider = $event->provider();
         }
 
-        if (empty($record->recipient)) {
-            $record->recipient = $event->getRecipient();
+        if (empty($record->to_address)) {
+            $record->to_address = $event->toAddress();
         }
 
-        $occurredAt = $event->getDate() ?? now();
+        $occurredAt = $event->occurredAt() ?? now();
 
         if ($record->last_event_at === null || $occurredAt >= $record->last_event_at) {
-            $record->status = $event->getAction();
+            $record->status = $event->status();
             $record->last_event_at = $occurredAt;
 
-            if ($event->getBounceType() !== null) {
-                $record->bounce_type = $event->getBounceType();
+            if ($event->bounceType() !== null) {
+                $record->bounce_type = $event->bounceType();
             }
         }
 

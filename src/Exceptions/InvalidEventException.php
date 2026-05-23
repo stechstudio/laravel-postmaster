@@ -13,7 +13,7 @@ class InvalidEventException extends \Exception
         parent::__construct("Email event payload could not be parsed into a valid event");
     }
 
-    public function getPayload()
+    public function payload()
     {
         return $this->payload;
     }

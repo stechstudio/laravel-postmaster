@@ -30,7 +30,7 @@ class RecordOutboundMessage
      */
     public function handle( MessageSent $event )
     {
-        $this->record($event->message, $event->sent->getMessageId(), EmailEvent::EVENT_SENT);
+        $this->record($event->message, $event->sent->getMessageId(), EmailEvent::STATUS_SENT);
     }
 
     /**
@@ -45,16 +45,16 @@ class RecordOutboundMessage
      *
      * @return \Illuminate\Database\Eloquent\Model
      */
-    public function record( Email $message, $messageId, $status = EmailEvent::EVENT_SENT )
+    public function record( Email $message, $messageId, $status = EmailEvent::STATUS_SENT )
     {
         $to = $message->getTo();
 
         $attributes = [
-            'message_id' => $messageId,
-            'recipient'  => $to ? $to[0]->getAddress() : null,
-            'subject'    => $message->getSubject(),
-            'status'     => $status,
-            'sent_at'    => now(),
+            'provider_message_id' => $messageId,
+            'to_address'          => $to ? $to[0]->getAddress() : null,
+            'subject'             => $message->getSubject(),
+            'status'              => $status,
+            'sent_at'             => now(),
         ];
 
         $metadata = OutboundMetadata::pull(spl_object_id($message));
@@ -62,6 +62,16 @@ class RecordOutboundMessage
         if (isset($metadata['related_type'], $metadata['related_id'])) {
             $attributes['related_type'] = $metadata['related_type'];
             $attributes['related_id']   = $metadata['related_id'];
+        }
+
+        // A Mailable's Tracking(recipient: ...) declaration wins; otherwise
+        // fall back to the app-registered resolver against the to-address.
+        if (isset($metadata['recipient_type'], $metadata['recipient_id'])) {
+            $attributes['recipient_type'] = $metadata['recipient_type'];
+            $attributes['recipient_id']   = $metadata['recipient_id'];
+        } elseif ($recipient = $this->events->resolveRecipient($attributes['to_address'])) {
+            $attributes['recipient_type'] = $recipient->getMorphClass();
+            $attributes['recipient_id']   = $recipient->getKey();
         }
 
         if (! empty($metadata['tags'])) {
@@ -96,7 +106,7 @@ class RecordOutboundMessage
         ]);
 
         // Note the recipient so the address is on record as one we send to.
-        $this->touchAddress($attributes['recipient']);
+        $this->touchAddress($attributes['to_address']);
 
         return $record;
     }

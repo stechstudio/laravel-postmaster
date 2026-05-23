@@ -13,7 +13,7 @@ class UnrecognizedEventException extends \Exception
         parent::__construct("Email event payload is not supported by any registered adapter");
     }
 
-    public function getPayload()
+    public function payload()
     {
         return $this->payload;
     }

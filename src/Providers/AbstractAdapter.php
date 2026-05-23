@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Providers;
 
+use DateTimeImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use STS\Postmaster\Contracts\Adapter;
@@ -52,50 +53,61 @@ abstract class AbstractAdapter implements Adapter
      */
     public function isValid()
     {
-        return is_string($this->getAction()) && is_string($this->getRecipient());
+        return is_string($this->status()) && is_string($this->toAddress());
     }
 
     /**
-     * @return string
+     * @return string|null
      */
-    abstract public function getAction();
+    abstract public function status();
 
     /**
-     * @return string
+     * @return string|null
      */
-    abstract public function getMessageId();
+    abstract public function providerMessageId();
 
     /**
-     * @return string
+     * @return string|null
      */
-    abstract public function getRecipient();
+    abstract public function toAddress();
 
     /**
-     * @return int
+     * @return DateTimeImmutable|null
      */
-    abstract public function getTimestamp();
-
-    /**
-     * @return mixed
-     */
-    abstract public function getResponse();
+    abstract public function occurredAt();
 
     /**
      * @return mixed
      */
-    abstract public function getReason();
+    abstract public function response();
 
     /**
      * @return mixed
      */
-    abstract public function getCode();
+    abstract public function reason();
+
+    /**
+     * @return mixed
+     */
+    abstract public function code();
 
     /**
      * Normalized bounce severity, or null when this is not a bounce.
      *
      * @return string|null one of EmailEvent::BOUNCE_HARD|BOUNCE_SOFT|BOUNCE_BLOCK
      */
-    abstract public function getBounceType();
+    abstract public function bounceType();
+
+    /**
+     * The clicked URL for a click event. The default returns null — adapters
+     * for providers that expose a click URL override this.
+     *
+     * @return string|null
+     */
+    public function clickedUrl()
+    {
+        return null;
+    }
 
     /**
      * Whether this event represents a permanent failure — a hard bounce or a
@@ -105,37 +117,21 @@ abstract class AbstractAdapter implements Adapter
      */
     public function isPermanent()
     {
-        return in_array($this->getBounceType(), [
+        return in_array($this->bounceType(), [
             EmailEvent::BOUNCE_HARD,
             EmailEvent::BOUNCE_BLOCK,
         ], true);
     }
 
     /**
-     * The event timestamp as a DateTimeImmutable (UTC), or null when the
-     * provider did not supply a usable timestamp. Convenience wrapper around
-     * getTimestamp(), which returns the raw unix integer.
-     *
-     * @return \DateTimeImmutable|null
+     * @return Collection
      */
-    public function getDate()
-    {
-        $timestamp = $this->getTimestamp();
-
-        return is_int($timestamp)
-            ? new \DateTimeImmutable('@' . $timestamp)
-            : null;
-    }
+    abstract public function tags();
 
     /**
      * @return Collection
      */
-    abstract public function getTags();
-
-    /**
-     * @return Collection
-     */
-    abstract public function getData();
+    abstract public function data();
 
     /**
      * @param array $payload
@@ -147,7 +143,7 @@ abstract class AbstractAdapter implements Adapter
     /**
      * @return string
      */
-    public function getProvider()
+    public function provider()
     {
         return $this->provider;
     }
@@ -155,7 +151,7 @@ abstract class AbstractAdapter implements Adapter
     /**
      * @return array
      */
-    public function getPayload()
+    public function payload()
     {
         return $this->payload;
     }
@@ -168,5 +164,19 @@ abstract class AbstractAdapter implements Adapter
     public function get($attribute)
     {
         return Arr::get($this->payload, $attribute);
+    }
+
+    /**
+     * Convert a unix-seconds timestamp into a UTC DateTimeImmutable. A shared
+     * helper for adapters whose payload exposes the time as an int (or a
+     * string they've already parsed to one).
+     *
+     * @param int|null $unix
+     *
+     * @return DateTimeImmutable|null
+     */
+    protected static function dateFromUnix( $unix )
+    {
+        return is_int($unix) ? new DateTimeImmutable('@'.$unix) : null;
     }
 }

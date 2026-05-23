@@ -39,6 +39,16 @@ return [
     'delivery' => env('POSTMASTER_DELIVERY', 'normal'),
 
     /*
+     * When true, the package refuses to send to any address on its
+     * suppression list. The attempt is still recorded (status: blocked) so
+     * it shows up in the dashboard, but the message is never handed to the
+     * mailer. Off by default — apps that want this safety net opt in.
+     *
+     * Needs the persistence layer (suppression lives there).
+     */
+    'block_suppressed' => env('POSTMASTER_BLOCK_SUPPRESSED', false),
+
+    /*
      * Shared credentials for the "token" and "basic" authorizers below.
      */
     'token' => env('POSTMASTER_AUTH_TOKEN'),
@@ -101,11 +111,12 @@ return [
     /*
      * Optional persistence. When enabled, the package records every outbound
      * email and updates that record as webhook events arrive, correlated by
-     * provider message id. Off by default — the package works as a pure event
-     * dispatcher without it.
+     * provider message id. On by default — publishing and running the
+     * migrations is all that's needed. Set this to false to run the package
+     * as a pure event dispatcher with no database writes.
      */
     'persistence' => [
-        'enabled' => env('POSTMASTER_PERSISTENCE', false),
+        'enabled' => env('POSTMASTER_PERSISTENCE', true),
         'model'   => \STS\Postmaster\Models\EmailMessage::class,
         'table'   => 'email_messages',
 

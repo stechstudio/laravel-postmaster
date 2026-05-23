@@ -43,22 +43,22 @@ class MailgunAdapterTest extends TestCase
         $adapter = new Mailgun($this->deliveredPayload());
 
         $this->assertTrue($adapter->isValid());
-        $this->assertSame('Mailgun', $adapter->getProvider());
-        $this->assertSame(EmailEvent::EVENT_DELIVERED, $adapter->getAction());
-        $this->assertSame('recipient@example.com', $adapter->getRecipient());
-        $this->assertSame(1609459200, $adapter->getTimestamp());
-        $this->assertSame('mailgun-message-1', $adapter->getMessageId());
-        $this->assertSame(['welcome', 'newsletter'], $adapter->getTags()->all());
-        $this->assertSame(['order_id' => '1234'], $adapter->getData()->all());
-        $this->assertSame(250, $adapter->getCode());
-        $this->assertSame('OK', $adapter->getResponse());
+        $this->assertSame('Mailgun', $adapter->provider());
+        $this->assertSame(EmailEvent::STATUS_DELIVERED, $adapter->status());
+        $this->assertSame('recipient@example.com', $adapter->toAddress());
+        $this->assertSame(1609459200, $adapter->occurredAt()->getTimestamp());
+        $this->assertSame('mailgun-message-1', $adapter->providerMessageId());
+        $this->assertSame(['welcome', 'newsletter'], $adapter->tags()->all());
+        $this->assertSame(['order_id' => '1234'], $adapter->data()->all());
+        $this->assertSame(250, $adapter->code());
+        $this->assertSame('OK', $adapter->response());
     }
 
-    public function testGetDate()
+    public function testOccurredAt()
     {
         $adapter = new Mailgun($this->deliveredPayload());
 
-        $date = $adapter->getDate();
+        $date = $adapter->occurredAt();
 
         $this->assertInstanceOf(\DateTimeImmutable::class, $date);
         $this->assertSame(1609459200, $date->getTimestamp());
@@ -72,7 +72,7 @@ class MailgunAdapterTest extends TestCase
 
         $adapter = new Mailgun($payload);
 
-        $this->assertSame('queued as ABC', $adapter->getResponse());
+        $this->assertSame('queued as ABC', $adapter->response());
     }
 
     public function testParsesFailedEvent()
@@ -83,8 +83,8 @@ class MailgunAdapterTest extends TestCase
 
         $adapter = new Mailgun($payload);
 
-        $this->assertSame(EmailEvent::EVENT_BOUNCED, $adapter->getAction());
-        $this->assertSame('bounce', $adapter->getReason());
+        $this->assertSame(EmailEvent::STATUS_BOUNCED, $adapter->status());
+        $this->assertSame('bounce', $adapter->reason());
     }
 
     public function testUnknownEventIsInvalid()
@@ -94,7 +94,7 @@ class MailgunAdapterTest extends TestCase
 
         $adapter = new Mailgun($payload);
 
-        $this->assertNull($adapter->getAction());
+        $this->assertNull($adapter->status());
         $this->assertFalse($adapter->isValid());
         $this->assertNull(EmailEvent::create($adapter));
     }
@@ -105,18 +105,18 @@ class MailgunAdapterTest extends TestCase
 
         $this->assertInstanceOf(EmailEvent::class, $event);
         $this->assertSame([
-            'provider'  => 'Mailgun',
-            'event'     => EmailEvent::EVENT_DELIVERED,
-            'timestamp' => 1609459200,
-            'date'      => '2021-01-01T00:00:00+00:00',
-            'recipient' => 'recipient@example.com',
-            'messageId' => 'mailgun-message-1',
-            'tags'      => ['welcome', 'newsletter'],
-            'data'      => ['order_id' => '1234'],
-            'response'  => 'OK',
-            'reason'    => null,
-            'code'      => 250,
-            'bounceType' => null,
+            'provider'            => 'Mailgun',
+            'status'              => EmailEvent::STATUS_DELIVERED,
+            'provider_message_id' => 'mailgun-message-1',
+            'to_address'          => 'recipient@example.com',
+            'occurred_at'         => '2021-01-01T00:00:00+00:00',
+            'bounce_type'         => null,
+            'reason'              => null,
+            'response'            => 'OK',
+            'code'                => 250,
+            'clicked_url'         => null,
+            'tags'                => ['welcome', 'newsletter'],
+            'data'                => ['order_id' => '1234'],
         ], $event->toArray());
     }
 
@@ -124,7 +124,7 @@ class MailgunAdapterTest extends TestCase
     {
         $adapter = new Mailgun($this->deliveredPayload());
 
-        $this->assertNull($adapter->getBounceType());
+        $this->assertNull($adapter->bounceType());
         $this->assertFalse($adapter->isPermanent());
     }
 
@@ -136,7 +136,7 @@ class MailgunAdapterTest extends TestCase
 
         $adapter = new Mailgun($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->bounceType());
         $this->assertTrue($adapter->isPermanent());
     }
 
@@ -148,7 +148,7 @@ class MailgunAdapterTest extends TestCase
 
         $adapter = new Mailgun($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->bounceType());
         $this->assertFalse($adapter->isPermanent());
     }
 }

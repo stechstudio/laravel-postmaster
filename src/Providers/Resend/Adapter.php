@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Providers\Resend;
 
+use DateTimeImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use STS\Postmaster\EmailEvent;
@@ -18,28 +19,28 @@ class Adapter extends AbstractAdapter
      * @var array
      */
     protected $eventMap = [
-        'email.sent'             => EmailEvent::EMAIL_ACCEPTED,
-        'email.delivered'        => EmailEvent::EVENT_DELIVERED,
-        'email.delivery_delayed' => EmailEvent::EVENT_DEFERRED,
-        'email.bounced'          => EmailEvent::EVENT_BOUNCED,
-        'email.failed'           => EmailEvent::EVENT_BOUNCED,
-        'email.complained'       => EmailEvent::EVENT_COMPLAINED,
-        'email.opened'           => EmailEvent::EVENT_OPENED,
-        'email.clicked'          => EmailEvent::EVENT_CLICKED,
+        'email.sent'             => EmailEvent::STATUS_ACCEPTED,
+        'email.delivered'        => EmailEvent::STATUS_DELIVERED,
+        'email.delivery_delayed' => EmailEvent::STATUS_DEFERRED,
+        'email.bounced'          => EmailEvent::STATUS_BOUNCED,
+        'email.failed'           => EmailEvent::STATUS_BOUNCED,
+        'email.complained'       => EmailEvent::STATUS_COMPLAINED,
+        'email.opened'           => EmailEvent::STATUS_OPENED,
+        'email.clicked'          => EmailEvent::STATUS_CLICKED,
     ];
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getAction()
+    public function status()
     {
         return Arr::get($this->eventMap, Arr::get($this->payload, 'type'));
     }
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getRecipient()
+    public function toAddress()
     {
         $to = Arr::get($this->payload, 'data.to');
 
@@ -47,19 +48,19 @@ class Adapter extends AbstractAdapter
     }
 
     /**
-     * @return int|null
+     * @return DateTimeImmutable|null
      */
-    public function getTimestamp()
+    public function occurredAt()
     {
         $createdAt = Arr::get($this->payload, 'created_at');
 
-        return $createdAt ? strtotime($createdAt) : null;
+        return static::dateFromUnix($createdAt ? strtotime($createdAt) : null);
     }
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getMessageId()
+    public function providerMessageId()
     {
         return Arr::get($this->payload, 'data.email_id');
     }
@@ -67,7 +68,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
-    public function getTags()
+    public function tags()
     {
         return collect((array) Arr::get($this->payload, 'data.tags'));
     }
@@ -75,7 +76,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
-    public function getData()
+    public function data()
     {
         return collect((array) Arr::get($this->payload, 'data.headers'));
     }
@@ -83,7 +84,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getResponse()
+    public function response()
     {
         return Arr::get($this->payload, 'data.bounce.message');
     }
@@ -91,7 +92,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getCode()
+    public function code()
     {
         return null;
     }
@@ -99,7 +100,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getReason()
+    public function reason()
     {
         return Arr::get($this->payload, 'data.bounce.subType')
             ?? Arr::get($this->payload, 'data.bounce.type');
@@ -108,15 +109,23 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
-    public function getBounceType()
+    public function bounceType()
     {
-        if ($this->getAction() !== EmailEvent::EVENT_BOUNCED) {
+        if ($this->status() !== EmailEvent::STATUS_BOUNCED) {
             return null;
         }
 
         return Arr::get($this->payload, 'data.bounce.type') === 'Permanent'
             ? EmailEvent::BOUNCE_HARD
             : EmailEvent::BOUNCE_SOFT;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function clickedUrl()
+    {
+        return Arr::get($this->payload, 'data.click.link');
     }
 
     /**

@@ -23,10 +23,10 @@ class DatabaseSeeder extends Seeder
             'Action required on your account', 'Your trial is ending soon',
         ];
         $statuses = [
-            EmailEvent::EVENT_DELIVERED, EmailEvent::EVENT_DELIVERED, EmailEvent::EVENT_DELIVERED,
-            EmailEvent::EVENT_OPENED, EmailEvent::EVENT_OPENED, EmailEvent::EVENT_CLICKED,
-            EmailEvent::EVENT_SENT, EmailEvent::EVENT_DEFERRED,
-            EmailEvent::EVENT_BOUNCED, EmailEvent::EVENT_COMPLAINED,
+            EmailEvent::STATUS_DELIVERED, EmailEvent::STATUS_DELIVERED, EmailEvent::STATUS_DELIVERED,
+            EmailEvent::STATUS_OPENED, EmailEvent::STATUS_OPENED, EmailEvent::STATUS_CLICKED,
+            EmailEvent::STATUS_SENT, EmailEvent::STATUS_DEFERRED,
+            EmailEvent::STATUS_BOUNCED, EmailEvent::STATUS_COMPLAINED,
         ];
         $names   = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'grace', 'heidi', 'ivan', 'judy'];
         $domains = ['example.com', 'acme.test', 'mail.dev', 'fastmail.example'];
@@ -40,35 +40,35 @@ class DatabaseSeeder extends Seeder
             $status = $statuses[array_rand($statuses)];
             $subject = $subjects[array_rand($subjects)];
             $recipient = $names[array_rand($names)].rand(1, 99).'@'.$domains[array_rand($domains)];
-            $isBounce = $status === EmailEvent::EVENT_BOUNCED;
+            $isBounce = $status === EmailEvent::STATUS_BOUNCED;
 
             $message = EmailMessage::create([
                 'provider'      => $providers[array_rand($providers)],
-                'message_id'    => 'wb-'.$i.'-'.bin2hex(random_bytes(4)),
-                'recipient'     => $recipient,
+                'provider_message_id'    => 'wb-'.$i.'-'.bin2hex(random_bytes(4)),
+                'to_address'     => $recipient,
                 'subject'       => $subject,
                 'from_address'  => 'hello@acme.test',
                 'status'        => $status,
                 'bounce_type'   => $isBounce ? EmailEvent::BOUNCE_HARD : null,
                 'tenant_id'     => $tenantIds[array_rand($tenantIds)],
                 'sent_at'       => $sentAt,
-                'last_event_at' => $status === EmailEvent::EVENT_SENT ? null : $sentAt->copy()->addMinutes(rand(2, 240)),
+                'last_event_at' => $status === EmailEvent::STATUS_SENT ? null : $sentAt->copy()->addMinutes(rand(2, 240)),
                 'tags'          => $this->tagsFor($subject),
                 'html_body'     => $this->messageBody($i),
                 'created_at'    => $sentAt,
                 'updated_at'    => $sentAt,
             ]);
 
-            $timeline = [[EmailEvent::EVENT_SENT, $sentAt]];
+            $timeline = [[EmailEvent::STATUS_SENT, $sentAt]];
 
-            if ($status !== EmailEvent::EVENT_SENT) {
+            if ($status !== EmailEvent::STATUS_SENT) {
                 $timeline[] = [
-                    $isBounce ? EmailEvent::EVENT_BOUNCED : EmailEvent::EVENT_DELIVERED,
+                    $isBounce ? EmailEvent::STATUS_BOUNCED : EmailEvent::STATUS_DELIVERED,
                     $sentAt->copy()->addMinutes(3),
                 ];
             }
 
-            if (in_array($status, [EmailEvent::EVENT_OPENED, EmailEvent::EVENT_CLICKED], true)) {
+            if (in_array($status, [EmailEvent::STATUS_OPENED, EmailEvent::STATUS_CLICKED], true)) {
                 $timeline[] = [$status, $sentAt->copy()->addMinutes(rand(20, 200))];
             }
 
@@ -77,7 +77,7 @@ class DatabaseSeeder extends Seeder
                     'email_message_id' => $message->getKey(),
                     'provider'         => $message->provider,
                     'status'           => $eventStatus,
-                    'bounce_type'      => $eventStatus === EmailEvent::EVENT_BOUNCED ? EmailEvent::BOUNCE_HARD : null,
+                    'bounce_type'      => $eventStatus === EmailEvent::STATUS_BOUNCED ? EmailEvent::BOUNCE_HARD : null,
                     'occurred_at'      => $occurredAt,
                     'created_at'       => $occurredAt,
                 ]);
@@ -142,7 +142,7 @@ class DatabaseSeeder extends Seeder
             EmailAddress::create([
                 'address'       => $names[array_rand($names)].$i.'@'.$domains[array_rand($domains)],
                 'status'        => $suppressed ? EmailAddress::STATUS_SUPPRESSED : EmailAddress::STATUS_ACTIVE,
-                'reason'        => $suppressed ? [EmailEvent::EVENT_BOUNCED, EmailEvent::EVENT_COMPLAINED][rand(0, 1)] : null,
+                'reason'        => $suppressed ? [EmailEvent::STATUS_BOUNCED, EmailEvent::STATUS_COMPLAINED][rand(0, 1)] : null,
                 'suppressed_at' => $suppressed ? now()->subDays(rand(0, 13)) : null,
                 'last_event_at' => now()->subDays(rand(0, 13)),
             ]);

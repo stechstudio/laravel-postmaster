@@ -19,7 +19,7 @@
             @include('postmaster::partials.filters.status')
             @include('postmaster::partials.filters.options', ['name' => 'provider', 'label' => 'Provider', 'options' => $providers, 'min' => 2])
             @include('postmaster::partials.filters.options', ['name' => 'tag', 'label' => 'Tag', 'options' => $tags])
-            @include('postmaster::partials.filters.text', ['name' => 'recipient', 'label' => 'Recipient'])
+            @include('postmaster::partials.filters.text', ['name' => 'to', 'label' => 'To'])
             @include('postmaster::partials.filters.text', ['name' => 'subject', 'label' => 'Subject'])
             @include('postmaster::partials.filters.tenant')
             @include('postmaster::partials.filters.dates')
@@ -33,7 +33,7 @@
         <table class="pm-table">
             <thead>
                 <tr>
-                    <th>Recipient</th>
+                    <th>To</th>
                     <th>Subject</th>
                     <th>Status</th>
                     <th>Provider</th>
@@ -44,7 +44,7 @@
             <tbody>
                 @forelse ($messages as $message)
                     <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $message) }}'">
-                        <td class="pm-cell-sub">{{ $message->recipient ?? '—' }}</td>
+                        <td class="pm-cell-sub">{{ $message->to_address ?? '—' }}</td>
                         <td class="pm-truncate pm-cell-title">{{ $message->subject ?? '—' }}</td>
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $message->status])</td>
                         <td class="pm-dim">{{ $message->provider ?? '—' }}</td>

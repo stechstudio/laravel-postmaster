@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use RuntimeException;
+use STS\Postmaster\Concerns\HasStatusPredicates;
 use STS\Postmaster\EmailEvent;
 
 /**
@@ -17,14 +18,17 @@ use STS\Postmaster\EmailEvent;
  * "postmaster.persistence.model" config key.
  *
  * @property string|null $provider
- * @property string|null $message_id
- * @property string|null $recipient
+ * @property string|null $provider_message_id
+ * @property string|null $to_address
+ * @property string|null $recipient_type
+ * @property int|string|null $recipient_id
  * @property string|null $subject
  * @property string|null $from_address
  * @property array|null $recipients
  * @property string|null $html_body
  * @property string|null $text_body
  * @property array|null $attachments
+ * @property array|null $tags
  * @property string|null $status
  * @property string|null $bounce_type
  * @property string|null $related_type
@@ -35,6 +39,8 @@ use STS\Postmaster\EmailEvent;
  */
 class EmailMessage extends Model
 {
+    use HasStatusPredicates;
+
     /**
      * Statuses that mean the email did not reach the recipient. Exposed so a
      * caller can test an already-loaded record without re-deriving the set.
@@ -42,9 +48,9 @@ class EmailMessage extends Model
      * @var array<int, string>
      */
     public const FAILED_STATUSES = [
-        EmailEvent::EVENT_BOUNCED,
-        EmailEvent::EVENT_DROPPED,
-        EmailEvent::EVENT_COMPLAINED,
+        EmailEvent::STATUS_BOUNCED,
+        EmailEvent::STATUS_DROPPED,
+        EmailEvent::STATUS_COMPLAINED,
     ];
 
     protected $guarded = [];
@@ -60,6 +66,17 @@ class EmailMessage extends Model
     public function getTable()
     {
         return config('postmaster.persistence.table', 'email_messages');
+    }
+
+    /**
+     * Used by HasStatusPredicates to drive the is*() methods. Returns the
+     * latest status recorded for this message.
+     *
+     * @return string|null
+     */
+    protected function currentStatus()
+    {
+        return $this->getAttribute('status');
     }
 
     public function getConnectionName()
@@ -83,6 +100,18 @@ class EmailMessage extends Model
      * @return MorphTo
      */
     public function related()
+    {
+        return $this->morphTo();
+    }
+
+    /**
+     * The application model the email was sent *to* — usually a User. Set
+     * via a Mailable's Tracking(recipient: ...) or by an app-registered
+     * Postmaster::resolveRecipientUsing() resolver. Independent of related().
+     *
+     * @return MorphTo
+     */
+    public function recipient()
     {
         return $this->morphTo();
     }
@@ -152,7 +181,7 @@ class EmailMessage extends Model
     /** @return Builder */
     public function scopeSent( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_SENT);
+        return $query->where('status', EmailEvent::STATUS_SENT);
     }
 
     /**
@@ -163,43 +192,43 @@ class EmailMessage extends Model
      */
     public function scopeSandbox( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_SANDBOX);
+        return $query->where('status', EmailEvent::STATUS_SANDBOXED);
     }
 
     /** @return Builder */
     public function scopeAccepted( Builder $query )
     {
-        return $query->where('status', EmailEvent::EMAIL_ACCEPTED);
+        return $query->where('status', EmailEvent::STATUS_ACCEPTED);
     }
 
     /** @return Builder */
     public function scopeDeferred( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_DEFERRED);
+        return $query->where('status', EmailEvent::STATUS_DEFERRED);
     }
 
     /** @return Builder */
     public function scopeDelivered( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_DELIVERED);
+        return $query->where('status', EmailEvent::STATUS_DELIVERED);
     }
 
     /** @return Builder */
     public function scopeBounced( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_BOUNCED);
+        return $query->where('status', EmailEvent::STATUS_BOUNCED);
     }
 
     /** @return Builder */
     public function scopeDropped( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_DROPPED);
+        return $query->where('status', EmailEvent::STATUS_DROPPED);
     }
 
     /** @return Builder */
     public function scopeComplained( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_COMPLAINED);
+        return $query->where('status', EmailEvent::STATUS_COMPLAINED);
     }
 
     /**
@@ -218,13 +247,13 @@ class EmailMessage extends Model
     /** @return Builder */
     public function scopeOpened( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_OPENED);
+        return $query->where('status', EmailEvent::STATUS_OPENED);
     }
 
     /** @return Builder */
     public function scopeClicked( Builder $query )
     {
-        return $query->where('status', EmailEvent::EVENT_CLICKED);
+        return $query->where('status', EmailEvent::STATUS_CLICKED);
     }
 
     /**

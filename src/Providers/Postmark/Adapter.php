@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Providers\Postmark;
 
+use DateTimeImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use STS\Postmaster\EmailEvent;
@@ -23,18 +24,18 @@ class Adapter extends AbstractAdapter
      * @var array
      */
     protected $eventMap = [
-        'Transient'     => EmailEvent::EVENT_DEFERRED,
-        'Delivery'      => EmailEvent::EVENT_DELIVERED,
-        'Bounce'        => EmailEvent::EVENT_BOUNCED,
-        'SpamComplaint' => EmailEvent::EVENT_COMPLAINED,
-        'Open'          => EmailEvent::EVENT_OPENED,
-        'Click'         => EmailEvent::EVENT_CLICKED
+        'Transient'     => EmailEvent::STATUS_DEFERRED,
+        'Delivery'      => EmailEvent::STATUS_DELIVERED,
+        'Bounce'        => EmailEvent::STATUS_BOUNCED,
+        'SpamComplaint' => EmailEvent::STATUS_COMPLAINED,
+        'Open'          => EmailEvent::STATUS_OPENED,
+        'Click'         => EmailEvent::STATUS_CLICKED
     ];
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getAction()
+    public function status()
     {
         if (Arr::get($this->payload, 'RecordType') == "Bounce" && array_key_exists(Arr::get($this->payload,'Type'), $this->eventMap)) {
             return $this->eventMap[ Arr::get($this->payload, 'Type') ];
@@ -44,30 +45,37 @@ class Adapter extends AbstractAdapter
     }
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getRecipient()
+    public function toAddress()
     {
         return Arr::get($this->payload, 'Recipient')
             ?? Arr::get($this->payload, 'Email');
     }
 
     /**
-     * @return mixed
+     * Postmark uses different date fields per record type — find whichever
+     * one is present and convert to UTC DateTimeImmutable.
+     *
+     * @return DateTimeImmutable|null
      */
-    public function getTimestamp()
+    public function occurredAt()
     {
-        foreach(["DeliveredAt","ReceivedAt","BouncedAt"] as $dateField) {
-            if(Arr::has($this->payload, $dateField)) {
-                return strtotime($this->payload[$dateField]);
+        foreach (["DeliveredAt", "ReceivedAt", "BouncedAt"] as $dateField) {
+            if (Arr::has($this->payload, $dateField)) {
+                $parsed = strtotime($this->payload[$dateField]);
+
+                return static::dateFromUnix($parsed === false ? null : $parsed);
             }
         }
+
+        return null;
     }
 
     /**
-     * @return mixed
+     * @return string|null
      */
-    public function getMessageId()
+    public function providerMessageId()
     {
         return Arr::get($this->payload, "MessageID");
     }
@@ -75,7 +83,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
-    public function getTags()
+    public function tags()
     {
         return collect((array)Arr::get($this->payload, 'Tag'));
     }
@@ -83,7 +91,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return Collection
      */
-    public function getData()
+    public function data()
     {
         return collect((array)Arr::get($this->payload, 'Metadata'));
     }
@@ -91,7 +99,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getResponse()
+    public function response()
     {
         return Arr::get($this->payload, 'Details');
     }
@@ -99,9 +107,9 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getCode()
+    public function code()
     {
-        if ($this->getAction() == EmailEvent::EVENT_BOUNCED) {
+        if ($this->status() == EmailEvent::STATUS_BOUNCED) {
             return Arr::get($this->payload, 'TypeCode');
         }
     }
@@ -126,7 +134,7 @@ class Adapter extends AbstractAdapter
     /**
      * @return mixed
      */
-    public function getReason()
+    public function reason()
     {
         return Arr::get($this->payload, 'Type');
     }
@@ -134,9 +142,9 @@ class Adapter extends AbstractAdapter
     /**
      * @return string|null
      */
-    public function getBounceType()
+    public function bounceType()
     {
-        if ($this->getAction() !== EmailEvent::EVENT_BOUNCED) {
+        if ($this->status() !== EmailEvent::STATUS_BOUNCED) {
             return null;
         }
 
@@ -145,6 +153,14 @@ class Adapter extends AbstractAdapter
             Arr::get($this->payload, 'Type'),
             EmailEvent::BOUNCE_SOFT
         );
+    }
+
+    /**
+     * @return string|null
+     */
+    public function clickedUrl()
+    {
+        return Arr::get($this->payload, 'OriginalLink');
     }
 
     /**

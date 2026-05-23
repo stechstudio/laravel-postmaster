@@ -75,7 +75,7 @@ class ProviderTest extends TestCase
             $this->provider('throw')->adapt($this->invalidPayload());
             $this->fail('Expected InvalidEventException was not thrown');
         } catch (InvalidEventException $e) {
-            $this->assertSame($this->invalidPayload(), $e->getPayload());
+            $this->assertSame($this->invalidPayload(), $e->payload());
         }
     }
 }

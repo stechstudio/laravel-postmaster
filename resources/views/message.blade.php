@@ -17,8 +17,18 @@
         $recipients = $message->recipients ?: [];
     @endphp
 
-    <div>
+    <div class="pm-detail-bar">
         <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">← Back to messages</a>
+        @if ($message->html_body || $message->text_body)
+            <form method="POST" action="{{ route('postmaster.messages.resend', $message) }}"
+                  onsubmit="return confirm('Resend this email to {{ $message->to_address }}?')">
+                @csrf
+                <button type="submit" class="pm-btn"
+                        @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
+                    Resend
+                </button>
+            </form>
+        @endif
     </div>
 
     <div class="pm-detail-grid">
@@ -31,7 +41,7 @@
                     @if ($message->from_address)
                         <dt>From</dt><dd>{{ $message->from_address }}</dd>
                     @endif
-                    <dt>To</dt><dd>{{ $message->recipient ?? '—' }}</dd>
+                    <dt>To</dt><dd>{{ $message->to_address ?? '—' }}</dd>
                     @foreach (['cc' => 'Cc', 'bcc' => 'Bcc'] as $key => $label)
                         @if (! empty($recipients[$key]))
                             <dt>{{ $label }}</dt>
@@ -84,10 +94,16 @@
                         <dt>Bounce</dt><dd>{{ $message->bounce_type }}</dd>
                     @endif
                     <dt>Provider</dt><dd>{{ $message->provider ?? '—' }}</dd>
-                    <dt>Message ID</dt><dd class="pm-mono pm-truncate">{{ $message->message_id ?? '—' }}</dd>
+                    <dt>Message ID</dt><dd class="pm-mono pm-truncate">{{ $message->provider_message_id ?? '—' }}</dd>
                     @if ($message->{$tenantColumn})
                         <dt>{{ $tenantTerm }}</dt>
                         <dd>{{ $tenants[$message->{$tenantColumn}] ?? $message->{$tenantColumn} }}</dd>
+                    @endif
+                    @if ($recipientLabel)
+                        <dt>Recipient</dt>
+                        <dd>
+                            <a class="pm-link" href="{{ route('postmaster.recipient', ['type' => $message->recipient_type, 'id' => $message->recipient_id]) }}">{{ $recipientLabel }}</a>
+                        </dd>
                     @endif
                     @if ($message->related_type)
                         <dt>Related</dt><dd class="pm-mono">{{ class_basename($message->related_type) }} #{{ $message->related_id }}</dd>
@@ -113,6 +129,11 @@
                                 @include('postmaster::partials.badge', ['status' => $event->status])
                                 @if ($event->reason)
                                     <span class="pm-dim">— {{ $event->reason }}</span>
+                                @endif
+                                @if ($event->url)
+                                    <div class="pm-timeline-url pm-dim pm-truncate">
+                                        → <a class="pm-link" href="{{ $event->url }}" target="_blank" rel="noopener">{{ $event->url }}</a>
+                                    </div>
                                 @endif
                             </div>
                             <div class="pm-timeline-when">{{ $event->occurred_at?->format('M j, g:ia') }}</div>

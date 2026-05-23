@@ -21,8 +21,8 @@ return new class extends Migration
         Schema::create($this->table(), function (Blueprint $table) {
             $table->id();
             $table->string('provider')->nullable();
-            $table->string('message_id')->nullable()->index();
-            $table->string('recipient')->nullable()->index();
+            $table->string('provider_message_id')->nullable()->index();
+            $table->string('to_address')->nullable()->index();
             $table->string('subject')->nullable();
             // Full message representation, captured at send time only when
             // persistence.store_content is enabled, and purged again by the
@@ -37,17 +37,24 @@ return new class extends Migration
             // Apps using UUID/ULID primary keys should change related_id to
             // match (e.g. $table->nullableUuidMorphs('related')).
             $table->nullableMorphs('related');
+            // Optional polymorphic link to the *person* the email is for —
+            // separate from `related` so an email about an Order can still
+            // answer "every email this User has received." Set via a
+            // Mailable's Tracking(recipient: ...) or a global resolver.
+            $table->nullableMorphs('recipient');
             // Optional owning tenant, for multitenant apps. Apps with
             // UUID/ULID tenant keys should change this column type to match.
             $table->unsignedBigInteger($this->tenantColumn())->nullable()->index();
             // Free-form labels set per email via a Mailable's Tracking, for
             // categorising and filtering recorded mail ("billing", etc.).
             $table->json('tags')->nullable();
-            $table->string('status')->nullable();
+            $table->string('status')->nullable()->index();
             $table->string('bounce_type')->nullable();
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('last_event_at')->nullable();
             $table->timestamps();
+            // Sorted by recency in every dashboard view.
+            $table->index('created_at');
         });
     }
 

@@ -7,7 +7,7 @@
                 <span class="pm-badge" :class="'pm-badge--' + tone(event.status)" x-text="event.status"></span>
             </div>
             <div class="pm-feed-line">
-                <span class="pm-feed-secondary" x-text="event.recipient || '—'"></span>
+                <span class="pm-feed-secondary" x-text="event.to || '—'"></span>
                 <span class="pm-feed-meta" x-text="event.at"></span>
             </div>
         </div>
@@ -22,7 +22,7 @@
             limit: limit,
             tones: {
                 delivered: 'ok', opened: 'info', clicked: 'info',
-                sent: 'muted', accepted: 'muted', sandbox: 'warn', deferred: 'warn',
+                sent: 'muted', accepted: 'muted', sandboxed: 'warn', blocked: 'warn', deferred: 'warn',
                 bounced: 'bad', dropped: 'bad', complained: 'bad',
             },
             tone(status) {

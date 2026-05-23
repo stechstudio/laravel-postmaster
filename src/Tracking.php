@@ -13,7 +13,18 @@ use Illuminate\Database\Eloquent\Model;
 class Tracking
 {
     /**
-     * @param Model|null            $related      The model this email is about.
+     * @param Model|null            $related      The model this email is about
+     *                                            — typically a business record
+     *                                            (Order, Invoice, etc.).
+     * @param Model|null            $recipient    The person the email is to,
+     *                                            as a model (a User). Distinct
+     *                                            from $related so "every email
+     *                                            this user has received" is a
+     *                                            direct query regardless of
+     *                                            what business record the
+     *                                            email was about. Falls back
+     *                                            to Postmaster::resolveRecipientUsing()
+     *                                            when omitted.
      * @param Model|int|string|null $tenant       The owning tenant, or its key.
      * @param array<int, string>    $tags         Free-form labels for filtering
      *                                            and querying recorded mail.
@@ -24,6 +35,7 @@ class Tracking
      */
     public function __construct(
         public readonly ?Model $related = null,
+        public readonly ?Model $recipient = null,
         public readonly Model|int|string|null $tenant = null,
         public readonly array $tags = [],
         public readonly ?bool $storeContent = null,

@@ -6,12 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use STS\Postmaster\Postmaster;
 
 /**
- * Adds the fluent relatedTo() / forTenant() / storeContent() /
- * dontStoreContent() methods to a notification's MailMessage, declaring what
+ * Adds the fluent relatedTo() / forRecipient() / forTenant() / storeContent()
+ * / dontStoreContent() methods to whatever it's applied to, declaring what
  * the email is about and how it should be recorded. When persistence is
  * enabled, the recorded email_messages row reflects each of them.
  *
- * For notifications, the package ships STS\Postmaster\Notifications\MailMessage
+ * For notifications, the package ships STS\Postmaster\Notifications\TrackedMailMessage
  * with this trait already applied — return that from toMail() and chain the
  * methods, no extra wiring. Add the trait directly only if you maintain your
  * own MailMessage subclass. (To skip subclassing entirely, call the matching
@@ -28,7 +28,7 @@ use STS\Postmaster\Postmaster;
  *
  * Requires the optional persistence layer (POSTMASTER_PERSISTENCE=true).
  */
-trait TracksMailMessage
+trait WithTracking
 {
     /**
      * Associate this email with the given model.
@@ -40,6 +40,21 @@ trait TracksMailMessage
     public function relatedTo( Model $model )
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->relatedTo($model));
+    }
+
+    /**
+     * Record the recipient of this email as the given model — typically the
+     * User it is being sent to. Distinct from relatedTo(): the related model
+     * is what the email is *about* (an Order); the recipient is *who* the
+     * email is for. Takes precedence over the resolveRecipientUsing() resolver.
+     *
+     * @param Model $model
+     *
+     * @return $this
+     */
+    public function forRecipient( Model $model )
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->forRecipient($model));
     }
 
     /**

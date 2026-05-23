@@ -86,12 +86,12 @@ class Provider
         }
 
         if ($this->onInvalid === 'throw') {
-            throw new InvalidEventException($adapter->getPayload());
+            throw new InvalidEventException($adapter->payload());
         }
 
         logger()->warning('Dropped invalid email event payload', [
             'provider' => $this->name,
-            'payload'  => $adapter->getPayload(),
+            'payload'  => $adapter->payload(),
         ]);
     }
 

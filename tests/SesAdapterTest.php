@@ -65,26 +65,26 @@ class SesAdapterTest extends TestCase
         $adapter = new Ses($this->envelope($this->deliveryEvent()));
 
         $this->assertTrue($adapter->isValid());
-        $this->assertSame('SES', $adapter->getProvider());
-        $this->assertSame(EmailEvent::EVENT_DELIVERED, $adapter->getAction());
-        $this->assertSame('recipient@example.com', $adapter->getRecipient());
-        $this->assertSame(1609459200, $adapter->getTimestamp());
-        $this->assertSame('ses-message-1', $adapter->getMessageId());
-        $this->assertSame(['campaign'], $adapter->getTags()->all());
-        $this->assertNull($adapter->getBounceType());
+        $this->assertSame('SES', $adapter->provider());
+        $this->assertSame(EmailEvent::STATUS_DELIVERED, $adapter->status());
+        $this->assertSame('recipient@example.com', $adapter->toAddress());
+        $this->assertSame(1609459200, $adapter->occurredAt()->getTimestamp());
+        $this->assertSame('ses-message-1', $adapter->providerMessageId());
+        $this->assertSame(['campaign'], $adapter->tags()->all());
+        $this->assertNull($adapter->bounceType());
     }
 
     public function testParsesBounceEvent()
     {
         $adapter = new Ses($this->envelope($this->bounceEvent()));
 
-        $this->assertSame(EmailEvent::EVENT_BOUNCED, $adapter->getAction());
-        $this->assertSame('recipient@example.com', $adapter->getRecipient());
-        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::STATUS_BOUNCED, $adapter->status());
+        $this->assertSame('recipient@example.com', $adapter->toAddress());
+        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->bounceType());
         $this->assertTrue($adapter->isPermanent());
-        $this->assertSame('General', $adapter->getReason());
-        $this->assertSame('smtp; 550 5.1.1 user unknown', $adapter->getResponse());
-        $this->assertSame('5.1.1', $adapter->getCode());
+        $this->assertSame('General', $adapter->reason());
+        $this->assertSame('smtp; 550 5.1.1 user unknown', $adapter->response());
+        $this->assertSame('5.1.1', $adapter->code());
     }
 
     public function testTransientBounceIsSoft()
@@ -94,7 +94,7 @@ class SesAdapterTest extends TestCase
 
         $adapter = new Ses($this->envelope($event));
 
-        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->bounceType());
         $this->assertFalse($adapter->isPermanent());
     }
 
@@ -106,7 +106,7 @@ class SesAdapterTest extends TestCase
 
         $adapter = new Ses($this->envelope($event));
 
-        $this->assertSame(EmailEvent::EVENT_DELIVERED, $adapter->getAction());
+        $this->assertSame(EmailEvent::STATUS_DELIVERED, $adapter->status());
     }
 
     public function testSubscriptionConfirmationIsNotAValidEvent()
@@ -125,7 +125,7 @@ class SesAdapterTest extends TestCase
         $event = EmailEvent::create(new Ses($this->envelope($this->deliveryEvent())));
 
         $this->assertInstanceOf(EmailEvent::class, $event);
-        $this->assertSame(EmailEvent::EVENT_DELIVERED, $event->toArray()['event']);
-        $this->assertSame('2021-01-01T00:00:00+00:00', $event->toArray()['date']);
+        $this->assertSame(EmailEvent::STATUS_DELIVERED, $event->toArray()['status']);
+        $this->assertSame('2021-01-01T00:00:00+00:00', $event->toArray()['occurred_at']);
     }
 }

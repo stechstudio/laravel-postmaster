@@ -24,16 +24,16 @@ class FixtureTest extends TestCase
     public static function fixtures(): array
     {
         return [
-            'sendgrid delivered' => [SendGrid::class, 'sendgrid/delivered.json', EmailEvent::EVENT_DELIVERED, null],
-            'sendgrid bounce'    => [SendGrid::class, 'sendgrid/bounce.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
-            'postmark delivery'  => [Postmark::class, 'postmark/delivery.json', EmailEvent::EVENT_DELIVERED, null],
-            'postmark bounce'    => [Postmark::class, 'postmark/bounce.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
-            'mailgun delivered'  => [Mailgun::class, 'mailgun/delivered.json', EmailEvent::EVENT_DELIVERED, null],
-            'mailgun failed'     => [Mailgun::class, 'mailgun/failed.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
-            'resend delivered'   => [Resend::class, 'resend/delivered.json', EmailEvent::EVENT_DELIVERED, null],
-            'resend bounced'     => [Resend::class, 'resend/bounced.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
-            'ses delivery'       => [Ses::class, 'ses/delivery.json', EmailEvent::EVENT_DELIVERED, null],
-            'ses bounce'         => [Ses::class, 'ses/bounce.json', EmailEvent::EVENT_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'sendgrid delivered' => [SendGrid::class, 'sendgrid/delivered.json', EmailEvent::STATUS_DELIVERED, null],
+            'sendgrid bounce'    => [SendGrid::class, 'sendgrid/bounce.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'postmark delivery'  => [Postmark::class, 'postmark/delivery.json', EmailEvent::STATUS_DELIVERED, null],
+            'postmark bounce'    => [Postmark::class, 'postmark/bounce.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'mailgun delivered'  => [Mailgun::class, 'mailgun/delivered.json', EmailEvent::STATUS_DELIVERED, null],
+            'mailgun failed'     => [Mailgun::class, 'mailgun/failed.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'resend delivered'   => [Resend::class, 'resend/delivered.json', EmailEvent::STATUS_DELIVERED, null],
+            'resend bounced'     => [Resend::class, 'resend/bounced.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'ses delivery'       => [Ses::class, 'ses/delivery.json', EmailEvent::STATUS_DELIVERED, null],
+            'ses bounce'         => [Ses::class, 'ses/bounce.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
         ];
     }
 
@@ -47,9 +47,9 @@ class FixtureTest extends TestCase
         $adapter = new $adapterClass($payload);
 
         $this->assertTrue($adapter->isValid(), "$fixture did not produce a valid event");
-        $this->assertSame($expectedAction, $adapter->getAction());
-        $this->assertIsString($adapter->getRecipient());
-        $this->assertSame($expectedBounceType, $adapter->getBounceType());
+        $this->assertSame($expectedAction, $adapter->status());
+        $this->assertIsString($adapter->toAddress());
+        $this->assertSame($expectedBounceType, $adapter->bounceType());
         $this->assertInstanceOf(EmailEvent::class, EmailEvent::create($adapter));
     }
 }

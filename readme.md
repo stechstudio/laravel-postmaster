@@ -5,23 +5,24 @@
 
 **Provider-agnostic email webhooks and delivery tracking for Laravel.**
 
-Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, or Resend.
-Each of them can POST a webhook back to you when something happens to a
-message: a delivery, an open, a bounce, a complaint. The trouble is that every
-provider authenticates, shapes, and names those events differently, so the code
-you write to handle one provider won't handle the next.
+Your app sends mail; Postmaster turns every provider's webhook — SendGrid,
+Postmark, Mailgun, Amazon SES, Resend — into one normalized event:
 
-Postmaster sits in front of all five. It verifies and parses every inbound
-webhook and hands your app a single, normalized `EmailEvent` that looks the
-same no matter who sent it. You write your delivery logic once. Switching
-providers, running two at the same time, or failing over between them needs no
-change to that code.
+```php
+use STS\Postmaster\EmailEvent;
 
-That's the whole package by default: a pure event dispatcher with nothing to
-configure. Turn on the persistence layer and it also records every outbound
-email and keeps it current as events arrive, which gives you a queryable
-delivery history, a suppression list that maintains itself, and a dashboard to
-browse all of it.
+Event::listen(function (EmailEvent $event) {
+    if ($event->isBounced()) {
+        // the address bounced; act on it
+    }
+});
+```
+
+Switch providers, run several at once, or fail over between them without
+touching that code. Run the migrations and Postmaster also records every
+outbound email and keeps it current as events arrive — a queryable delivery
+history, a self-maintaining suppression list, and a dashboard to browse it
+all.
 
 ## What you get
 
@@ -34,8 +35,8 @@ browse all of it.
 - **Verified by default.** Every inbound webhook is authenticated (by
   signature, token, or basic auth, depending on the provider), and anything it
   can't trust is rejected.
-- **Delivery tracking when you want it.** Turn it on and Postmaster records
-  every send and keeps it current from the webhook stream. You get
+- **Delivery tracking out of the box.** Run the migrations and Postmaster
+  records every send and keeps it current from the webhook stream. You get
   `delivered()`, `bounced()`, and `failed()` query scopes, a full per-message
   timeline, and an address suppression list that maintains itself.
 - **Emails linked to your models.** Tie a send to an `Order` or a `User` and
@@ -88,7 +89,7 @@ Event::listen(function (EmailEvent $event) {
     if ($event->isPermanent()) {
         // Uh oh, a hard bounce or a block. This address won't accept mail again.
         // What happens next is your call: pause sends, flag the account, alert the team.
-        logger()->warning("Email permanently failed for {$event->getRecipient()}");
+        logger()->warning("Email permanently failed for {$event->toAddress()}");
     }
 });
 ```
@@ -100,6 +101,25 @@ For anything beyond a few lines, use a dedicated listener class instead.
 Laravel auto-discovers it, and it can implement
 `Illuminate\Contracts\Queue\ShouldQueue` to process webhooks off the request
 cycle.
+
+For the common "alert ops when a hard bounce lands" case the package ships
+a drop-in notification:
+
+```php
+use Illuminate\Support\Facades\Notification;
+use STS\Postmaster\Notifications\EmailDeliveryFailed;
+
+Event::listen(function (EmailEvent $event) {
+    if ($event->isPermanent()) {
+        Notification::route('mail', config('ops.alerts_to'))
+            ->notify(new EmailDeliveryFailed($event));
+    }
+});
+```
+
+It renders a short summary (address, status, bounce type, the provider's
+reason). Subclass it to customise the body or to add `database`/`slack`
+channels.
 
 > **Before you go live**, set up [webhook verification](#securing-webhooks).
 > Postmaster rejects unverified webhooks by default. It's one credential per
@@ -186,30 +206,53 @@ Every webhook becomes an `EmailEvent` with a normalized API. The methods are
 the same whatever the provider:
 
 ```php
-$event->getProvider();    // "SendGrid", "Postmark", "Mailgun", "SES", "Resend"
-$event->getAction();      // one of the EmailEvent::EVENT_* constants
-$event->getRecipient();   // the recipient email address
-$event->getMessageId();   // the provider's message id
-$event->getTimestamp();   // unix timestamp (int)
-$event->getDate();        // the timestamp as a DateTimeImmutable (UTC)
-$event->getBounceType();  // normalized bounce severity, or null
-$event->isPermanent();    // true for a hard bounce or a block
-$event->getResponse();    // the provider's response/diagnostic detail
-$event->getReason();      // the provider's reason string
-$event->getCode();        // the provider's status code
-$event->getTags();        // Collection of tags/categories
-$event->getData();        // Collection of custom data
-$event->getPayload();     // the raw provider payload
-$event->toArray();        // everything above as an array
+$event->provider();           // "SendGrid", "Postmark", "Mailgun", "SES", "Resend"
+$event->status();             // one of the EmailEvent::STATUS_* constants
+$event->toAddress();          // the recipient email address
+$event->providerMessageId();  // the provider's message id
+$event->occurredAt();         // when the event happened (DateTimeImmutable, UTC)
+$event->bounceType();         // normalized bounce severity, or null
+$event->isPermanent();        // true for a hard bounce or a block
+$event->response();           // the provider's response/diagnostic detail
+$event->reason();             // the provider's reason string
+$event->code();               // the provider's status code
+$event->clickedUrl();         // the URL clicked on a click event (else null)
+$event->tags();               // Collection of tags/categories
+$event->data();               // Collection of custom data
+$event->payload();            // the raw provider payload
+$event->toArray();            // everything above as an array
 ```
 
-### Actions
+> **A note on provider casing.** Config keys are lowercase identifiers
+> (`sendgrid`, `postmark`, `mailgun`, `ses`, `resend`). Stored and surfaced
+> values are the canonical product name (`SendGrid`, `Postmark`, …). The
+> `provider()` method, the `provider` column, and the dashboard all use the
+> latter.
 
-`getAction()` returns one of:
+### Statuses
 
-`EmailEvent::EMAIL_ACCEPTED`, `EVENT_DEFERRED`, `EVENT_DELIVERED`,
-`EVENT_BOUNCED`, `EVENT_DROPPED`, `EVENT_COMPLAINED`, `EVENT_OPENED`,
-`EVENT_CLICKED`.
+`status()` returns one of:
+
+`EmailEvent::STATUS_ACCEPTED`, `STATUS_DEFERRED`, `STATUS_DELIVERED`,
+`STATUS_BOUNCED`, `STATUS_DROPPED`, `STATUS_COMPLAINED`, `STATUS_OPENED`,
+`STATUS_CLICKED`. (Plus `STATUS_SENT`, `STATUS_SANDBOXED`, and `STATUS_BLOCKED`
+for outbound records the package writes itself.)
+
+For comparing against a single value, every status has a matching `is*()`
+predicate. They make a status check read clearly and they autocomplete:
+
+```php
+if ($event->isBounced())    { /* … */ }
+if ($event->isDelivered())  { /* … */ }
+if ($event->isFailed())     { /* bounced, dropped, or complained */ }
+```
+
+The same predicates are available on `EmailMessage` (where they answer
+against the latest recorded status):
+
+```php
+if ($message->isFailed())   { /* the latest event was a failure */ }
+```
 
 ### Bounce classification
 
@@ -220,7 +263,7 @@ Beyond the action, bounces are normalized into a severity, so you can answer
 - `EmailEvent::BOUNCE_SOFT`: transient, so retry later.
 - `EmailEvent::BOUNCE_BLOCK`: blocked by reputation or policy.
 
-`getBounceType()` returns one of these (or `null` when the event is not a
+`bounceType()` returns one of these (or `null` when the event is not a
 bounce). `isPermanent()` is a shortcut for "hard or block".
 
 ## Invalid payloads
@@ -235,21 +278,22 @@ POSTMASTER_ON_INVALID=log
 ## Tracking delivery
 
 Everything above is the core: a verified webhook endpoint and a normalized
-event. Everything from here on is opt-in.
+event.
 
-Enable persistence and Postmaster also **records every outbound email**. As
-webhook events arrive it keeps each record current, matching them up by
-provider message id, so you end up with a queryable delivery history.
-
-```
-POSTMASTER_PERSISTENCE=true
-```
-
-Publish and run the migration:
+Postmaster also **records every outbound email** and keeps each record current
+from the webhook stream, matching them up by provider message id, so you end
+up with a queryable delivery history. Publish and run the migrations:
 
 ```bash
 php artisan vendor:publish --tag=postmaster.migrations
 php artisan migrate
+```
+
+That's it — persistence is on. To run the package as a pure event dispatcher
+with no database writes, set:
+
+```
+POSTMASTER_PERSISTENCE=false
 ```
 
 This creates an `email_messages` table. Each row tracks a message's
@@ -372,6 +416,20 @@ the `reason` / `suppressed_at` columns for the rest.
 hard-bouncing address across your whole account regardless of which tenant sent
 the mail, so a per-tenant view would just disagree with reality.
 
+#### Block suppressed sends automatically
+
+The check above is opt-in per send. To make every outbound to a suppressed
+address fail safely at the source, set:
+
+```
+POSTMASTER_BLOCK_SUPPRESSED=true
+```
+
+Anything addressed to a suppressed recipient is intercepted before it reaches
+the mail transport, recorded with status `blocked` (so the attempt is visible
+in the dashboard), and dropped. Bypass it per send by lifting the suppression
+or by skipping the check yourself — there's no per-message bypass flag.
+
 > This table is built from the webhooks you receive, so it reflects
 > suppressions caused by mail sent through this package. Pulling a provider's
 > full suppression list, or clearing suppressions back on the provider's side,
@@ -425,13 +483,15 @@ return (new MailMessage)->subject('Your login code')->dontStoreContent();
 
 ### Relating emails to your models
 
-Recorded emails can be linked back to one of your own models, like an `Order`
-or a `User`, so that model can list its own delivery history. That's handy for
-an admin activity feed that highlights bounces and complaints.
+Recorded emails can be linked back to two of your models: the one the email
+is **about** (an `Order`, an `Invoice`) and the one the email is **for** (the
+`User` it was sent to). Keeping these distinct means a user can list every
+email they've ever received without having to traverse every business record
+they touch.
 
-Add the `TracksMailable` trait to a Mailable and declare what the email is
-about with a `postmaster()` method that returns a `Tracking` object. It works
-the same way as Laravel's own `envelope()` and `content()`:
+Add the `TracksMailable` trait to a Mailable and declare both with a
+`postmaster()` method that returns a `Tracking` object. It works the same way
+as Laravel's own `envelope()` and `content()`:
 
 ```php
 use Illuminate\Mail\Mailable;
@@ -447,7 +507,8 @@ class OrderConfirmation extends Mailable
     public function postmaster(): Tracking
     {
         return new Tracking(
-            related: $this->order,
+            related: $this->order,              // what the email is about
+            recipient: $this->order->customer,  // who the email is for
             tenant: $this->order->account_id,   // optional; see Multitenancy below
             tags: ['billing'],                  // optional; see below
         );
@@ -463,8 +524,24 @@ is dequeued (so it's queue-safe), and records what the `Tracking` declares.
 Every field is optional, so declare only the ones that apply.
 
 > Need to set something dynamically instead? `TracksMailable` also exposes
-> `relatedTo($model)`, `forTenant($tenant)`, `storeContent()` and
-> `dontStoreContent()`. Call them anywhere before the mailable is sent.
+> `relatedTo($model)`, `forRecipient($model)`, `forTenant($tenant)`,
+> `storeContent()` and `dontStoreContent()`. Call them anywhere before the
+> mailable is sent.
+
+For apps where every email is to a known `User`, the recipient can be
+resolved from the to-address automatically — declare a resolver once, in a
+service provider, and skip `recipient:` on every Mailable:
+
+```php
+use STS\Postmaster\Facades\Postmaster;
+
+Postmaster::resolveRecipientUsing(
+    fn ($address) => User::firstWhere('email', $address)
+);
+```
+
+An explicit `Tracking(recipient: …)` declaration always wins over the
+resolver — useful when an email about User A is sent to User B.
 
 ### Tagging
 
@@ -480,33 +557,43 @@ its native `tag()` method, and Symfony forwards them to providers whose
 transport supports tags. Postmaster reads and records whatever is there, so a
 plain Mailable calling `tag()` directly is recorded just the same.
 
-Add the `HasEmailMessages` trait to the related model:
+Add `HasEmailMessages` to the business-record model and `IsEmailRecipient` to
+the User-side model:
 
 ```php
 use STS\Postmaster\Concerns\HasEmailMessages;
+use STS\Postmaster\Concerns\IsEmailRecipient;
 
 class Order extends Model
 {
-    use HasEmailMessages;
+    use HasEmailMessages;   // emails this order is *about*
+}
+
+class User extends Model
+{
+    use IsEmailRecipient;   // emails this user has *received*
 }
 ```
 
-Now every email's lifecycle is queryable from the model:
+Both traits expose the same shape — `emailMessages()`, `latestEmailMessage()`,
+`emailDeliveryFailed()` — but key off different polymorphic links, so each
+model only sees the emails it owns:
 
 ```php
-$order->emailMessages;                        // every email sent for this order
-$order->emailMessages()->failed()->exists();  // did any fail to land?
-$order->latestEmailMessage();                 // the most recent send, or null
-$order->emailDeliveryFailed();                // did the latest one fail?
+$order->emailMessages;                        // every email about this order
+$order->emailMessages()->failed()->exists();  // did any of them fail?
+
+$user->emailMessages;                         // every email this user received
+$user->latestEmailMessage();                  // the most recent one, or null
 ```
 
-The association is carried on the message in-process only. It's written as a
-header, then read and stripped *before* the email is transmitted, so nothing
-about the related model is ever exposed in the outbound email.
+Both associations are carried on the message in-process only, written as
+headers and read and stripped *before* the email is transmitted, so nothing
+about the related or recipient model is ever exposed in the outbound email.
 
-> Uses a polymorphic relationship. If your models use UUID/ULID primary keys,
-> change `nullableMorphs('related')` to the matching variant in the published
-> migration.
+> Both use polymorphic relationships. If your models use UUID/ULID primary
+> keys, change `nullableMorphs('related')` and `nullableMorphs('recipient')`
+> to the matching variants in the published migration.
 
 ### From a notification
 
@@ -517,7 +604,7 @@ notification's `toMail()` returns a `MailMessage` rather than a Mailable, so to
 subclass with the same fluent `relatedTo()` and `forTenant()` methods:
 
 ```php
-use STS\Postmaster\Notifications\MailMessage;
+use STS\Postmaster\Notifications\TrackedMailMessage;
 
 public function toMail($notifiable)
 {
@@ -530,10 +617,10 @@ public function toMail($notifiable)
 ```
 
 Only the import changes. Postmaster's `MailMessage` is Laravel's with the
-`TracksMailMessage` trait applied, so every notification builder method
+`WithTracking` trait applied, so every notification builder method
 (`line()`, `action()`, and so on) works unchanged.
 
-Already maintain your own `MailMessage` subclass? Add the `TracksMailMessage`
+Already maintain your own `MailMessage` subclass? Add the `WithTracking`
 trait to it directly. It works on anything exposing `withSymfonyMessage()`.
 
 Or, to skip subclassing entirely, pass the `Postmaster` builders straight to
@@ -651,7 +738,15 @@ environment**, so the dashboard is never unguarded in production by accident.
   timeframe, plus recent-messages and live recent-activity cards.
 - **Messages.** A filterable inbox (status, provider, tag, tenant, recipient,
   subject, date range). Each message opens to its delivery timeline and stored
-  content, rendered in a sandboxed, CSP-restricted frame.
+  content, rendered in a sandboxed, CSP-restricted frame. Click events show
+  the URL the recipient clicked, inline on the timeline.
+- **Person view.** Click the Recipient row on a message detail page to land
+  on a page listing every email recorded against that recipient model — the
+  "all the email a user has received" view.
+- **Resend.** A button on the message detail page replays the stored email
+  through the configured mailer, keeping the original's related model,
+  recipient, tenant, and tags, plus a `resent` tag of its own. Requires
+  stored content; attachments are not restored.
 - **Activity.** A filterable, paginated stream of every recorded event, drawn
   from the timeline (on by default with persistence).
 - **Addresses.** The suppression list.
@@ -682,12 +777,12 @@ EmailMessage::sandbox()->get();   // everything intercepted in sandbox mode
 ```
 
 A sandboxed message is **terminal**: it never reached a provider, so no
-delivery/open/bounce webhooks will ever follow. Render the `sandbox` status
+delivery/open/bounce webhooks will ever follow. Render the `sandboxed` status
 distinctly in your UI rather than as a pending send.
 
 > Sandbox is provider-agnostic. It works the same no matter which provider you
-> send through. It needs persistence (`POSTMASTER_PERSISTENCE=true`) to record
-> anything. Without it, mail is still suppressed but nothing is stored, at
+> send through. It needs persistence on to record anything (the default).
+> Without persistence, mail is still suppressed but nothing is stored, at
 > which point Laravel's `log` mailer is the simpler tool.
 
 Because sandbox silently drops *all* mail, enabling it in `production` is almost

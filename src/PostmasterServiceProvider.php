@@ -14,6 +14,7 @@ use STS\Postmaster\Console\PruneEmailMessageEvents;
 use STS\Postmaster\Console\VerifySetup;
 use STS\Postmaster\Http\Middleware\AuthorizeDashboard;
 use STS\Postmaster\Listeners\InterceptSandboxMail;
+use STS\Postmaster\Listeners\InterceptSuppressedRecipient;
 use STS\Postmaster\Listeners\RecordOutboundMessage;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Listeners\StashOutboundMetadata;
@@ -71,6 +72,13 @@ class PostmasterServiceProvider extends ServiceProvider
             if ($this->app['config']->get('postmaster.dashboard.enabled')) {
                 $this->registerDashboard();
             }
+        }
+
+        // Block-suppressed delivery: refuse to send to suppression-listed
+        // addresses. Registered before InterceptSandboxMail so a deliberate
+        // block beats a generic sandbox intercept.
+        if ($this->app['config']->get('postmaster.block_suppressed')) {
+            $this->app['events']->listen(MessageSending::class, InterceptSuppressedRecipient::class);
         }
 
         // Sandbox delivery: intercept and suppress all outbound mail. Listed

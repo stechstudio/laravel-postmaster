@@ -32,6 +32,15 @@ class Postmaster
     protected $tenantResolver;
 
     /**
+     * Resolves the recipient model (e.g. the User) when an outbound email is
+     * recorded and the Mailable didn't declare one. Receives the to-address
+     * and must return a Model or null. Registered by the consuming app.
+     *
+     * @var Closure|null
+     */
+    protected $recipientResolver;
+
+    /**
      * Authorizes access to the dashboard. Registered by the consuming app,
      * typically in a service provider.
      *
@@ -125,6 +134,45 @@ class Postmaster
     }
 
     /**
+     * Register a resolver for the recipient model — typically the User the
+     * email is being sent to. Invoked when recording an outbound email if
+     * the Mailable's Tracking didn't already declare one. The resolver
+     * receives the to-address and may return a Model (or null).
+     *
+     * Resolves once per email, lazily, so a closure that hits the database
+     * (e.g. User::firstWhere('email', $address)) is fine.
+     *
+     * @param Closure $resolver
+     *
+     * @return $this
+     */
+    public function resolveRecipientUsing( Closure $resolver )
+    {
+        $this->recipientResolver = $resolver;
+
+        return $this;
+    }
+
+    /**
+     * Resolve the recipient model for the given address via the registered
+     * resolver, or null if none is registered or the resolver yields nothing.
+     *
+     * @param string|null $address
+     *
+     * @return Model|null
+     */
+    public function resolveRecipient( $address )
+    {
+        if ($this->recipientResolver === null || empty($address)) {
+            return null;
+        }
+
+        $recipient = call_user_func($this->recipientResolver, $address);
+
+        return $recipient instanceof Model ? $recipient : null;
+    }
+
+    /**
      * Set the application's tenant model class at runtime, so the tenant()
      * relationship on EmailMessage and the dashboard's tenant labels work
      * without having to publish the config file just for this one value.
@@ -136,6 +184,51 @@ class Postmaster
     public function useTenantModel( string $class )
     {
         config(['postmaster.persistence.tenant_model' => $class]);
+
+        return $this;
+    }
+
+    /**
+     * Swap in a custom EmailMessage model at runtime. Equivalent to setting
+     * postmaster.persistence.model in the config; useful when an app keeps
+     * the config un-published and configures everything from a service
+     * provider.
+     *
+     * @param string $class
+     *
+     * @return $this
+     */
+    public function useEmailMessageModel( string $class )
+    {
+        config(['postmaster.persistence.model' => $class]);
+
+        return $this;
+    }
+
+    /**
+     * Swap in a custom EmailMessageEvent model at runtime.
+     *
+     * @param string $class
+     *
+     * @return $this
+     */
+    public function useEmailEventModel( string $class )
+    {
+        config(['postmaster.persistence.event_model' => $class]);
+
+        return $this;
+    }
+
+    /**
+     * Swap in a custom EmailAddress model at runtime.
+     *
+     * @param string $class
+     *
+     * @return $this
+     */
+    public function useEmailAddressModel( string $class )
+    {
+        config(['postmaster.persistence.address_model' => $class]);
 
         return $this;
     }
@@ -160,6 +253,28 @@ class Postmaster
 
             $message->getHeaders()->addTextHeader(
                 OutboundMetadata::HEADER_RELATED_ID, (string) $model->getKey()
+            );
+        };
+    }
+
+    /**
+     * Build a callback that records the recipient model — the person the
+     * email is for — separate from relatedTo(). An explicit declaration
+     * takes precedence over the resolveRecipientUsing() resolver.
+     *
+     * @param Model $model
+     *
+     * @return Closure
+     */
+    public function forRecipient( Model $model )
+    {
+        return function (Email $message) use ($model) {
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_RECIPIENT_TYPE, $model->getMorphClass()
+            );
+
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_RECIPIENT_ID, (string) $model->getKey()
             );
         };
     }

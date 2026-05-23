@@ -6,20 +6,21 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use STS\Postmaster\Models\EmailMessage;
 
 /**
- * Add to any model the emails are *about* — an Order, an Invoice, a Project.
- * Gives the model an `emailMessages` relationship listing every recorded
- * email associated with it via a Mailable's relatedTo() / Tracking(related:)
- * declaration.
+ * Add to any model the emails were sent *to* — typically a User. Gives the
+ * model an `emailMessages` relationship listing every recorded email sent to
+ * it, regardless of what business record the email was about. The link is
+ * populated from a Mailable's Tracking(recipient: ...) declaration or from
+ * the global Postmaster::resolveRecipientUsing() resolver.
  *
- * For the model the emails were sent *to* (typically a User), use
- * IsEmailRecipient instead — same shape, different polymorphic key.
+ * For the model the emails were *about* (an Order, an Invoice), use
+ * HasEmailMessages instead — same shape, different polymorphic key.
  *
  * Requires the optional persistence layer (POSTMASTER_PERSISTENCE=true).
  */
-trait HasEmailMessages
+trait IsEmailRecipient
 {
     /**
-     * The email delivery records associated with this model.
+     * The email delivery records sent to this model.
      *
      * @return MorphMany
      */
@@ -27,12 +28,12 @@ trait HasEmailMessages
     {
         return $this->morphMany(
             config('postmaster.persistence.model', EmailMessage::class),
-            'related'
+            'recipient'
         );
     }
 
     /**
-     * The most recent recorded email for this model, if any.
+     * The most recent recorded email sent to this model, if any.
      *
      * @return EmailMessage|null
      */
@@ -42,7 +43,7 @@ trait HasEmailMessages
     }
 
     /**
-     * Whether this model's most recent email failed to reach the recipient
+     * Whether the most recent email sent to this model failed to reach them
      * (bounced, dropped, or complained). False when nothing is recorded yet.
      *
      * @return bool

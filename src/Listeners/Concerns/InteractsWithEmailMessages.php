@@ -36,6 +36,11 @@ trait InteractsWithEmailMessages
      * Append a timeline event to the given message, when timeline recording
      * is enabled. A no-op otherwise.
      *
+     * Webhook providers retry on transient failures, so the same delivery
+     * notification can land twice. A row with the same message, status, and
+     * occurred_at is treated as a duplicate of one already recorded — the
+     * insert is skipped so the timeline never doubles up.
+     *
      * @param Model                $message
      * @param array<string, mixed> $attributes
      *
@@ -47,7 +52,19 @@ trait InteractsWithEmailMessages
             return;
         }
 
-        $this->eventModel()->newQuery()->create($attributes + [
+        $model = $this->eventModel();
+
+        $exists = $model->newQuery()
+            ->where('email_message_id', $message->getKey())
+            ->where('status', $attributes['status'] ?? null)
+            ->where('occurred_at', $attributes['occurred_at'] ?? null)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $model->newQuery()->create($attributes + [
             'email_message_id' => $message->getKey(),
         ]);
     }

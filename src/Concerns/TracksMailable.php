@@ -32,7 +32,7 @@ use STS\Postmaster\Tracking;
  */
 trait TracksMailable
 {
-    use TracksMailMessage;
+    use WithTracking;
 
     /**
      * Apply anything the Mailable declared, then hand off to its own send().
@@ -69,6 +69,10 @@ trait TracksMailable
 
         if ($tracking->related instanceof Model) {
             $this->relatedTo($tracking->related);
+        }
+
+        if ($tracking->recipient instanceof Model) {
+            $this->forRecipient($tracking->recipient);
         }
 
         if ($tracking->tenant !== null) {

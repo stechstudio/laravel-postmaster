@@ -166,6 +166,48 @@ abstract class Controller
     }
 
     /**
+     * A human label for the recipient model (the User). Tries "name", then
+     * "email", then "label", then the class basename plus the key. Pulled
+     * from already-loaded attributes only — no extra queries.
+     *
+     * @param Model $recipient
+     *
+     * @return string
+     */
+    protected function recipientLabel( Model $recipient )
+    {
+        $name = $recipient->getAttribute('name')
+            ?? $recipient->getAttribute('email')
+            ?? $recipient->getAttribute('label');
+
+        if ($name) {
+            return (string) $name;
+        }
+
+        return class_basename($recipient).' #'.$recipient->getKey();
+    }
+
+    /**
+     * Resolve a morph type to its class — applying any Relation::morphMap()
+     * the app has registered.
+     *
+     * @param string $type
+     *
+     * @return string|null  The fully-qualified class name, or null if the
+     *                      type does not resolve to a known class.
+     */
+    protected function resolveMorphClass( $type )
+    {
+        $mapped = \Illuminate\Database\Eloquent\Relations\Relation::getMorphedModel($type);
+
+        if ($mapped !== null) {
+            return $mapped;
+        }
+
+        return class_exists($type) ? $type : null;
+    }
+
+    /**
      * Add a case-insensitive "contains" filter on a column. lower() keeps it
      * portable across the database engines the package supports. A no-op for
      * a term under three characters. The column name is supplied by the
@@ -221,16 +263,17 @@ abstract class Controller
     protected function statuses()
     {
         return [
-            EmailEvent::EVENT_SENT,
-            EmailEvent::EVENT_SANDBOX,
-            EmailEvent::EMAIL_ACCEPTED,
-            EmailEvent::EVENT_DEFERRED,
-            EmailEvent::EVENT_DELIVERED,
-            EmailEvent::EVENT_BOUNCED,
-            EmailEvent::EVENT_DROPPED,
-            EmailEvent::EVENT_COMPLAINED,
-            EmailEvent::EVENT_OPENED,
-            EmailEvent::EVENT_CLICKED,
+            EmailEvent::STATUS_SENT,
+            EmailEvent::STATUS_SANDBOXED,
+            EmailEvent::STATUS_BLOCKED,
+            EmailEvent::STATUS_ACCEPTED,
+            EmailEvent::STATUS_DEFERRED,
+            EmailEvent::STATUS_DELIVERED,
+            EmailEvent::STATUS_BOUNCED,
+            EmailEvent::STATUS_DROPPED,
+            EmailEvent::STATUS_COMPLAINED,
+            EmailEvent::STATUS_OPENED,
+            EmailEvent::STATUS_CLICKED,
         ];
     }
 
@@ -247,7 +290,7 @@ abstract class Controller
             'id'        => $event->id,
             'status'    => $event->status,
             'provider'  => $event->provider,
-            'recipient' => $event->emailMessage?->getAttribute('recipient'),
+            'to'        => $event->emailMessage?->getAttribute('to_address'),
             'subject'   => $event->emailMessage?->getAttribute('subject'),
             'messageId' => $event->email_message_id,
             'at'        => $event->occurred_at?->format('M j, g:ia'),

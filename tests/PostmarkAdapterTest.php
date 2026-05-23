@@ -45,52 +45,52 @@ class PostmarkAdapterTest extends TestCase
         $adapter = new Postmark($this->deliveryPayload());
 
         $this->assertTrue($adapter->isValid());
-        $this->assertSame('Postmark', $adapter->getProvider());
-        $this->assertSame(EmailEvent::EVENT_DELIVERED, $adapter->getAction());
-        $this->assertSame('recipient@example.com', $adapter->getRecipient());
-        $this->assertSame(strtotime('2021-01-01T00:00:00Z'), $adapter->getTimestamp());
-        $this->assertSame('postmark-message-1', $adapter->getMessageId());
-        $this->assertSame('smtp;250 OK', $adapter->getResponse());
-        $this->assertSame(['welcome'], $adapter->getTags()->all());
-        $this->assertSame(['order_id' => '1234'], $adapter->getData()->all());
-        $this->assertNull($adapter->getCode());
+        $this->assertSame('Postmark', $adapter->provider());
+        $this->assertSame(EmailEvent::STATUS_DELIVERED, $adapter->status());
+        $this->assertSame('recipient@example.com', $adapter->toAddress());
+        $this->assertSame(strtotime('2021-01-01T00:00:00Z'), $adapter->occurredAt()->getTimestamp());
+        $this->assertSame('postmark-message-1', $adapter->providerMessageId());
+        $this->assertSame('smtp;250 OK', $adapter->response());
+        $this->assertSame(['welcome'], $adapter->tags()->all());
+        $this->assertSame(['order_id' => '1234'], $adapter->data()->all());
+        $this->assertNull($adapter->code());
     }
 
-    public function testGetDate()
+    public function testOccurredAt()
     {
         $adapter = new Postmark($this->deliveryPayload());
 
-        $date = $adapter->getDate();
+        $date = $adapter->occurredAt();
 
         $this->assertInstanceOf(\DateTimeImmutable::class, $date);
         $this->assertSame('2021-01-01T00:00:00+00:00', $date->format(\DateTimeInterface::ATOM));
     }
 
-    public function testGetDateIsNullWithoutTimestamp()
+    public function testOccurredAtIsNullWithoutTimestamp()
     {
         $payload = $this->deliveryPayload();
         unset($payload['DeliveredAt']);
 
         $adapter = new Postmark($payload);
 
-        $this->assertNull($adapter->getTimestamp());
-        $this->assertNull($adapter->getDate());
+        $this->assertNull($adapter->occurredAt());
+        $this->assertNull($adapter->occurredAt());
     }
 
     public function testParsesBounceEvent()
     {
         $adapter = new Postmark($this->bouncePayload());
 
-        $this->assertSame(EmailEvent::EVENT_BOUNCED, $adapter->getAction());
-        $this->assertSame('HardBounce', $adapter->getReason());
-        $this->assertSame(1, $adapter->getCode());
+        $this->assertSame(EmailEvent::STATUS_BOUNCED, $adapter->status());
+        $this->assertSame('HardBounce', $adapter->reason());
+        $this->assertSame(1, $adapter->code());
     }
 
     public function testBounceRecipientFallsBackToEmailField()
     {
         $adapter = new Postmark($this->bouncePayload());
 
-        $this->assertSame('recipient@example.com', $adapter->getRecipient());
+        $this->assertSame('recipient@example.com', $adapter->toAddress());
         $this->assertTrue($adapter->isValid());
         $this->assertInstanceOf(EmailEvent::class, EmailEvent::create($adapter));
     }
@@ -102,7 +102,7 @@ class PostmarkAdapterTest extends TestCase
 
         $adapter = new Postmark($payload);
 
-        $this->assertSame(EmailEvent::EVENT_DEFERRED, $adapter->getAction());
+        $this->assertSame(EmailEvent::STATUS_DEFERRED, $adapter->status());
     }
 
     public function testUnknownRecordTypeIsInvalid()
@@ -112,7 +112,7 @@ class PostmarkAdapterTest extends TestCase
 
         $adapter = new Postmark($payload);
 
-        $this->assertNull($adapter->getAction());
+        $this->assertNull($adapter->status());
         $this->assertFalse($adapter->isValid());
         $this->assertNull(EmailEvent::create($adapter));
     }
@@ -123,18 +123,18 @@ class PostmarkAdapterTest extends TestCase
 
         $this->assertInstanceOf(EmailEvent::class, $event);
         $this->assertSame([
-            'provider'  => 'Postmark',
-            'event'     => EmailEvent::EVENT_DELIVERED,
-            'timestamp' => strtotime('2021-01-01T00:00:00Z'),
-            'date'      => '2021-01-01T00:00:00+00:00',
-            'recipient' => 'recipient@example.com',
-            'messageId' => 'postmark-message-1',
-            'tags'      => ['welcome'],
-            'data'      => ['order_id' => '1234'],
-            'response'  => 'smtp;250 OK',
-            'reason'    => null,
-            'code'      => null,
-            'bounceType' => null,
+            'provider'            => 'Postmark',
+            'status'              => EmailEvent::STATUS_DELIVERED,
+            'provider_message_id' => 'postmark-message-1',
+            'to_address'          => 'recipient@example.com',
+            'occurred_at'         => '2021-01-01T00:00:00+00:00',
+            'bounce_type'         => null,
+            'reason'              => null,
+            'response'            => 'smtp;250 OK',
+            'code'                => null,
+            'clicked_url'         => null,
+            'tags'                => ['welcome'],
+            'data'                => ['order_id' => '1234'],
         ], $event->toArray());
     }
 
@@ -142,7 +142,7 @@ class PostmarkAdapterTest extends TestCase
     {
         $adapter = new Postmark($this->deliveryPayload());
 
-        $this->assertNull($adapter->getBounceType());
+        $this->assertNull($adapter->bounceType());
         $this->assertFalse($adapter->isPermanent());
     }
 
@@ -150,7 +150,7 @@ class PostmarkAdapterTest extends TestCase
     {
         $adapter = new Postmark($this->bouncePayload());
 
-        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->bounceType());
         $this->assertTrue($adapter->isPermanent());
     }
 
@@ -161,7 +161,7 @@ class PostmarkAdapterTest extends TestCase
 
         $adapter = new Postmark($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->bounceType());
         $this->assertFalse($adapter->isPermanent());
     }
 
@@ -172,7 +172,7 @@ class PostmarkAdapterTest extends TestCase
 
         $adapter = new Postmark($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_BLOCK, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_BLOCK, $adapter->bounceType());
         $this->assertTrue($adapter->isPermanent());
     }
 
@@ -183,7 +183,7 @@ class PostmarkAdapterTest extends TestCase
 
         $adapter = new Postmark($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->bounceType());
         $this->assertFalse($adapter->isPermanent());
     }
 }

@@ -51,25 +51,25 @@ class ResendAdapterTest extends TestCase
         $adapter = new Resend($this->deliveredPayload());
 
         $this->assertTrue($adapter->isValid());
-        $this->assertSame('Resend', $adapter->getProvider());
-        $this->assertSame(EmailEvent::EVENT_DELIVERED, $adapter->getAction());
-        $this->assertSame('recipient@example.com', $adapter->getRecipient());
-        $this->assertSame(1609459200, $adapter->getTimestamp());
-        $this->assertSame('resend-message-1', $adapter->getMessageId());
-        $this->assertSame(['welcome'], $adapter->getTags()->all());
-        $this->assertNull($adapter->getBounceType());
+        $this->assertSame('Resend', $adapter->provider());
+        $this->assertSame(EmailEvent::STATUS_DELIVERED, $adapter->status());
+        $this->assertSame('recipient@example.com', $adapter->toAddress());
+        $this->assertSame(1609459200, $adapter->occurredAt()->getTimestamp());
+        $this->assertSame('resend-message-1', $adapter->providerMessageId());
+        $this->assertSame(['welcome'], $adapter->tags()->all());
+        $this->assertNull($adapter->bounceType());
     }
 
     public function testParsesBouncedEvent()
     {
         $adapter = new Resend($this->bouncedPayload());
 
-        $this->assertSame(EmailEvent::EVENT_BOUNCED, $adapter->getAction());
-        $this->assertSame('recipient@example.com', $adapter->getRecipient());
-        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::STATUS_BOUNCED, $adapter->status());
+        $this->assertSame('recipient@example.com', $adapter->toAddress());
+        $this->assertSame(EmailEvent::BOUNCE_HARD, $adapter->bounceType());
         $this->assertTrue($adapter->isPermanent());
-        $this->assertSame('General', $adapter->getReason());
-        $this->assertSame('The recipient mailbox does not exist', $adapter->getResponse());
+        $this->assertSame('General', $adapter->reason());
+        $this->assertSame('The recipient mailbox does not exist', $adapter->response());
     }
 
     public function testTransientBounceIsSoft()
@@ -79,7 +79,7 @@ class ResendAdapterTest extends TestCase
 
         $adapter = new Resend($payload);
 
-        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->getBounceType());
+        $this->assertSame(EmailEvent::BOUNCE_SOFT, $adapter->bounceType());
         $this->assertFalse($adapter->isPermanent());
     }
 
@@ -90,7 +90,7 @@ class ResendAdapterTest extends TestCase
 
         $adapter = new Resend($payload);
 
-        $this->assertNull($adapter->getAction());
+        $this->assertNull($adapter->status());
         $this->assertFalse($adapter->isValid());
         $this->assertNull(EmailEvent::create($adapter));
     }
@@ -101,18 +101,18 @@ class ResendAdapterTest extends TestCase
 
         $this->assertInstanceOf(EmailEvent::class, $event);
         $this->assertSame([
-            'provider'   => 'Resend',
-            'event'      => EmailEvent::EVENT_DELIVERED,
-            'timestamp'  => 1609459200,
-            'date'       => '2021-01-01T00:00:00+00:00',
-            'recipient'  => 'recipient@example.com',
-            'messageId'  => 'resend-message-1',
-            'tags'       => ['welcome'],
-            'data'       => [],
-            'response'   => null,
-            'reason'     => null,
-            'code'       => null,
-            'bounceType' => null,
+            'provider'            => 'Resend',
+            'status'              => EmailEvent::STATUS_DELIVERED,
+            'provider_message_id' => 'resend-message-1',
+            'to_address'          => 'recipient@example.com',
+            'occurred_at'         => '2021-01-01T00:00:00+00:00',
+            'bounce_type'         => null,
+            'reason'              => null,
+            'response'            => null,
+            'code'                => null,
+            'clicked_url'         => null,
+            'tags'                => ['welcome'],
+            'data'                => [],
         ], $event->toArray());
     }
 }

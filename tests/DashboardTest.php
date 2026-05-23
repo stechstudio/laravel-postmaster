@@ -11,6 +11,7 @@ use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailMessageEvent;
 use STS\Postmaster\Tests\Stubs\Account;
 use STS\Postmaster\Tests\Stubs\Tenant;
+use STS\Postmaster\Tests\Stubs\User;
 
 class DashboardTest extends TestCase
 {
@@ -48,7 +49,7 @@ class DashboardTest extends TestCase
     public function testOverviewLoadsWhenTheGatePasses()
     {
         Postmaster::auth(fn () => true);
-        EmailMessage::create(['message_id' => 'm1', 'status' => EmailEvent::EVENT_DELIVERED]);
+        EmailMessage::create(['provider_message_id' => 'm1', 'status' => EmailEvent::STATUS_DELIVERED]);
 
         $this->get('/postmaster')
             ->assertOk()
@@ -58,8 +59,8 @@ class DashboardTest extends TestCase
     public function testMessagesListFiltersByStatus()
     {
         Postmaster::auth(fn () => true);
-        EmailMessage::create(['message_id' => 'd1', 'recipient' => 'delivered@example.com', 'status' => EmailEvent::EVENT_DELIVERED]);
-        EmailMessage::create(['message_id' => 'b1', 'recipient' => 'bounced@example.com', 'status' => EmailEvent::EVENT_BOUNCED]);
+        EmailMessage::create(['provider_message_id' => 'd1', 'to_address' => 'delivered@example.com', 'status' => EmailEvent::STATUS_DELIVERED]);
+        EmailMessage::create(['provider_message_id' => 'b1', 'to_address' => 'bounced@example.com', 'status' => EmailEvent::STATUS_BOUNCED]);
 
         $this->get('/postmaster/messages?status=bounced')
             ->assertOk()
@@ -70,8 +71,8 @@ class DashboardTest extends TestCase
     public function testProviderFilterUsesStoredProviderNames()
     {
         Postmaster::auth(fn () => true);
-        EmailMessage::create(['message_id' => 's1', 'recipient' => 'sg@example.com', 'provider' => 'SendGrid']);
-        EmailMessage::create(['message_id' => 'p1', 'recipient' => 'pm@example.com', 'provider' => 'Postmark']);
+        EmailMessage::create(['provider_message_id' => 's1', 'to_address' => 'sg@example.com', 'provider' => 'SendGrid']);
+        EmailMessage::create(['provider_message_id' => 'p1', 'to_address' => 'pm@example.com', 'provider' => 'Postmark']);
 
         // The filter options are the provider names as actually stored
         // ("SendGrid"), not the lower-case config keys.
@@ -88,8 +89,8 @@ class DashboardTest extends TestCase
     public function testProviderFilterIsHiddenWithASingleProvider()
     {
         Postmaster::auth(fn () => true);
-        EmailMessage::create(['message_id' => 'a', 'provider' => 'SendGrid']);
-        EmailMessage::create(['message_id' => 'b', 'provider' => 'SendGrid']);
+        EmailMessage::create(['provider_message_id' => 'a', 'provider' => 'SendGrid']);
+        EmailMessage::create(['provider_message_id' => 'b', 'provider' => 'SendGrid']);
 
         // One provider can only ever select everything — drop the dropdown.
         $this->get('/postmaster/messages')
@@ -100,8 +101,8 @@ class DashboardTest extends TestCase
     public function testMessagesListFiltersByTag()
     {
         Postmaster::auth(fn () => true);
-        EmailMessage::create(['message_id' => 'b1', 'recipient' => 'billing@example.com', 'tags' => ['billing']]);
-        EmailMessage::create(['message_id' => 'o1', 'recipient' => 'onboard@example.com', 'tags' => ['onboarding']]);
+        EmailMessage::create(['provider_message_id' => 'b1', 'to_address' => 'billing@example.com', 'tags' => ['billing']]);
+        EmailMessage::create(['provider_message_id' => 'o1', 'to_address' => 'onboard@example.com', 'tags' => ['onboarding']]);
 
         $this->get('/postmaster/messages?tag=billing')
             ->assertOk()
@@ -112,7 +113,7 @@ class DashboardTest extends TestCase
     public function testMessageDetailShowsTags()
     {
         Postmaster::auth(fn () => true);
-        $message = EmailMessage::create(['message_id' => 'm1', 'tags' => ['billing', 'q3']]);
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'tags' => ['billing', 'q3']]);
 
         $this->get('/postmaster/messages/'.$message->getKey())
             ->assertOk()
@@ -124,7 +125,7 @@ class DashboardTest extends TestCase
     {
         Postmaster::auth(fn () => true);
         $message = EmailMessage::create([
-            'message_id' => 'm1',
+            'provider_message_id' => 'm1',
             'subject'    => '</title><script>alert(1)</script>',
         ]);
 
@@ -136,7 +137,7 @@ class DashboardTest extends TestCase
     public function testStoredEmailContentIsRenderedWithARestrictiveCsp()
     {
         Postmaster::auth(fn () => true);
-        $message = EmailMessage::create(['message_id' => 'm1', 'html_body' => '<p>Hello</p>']);
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'html_body' => '<p>Hello</p>']);
 
         // The preview iframe carries a CSP so remote subresources (tracking
         // pixels, remote images) can't fire when a message is opened.
@@ -149,7 +150,7 @@ class DashboardTest extends TestCase
     {
         Postmaster::auth(fn () => true);
         $message = EmailMessage::create([
-            'message_id' => 'm1',
+            'provider_message_id' => 'm1',
             'html_body'  => '<p>Hi</p><img src="https://tracker.example/pixel.png">',
         ]);
 
@@ -163,7 +164,7 @@ class DashboardTest extends TestCase
     {
         Postmaster::auth(fn () => true);
         $message = EmailMessage::create([
-            'message_id' => 'm1',
+            'provider_message_id' => 'm1',
             'html_body'  => '<img src="https://tracker.example/pixel.png">',
         ]);
 
@@ -177,7 +178,7 @@ class DashboardTest extends TestCase
     {
         Postmaster::auth(fn () => true);
         $message = EmailMessage::create([
-            'message_id' => 'm1',
+            'provider_message_id' => 'm1',
             'html_body'  => '<img src="data:image/png;base64,iVBORw0KGgo=">',
         ]);
 
@@ -190,12 +191,12 @@ class DashboardTest extends TestCase
     public function testShortContainsFilterTermsAreIgnored()
     {
         Postmaster::auth(fn () => true);
-        EmailMessage::create(['message_id' => 'a1', 'recipient' => 'alice@example.com']);
-        EmailMessage::create(['message_id' => 'b1', 'recipient' => 'bob@example.com']);
+        EmailMessage::create(['provider_message_id' => 'a1', 'to_address' => 'alice@example.com']);
+        EmailMessage::create(['provider_message_id' => 'b1', 'to_address' => 'bob@example.com']);
 
         // A two-character term is below the minimum — the filter is skipped
         // rather than running an unindexed scan, so every row still shows.
-        $this->get('/postmaster/messages?recipient=al')
+        $this->get('/postmaster/messages?to=al')
             ->assertOk()
             ->assertSee('alice@example.com')
             ->assertSee('bob@example.com');
@@ -214,7 +215,7 @@ class DashboardTest extends TestCase
     public function testMessageDetailLoads()
     {
         Postmaster::auth(fn () => true);
-        $message = EmailMessage::create(['message_id' => 'm1', 'subject' => 'Welcome aboard', 'status' => 'delivered']);
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'subject' => 'Welcome aboard', 'status' => 'delivered']);
 
         $this->get('/postmaster/messages/'.$message->getKey())
             ->assertOk()
@@ -233,8 +234,8 @@ class DashboardTest extends TestCase
         $tenant = Tenant::create(['name' => 'Acme Corp']);
 
         EmailMessage::create([
-            'message_id' => 'm1',
-            'recipient'  => 'r@example.com',
+            'provider_message_id' => 'm1',
+            'to_address'  => 'r@example.com',
             'tenant_id'  => $tenant->getKey(),
         ]);
 
@@ -255,8 +256,8 @@ class DashboardTest extends TestCase
         $account = Account::create(['name' => 'Acme']);
 
         EmailMessage::create([
-            'message_id' => 'm1',
-            'recipient'  => 'r@example.com',
+            'provider_message_id' => 'm1',
+            'to_address'  => 'r@example.com',
             'tenant_id'  => $account->getKey(),
         ]);
 
@@ -267,13 +268,129 @@ class DashboardTest extends TestCase
             ->assertSee('<th>Account</th>', false);
     }
 
+    public function testMessageDetailLinksToTheRecipientView()
+    {
+        Postmaster::auth(fn () => true);
+        Schema::create('users', function ($table) {
+            $table->id();
+            $table->string('name');
+        });
+        $user = User::create(['name' => 'Alice']);
+
+        $message = EmailMessage::create([
+            'provider_message_id'  => 'm1',
+            'to_address'            => 'alice@example.com',
+            'recipient_type' => $user->getMorphClass(),
+            'recipient_id'   => $user->getKey(),
+        ]);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSee('Recipient')
+            ->assertSee('Alice')
+            ->assertSee('/postmaster/recipient/', false);
+    }
+
+    public function testRecipientViewShowsOnlyMessagesForThatRecipient()
+    {
+        Postmaster::auth(fn () => true);
+        Schema::create('users', function ($table) {
+            $table->id();
+            $table->string('name');
+        });
+        $alice = User::create(['name' => 'Alice']);
+        $bob   = User::create(['name' => 'Bob']);
+
+        EmailMessage::create([
+            'provider_message_id'  => 'a',
+            'to_address'            => 'alice@example.com',
+            'subject'              => 'For Alice',
+            'recipient_type' => $alice->getMorphClass(),
+            'recipient_id'   => $alice->getKey(),
+        ]);
+        EmailMessage::create([
+            'provider_message_id'  => 'b',
+            'to_address'            => 'bob@example.com',
+            'subject'              => 'For Bob',
+            'recipient_type' => $bob->getMorphClass(),
+            'recipient_id'   => $bob->getKey(),
+        ]);
+
+        $this->get('/postmaster/recipient/'.urlencode($alice->getMorphClass()).'/'.$alice->getKey())
+            ->assertOk()
+            ->assertSee('Emails for Alice')
+            ->assertSee('For Alice')
+            ->assertDontSee('For Bob');
+    }
+
+    public function testResendReplaysAStoredMessage()
+    {
+        Postmaster::auth(fn () => true);
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $message = EmailMessage::create([
+            'provider_message_id' => 'orig',
+            'to_address'           => 'alice@example.com',
+            'from_address'        => 'no-reply@acme.test',
+            'subject'             => 'Receipt',
+            'html_body'           => '<p>Thanks!</p>',
+            'tags'                => ['billing'],
+        ]);
+
+        $this->post('/postmaster/messages/'.$message->getKey().'/resend')
+            ->assertRedirect('/postmaster/messages/'.$message->getKey())
+            ->assertSessionHas('postmasterFlash');
+
+        \Illuminate\Support\Facades\Mail::assertSent(\STS\Postmaster\Mail\ResentMessage::class, function ($mail) use ($message) {
+            return $mail->record->is($message);
+        });
+    }
+
+    public function testResentMessageReplaysTheStoredHeadersAndBody()
+    {
+        $message = EmailMessage::create([
+            'provider_message_id' => 'orig',
+            'to_address'           => 'alice@example.com',
+            'from_address'        => 'no-reply@acme.test',
+            'subject'             => 'Receipt',
+            'html_body'           => '<p>Thanks!</p>',
+            'tags'                => ['billing'],
+        ]);
+
+        $mail = new \STS\Postmaster\Mail\ResentMessage($message);
+        $mail->build();
+
+        $this->assertTrue($mail->hasTo('alice@example.com'));
+        $this->assertTrue($mail->hasFrom('no-reply@acme.test'));
+        $this->assertSame('Receipt', $mail->subject);
+        $this->assertTrue($mail->hasTag('billing'));
+        $this->assertTrue($mail->hasTag('resent'));
+    }
+
+    public function testResendRefusesWhenNoContentIsStored()
+    {
+        Postmaster::auth(fn () => true);
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $message = EmailMessage::create([
+            'provider_message_id' => 'orig',
+            'to_address'           => 'alice@example.com',
+        ]);
+
+        $this->post('/postmaster/messages/'.$message->getKey().'/resend')
+            ->assertRedirect('/postmaster/messages/'.$message->getKey())
+            ->assertSessionHas('postmasterError');
+
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
+
     public function testActivityListLoads()
     {
         Postmaster::auth(fn () => true);
-        $message = EmailMessage::create(['message_id' => 'm1', 'recipient' => 'seen@example.com']);
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'seen@example.com']);
         EmailMessageEvent::create([
             'email_message_id' => $message->getKey(),
-            'status'           => EmailEvent::EVENT_DELIVERED,
+            'status'           => EmailEvent::STATUS_DELIVERED,
             'occurred_at'      => now(),
         ]);
 
@@ -285,17 +402,17 @@ class DashboardTest extends TestCase
     public function testActivityFeedReturnsJson()
     {
         Postmaster::auth(fn () => true);
-        $message = EmailMessage::create(['message_id' => 'm1', 'recipient' => 'r@example.com']);
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'r@example.com']);
         EmailMessageEvent::create([
             'email_message_id' => $message->getKey(),
-            'status'           => EmailEvent::EVENT_DELIVERED,
+            'status'           => EmailEvent::STATUS_DELIVERED,
             'occurred_at'      => now(),
         ]);
 
         $this->getJson('/postmaster/activity/feed')
             ->assertOk()
             ->assertJsonStructure(['events', 'lastId'])
-            ->assertJsonFragment(['status' => EmailEvent::EVENT_DELIVERED]);
+            ->assertJsonFragment(['status' => EmailEvent::STATUS_DELIVERED]);
     }
 
     public function testAddressesListLoads()

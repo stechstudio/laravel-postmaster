@@ -35,7 +35,7 @@ class RelayVerificationEvent
     {
         $watching = Cache::get(self::WATCHING_KEY);
 
-        if ($watching === null || $event->getMessageId() !== $watching) {
+        if ($watching === null || $event->providerMessageId() !== $watching) {
             return;
         }
 
@@ -46,9 +46,9 @@ class RelayVerificationEvent
         }
 
         $relayed[] = [
-            'status'   => $event->getAction(),
-            'provider' => $event->getProvider(),
-            'at'       => ($event->getDate() ?? now())->format(DATE_ATOM),
+            'status'   => $event->status(),
+            'provider' => $event->provider(),
+            'at'       => ($event->occurredAt() ?? now())->format(DATE_ATOM),
         ];
 
         Cache::put(self::EVENTS_KEY, $relayed, now()->addMinutes(10));

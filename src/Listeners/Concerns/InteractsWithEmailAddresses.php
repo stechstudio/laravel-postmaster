@@ -63,7 +63,7 @@ trait InteractsWithEmailAddresses
             return;
         }
 
-        $address = $event->getRecipient();
+        $address = $event->toAddress();
 
         if (empty($address)) {
             return;
@@ -75,7 +75,7 @@ trait InteractsWithEmailAddresses
             'address' => $model::normalize($address),
         ]);
 
-        $occurredAt = $event->getDate() ?? now();
+        $occurredAt = $event->occurredAt() ?? now();
         $record->last_event_at = $occurredAt;
 
         $reason = $this->suppressionReason($event);
@@ -101,9 +101,9 @@ trait InteractsWithEmailAddresses
     protected function suppressionReason( EmailEvent $event )
     {
         return match (true) {
-            $event->getAction() === EmailEvent::EVENT_COMPLAINED => EmailEvent::EVENT_COMPLAINED,
-            $event->getAction() === EmailEvent::EVENT_DROPPED    => EmailEvent::EVENT_DROPPED,
-            $event->getAction() === EmailEvent::EVENT_BOUNCED && $event->isPermanent() => EmailEvent::EVENT_BOUNCED,
+            $event->status() === EmailEvent::STATUS_COMPLAINED => EmailEvent::STATUS_COMPLAINED,
+            $event->status() === EmailEvent::STATUS_DROPPED    => EmailEvent::STATUS_DROPPED,
+            $event->status() === EmailEvent::STATUS_BOUNCED && $event->isPermanent() => EmailEvent::STATUS_BOUNCED,
             default => null,
         };
     }

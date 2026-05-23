@@ -10,6 +10,7 @@ use Illuminate\Support\ServiceProvider;
 use STS\Postmaster\Auth\BasicHttpAuth;
 use STS\Postmaster\Auth\TokenAuth;
 use STS\Postmaster\Console\Prune;
+use STS\Postmaster\Console\Install;
 use STS\Postmaster\Console\VerifySetup;
 use STS\Postmaster\Http\Middleware\AuthorizeDashboard;
 use STS\Postmaster\Listeners\InterceptSandboxMail;
@@ -199,7 +200,7 @@ class PostmasterServiceProvider extends ServiceProvider
         ], 'postmaster.migrations');
 
         // The setup check is useful regardless of persistence.
-        $this->commands([VerifySetup::class]);
+        $this->commands([Install::class, VerifySetup::class]);
 
         if ($this->app['config']->get('postmaster.persistence.enabled')) {
             $this->commands([Prune::class]);

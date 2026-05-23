@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Mail;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use Throwable;
 
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\select;
+use function Laravel\Prompts\text;
+
 /**
  * An interactive setup check: shows the webhook URL the configured provider
  * should POST to, sends a real test email, then watches for the delivery
@@ -91,7 +95,7 @@ class VerifySetup extends Command
             $this->newLine();
         }
 
-        if (! $this->confirm("Have you set that webhook URL in your {$provider} dashboard?")) {
+        if (! confirm("Have you set that webhook URL in your {$provider} dashboard?")) {
             $this->components->warn("Add the webhook URL above in your {$provider} dashboard, then run this command again.");
 
             return self::FAILURE;
@@ -158,14 +162,14 @@ class VerifySetup extends Command
         [$guess, $why] = $this->guessProvider();
 
         if ($guess !== null && in_array($guess, $providers, true)) {
-            if ($this->confirm("Detected the \"{$guess}\" provider {$why}. Verify that one?", true)) {
+            if (confirm("Detected the \"{$guess}\" provider {$why}. Verify that one?", default: true)) {
                 return $guess;
             }
         } else {
             $this->components->warn('Could not determine your provider from the mail config.');
         }
 
-        return $this->choice('Which provider are you verifying?', $providers);
+        return select('Which provider are you verifying?', $providers);
     }
 
     /**
@@ -272,15 +276,15 @@ class VerifySetup extends Command
      */
     protected function askForAddress()
     {
-        while (true) {
-            $address = trim((string) $this->ask('Send the test email to which address? (use a real inbox you can check)'));
-
-            if (filter_var($address, FILTER_VALIDATE_EMAIL)) {
-                return $address;
-            }
-
-            $this->components->error('That is not a valid email address.');
-        }
+        return text(
+            label: 'Send the test email to which address?',
+            placeholder: 'you@example.com',
+            required: true,
+            validate: fn ($v) => filter_var(trim($v), FILTER_VALIDATE_EMAIL)
+                ? null
+                : 'That is not a valid email address.',
+            hint: 'Use a real inbox you can check.',
+        );
     }
 
     /**

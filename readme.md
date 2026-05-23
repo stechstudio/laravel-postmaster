@@ -60,6 +60,19 @@ composer require stechstudio/laravel-postmaster
 That's all the setup there is. The webhook route registers itself, and there's
 nothing to publish until you opt into a feature that needs it.
 
+For an interactive walkthrough that asks about your provider, sets the
+webhook verification credential, publishes migrations, and runs the
+round-trip check:
+
+```bash
+php artisan postmaster:install
+```
+
+It writes everything to your `.env` (backing the previous version up to
+`.env.backup`) and offers to run `postmaster:verify` at the end. Skip
+it and follow the manual steps below if you'd rather wire things up by
+hand.
+
 ## Getting started
 
 The core of Postmaster is one webhook endpoint and one event. Three steps and

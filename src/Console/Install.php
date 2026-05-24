@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
@@ -355,9 +356,12 @@ class Install extends Command
 
     /**
      * Update the app's .env file with the answers — preserving comments,
-     * order, and existing values. Existing keys are overwritten in place;
-     * new keys are appended at the end. The previous file is backed up to
-     * .env.backup beforehand.
+     * order, and any non-Postmaster lines. Existing keys are overwritten in
+     * place; new keys are appended at the end. When a previous install left
+     * POSTMASTER_ entries behind that this run doesn't touch (e.g. a prior
+     * provider's auth credentials), the wizard offers to remove them so the
+     * file stays tidy. Non-POSTMASTER_ lines are never modified. The
+     * previous file is backed up to .env.backup beforehand.
      *
      * @param array<string, string> $vars
      */
@@ -389,6 +393,26 @@ class Install extends Command
         $contents = file_get_contents($path);
         $lines    = preg_split('/\R/', $contents);
 
+        // Look for POSTMASTER_ keys this install isn't overwriting — likely
+        // leftovers from an earlier run with different choices. Offer (don't
+        // force) to clear them; some operators set extras by hand.
+        $orphans = array_diff_key($this->existingPostmasterKeys($lines), $vars);
+
+        if (! empty($orphans) && confirm(
+            'Found '.count($orphans).' POSTMASTER_ '.Str::plural('entry', count($orphans))
+                .' already in .env that this install will not overwrite. Remove '
+                .(count($orphans) === 1 ? 'it' : 'them').'?',
+            default: false,
+            hint: implode(', ', array_keys($orphans)),
+        )) {
+            foreach ($orphans as $index) {
+                unset($lines[$index]);
+            }
+
+            // Reindex so the replace-or-append loop's indices stay valid.
+            $lines = array_values($lines);
+        }
+
         foreach ($vars as $key => $value) {
             $written  = false;
             $rendered = $key.'='.$this->escape($value);
@@ -409,6 +433,28 @@ class Install extends Command
         file_put_contents($path, implode("\n", $lines));
 
         info(".env updated. Previous version backed up to .env.backup.");
+    }
+
+    /**
+     * The POSTMASTER_ keys currently set in the given .env lines, mapped to
+     * their line index. Commented-out lines (those starting with `#`) are
+     * ignored — the operator left them off on purpose.
+     *
+     * @param array<int, string> $lines
+     *
+     * @return array<string, int>
+     */
+    protected function existingPostmasterKeys(array $lines): array
+    {
+        $found = [];
+
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^\s*(POSTMASTER_[A-Z0-9_]+)\s*=/', $line, $matches)) {
+                $found[$matches[1]] = $index;
+            }
+        }
+
+        return $found;
     }
 
     /**

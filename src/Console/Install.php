@@ -106,7 +106,7 @@ class Install extends Command
                 'resend'   => 'Resend',
             ],
             default: $detected,
-            hint: $detected ? "Detected {$detected} from your mail config." : null,
+            hint: $detected ? "Detected {$detected} from your mail config." : '',
         );
     }
 

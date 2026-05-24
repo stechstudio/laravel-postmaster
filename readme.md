@@ -57,26 +57,33 @@ all.
 composer require stechstudio/laravel-postmaster
 ```
 
-That's all the setup there is. The webhook route registers itself, and there's
-nothing to publish until you opt into a feature that needs it.
-
-For an interactive walkthrough that asks about your provider, sets the
-webhook verification credential, optionally configures suppression sync
-(see below), publishes migrations, and runs the round-trip check:
+The webhook route registers itself, and there is nothing else to publish until
+you opt into a feature that needs it. For everything that's left, run the
+install wizard:
 
 ```bash
 php artisan postmaster:install
 ```
 
-It writes everything to your `.env` (backing the previous version up to
-`.env.backup`) and offers to run `postmaster:verify` at the end. Skip
-it and follow the manual steps below if you'd rather wire things up by
-hand.
+It walks through the rest in one pass:
+
+- detects which provider your `mail` config points at and gathers its webhook
+  verification credential,
+- optionally sets up suppression sync (collecting an API key for the providers
+  that need one — see [Two-way sync with your provider](#two-way-sync-with-your-provider)),
+- offers to enable persistence, content storage, or sandbox delivery,
+- publishes and runs the package's migrations, and
+- runs `postmaster:verify` at the end to confirm the round trip works end-to-end.
+
+Everything goes into your `.env`, with the previous version backed up to
+`.env.backup`. Re-running the wizard later is safe: it edits values in place
+and offers to clean up entries left over from earlier choices, and it leaves
+non-Postmaster lines alone. If you'd rather wire things up by hand,
+[Securing webhooks](#securing-webhooks) below has each provider's credential.
 
 ## Getting started
 
-The core of Postmaster is one webhook endpoint and one event. Three steps and
-you're reacting to delivery events from any provider.
+The wizard handles everything inside your app. Two things still need your hand:
 
 ### 1. Point your provider at the webhook
 
@@ -89,21 +96,7 @@ https://your-app.com/webhooks/postmaster/{provider}
 
 …where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, or `resend`.
 
-### 2. Configure verification
-
-Postmaster verifies every inbound webhook and rejects anything it can't trust.
-Set the credential your provider needs in `.env`:
-
-- **SendGrid** — `POSTMASTER_SENDGRID_VERIFICATION_KEY` (from the Signed Event Webhook settings).
-- **Mailgun** — `POSTMASTER_MAILGUN_SIGNING_KEY` (falls back to `MAILGUN_SECRET`).
-- **Resend** — `POSTMASTER_RESEND_SIGNING_SECRET`.
-- **Amazon SES** — no secret to configure; the package verifies the SNS message signature against AWS's certs and completes the subscription-confirmation handshake automatically.
-- **Postmark** — `POSTMASTER_AUTH_USERNAME` and `POSTMASTER_AUTH_PASSWORD` (Postmark doesn't sign payloads; HTTP basic auth is the default). Use the same credentials in the webhook URL you registered with Postmark.
-
-See [Securing webhooks](#securing-webhooks) for the per-provider details, the
-alternative `token` and `basic` modes, and custom authorizer classes.
-
-### 3. Listen for the event
+### 2. Listen for the event
 
 Every webhook, from any provider, is dispatched as a normalized `EmailEvent`.
 Listen for it in a service provider's `boot()` method:
@@ -216,7 +209,8 @@ signature verification where the provider supports it.
 
 ## Verify your setup
 
-With the webhook pointed and its credential set, confirm the whole round trip:
+The install wizard offers to run this at the end, but you can run it any time
+to re-check a round trip after a config or provider change:
 
 ```bash
 php artisan postmaster:verify

@@ -5,6 +5,7 @@ namespace STS\Postmaster\Listeners;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailAddresses;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailMessages;
+use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 
 /**
@@ -34,7 +35,7 @@ class UpdateMessageFromEvent
             return;
         }
 
-        $address = $event->toAddress() === null ? null : strtolower($event->toAddress());
+        $address = $event->toAddress() === null ? null : EmailAddress::normalize($event->toAddress());
         $record  = $this->findOrCreateMessage($event, $messageId, $address);
 
         // Hand the correlated record to the event so any later listener can
@@ -115,7 +116,7 @@ class UpdateMessageFromEvent
         }
 
         if (empty($record->to_address) && $event->toAddress() !== null) {
-            $record->to_address = strtolower($event->toAddress());
+            $record->to_address = EmailAddress::normalize($event->toAddress());
         }
 
         $occurredAt = $event->occurredAt() ?? now();

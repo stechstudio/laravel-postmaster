@@ -8,6 +8,7 @@ use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Postmaster;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailAddresses;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailMessages;
+use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
 
@@ -160,7 +161,7 @@ class RecordOutboundMessage
         foreach (['to' => $message->getTo(), 'cc' => $message->getCc(), 'bcc' => $message->getBcc()] as $role => $addresses) {
             foreach ($addresses as $address) {
                 $entries[] = [
-                    'address' => strtolower($address->getAddress()),
+                    'address' => EmailAddress::normalize($address->getAddress()),
                     'role'    => $role,
                 ];
             }
@@ -170,7 +171,7 @@ class RecordOutboundMessage
         // we can dig out of the Symfony message after the fact — record at
         // least one row for the primary recipient so the dashboard sees it.
         if (empty($entries) && $primary = ($message->getTo()[0] ?? null)) {
-            $entries[] = ['address' => strtolower($primary->getAddress()), 'role' => 'to'];
+            $entries[] = ['address' => EmailAddress::normalize($primary->getAddress()), 'role' => 'to'];
         }
 
         return $entries;

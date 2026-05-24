@@ -3,8 +3,8 @@
 namespace STS\Postmaster\Listeners;
 
 use Illuminate\Mail\Events\MessageSending;
-use Illuminate\Support\Str;
 use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Listeners\Concerns\MakesSyntheticMessageId;
 use STS\Postmaster\Postmaster;
 
 /**
@@ -25,6 +25,8 @@ use STS\Postmaster\Postmaster;
  */
 class InterceptSuppressedRecipient
 {
+    use MakesSyntheticMessageId;
+
     public function __construct(
         protected Postmaster $postmaster,
         protected RecordOutboundMessage $recorder,
@@ -63,23 +65,11 @@ class InterceptSuppressedRecipient
 
         $this->recorder->record(
             $event->message,
-            $this->syntheticMessageId(),
+            $this->syntheticMessageId('blocked'),
             EmailEvent::STATUS_BLOCKED
         );
 
         // Cancel the send: the message is never handed to the transport.
         return false;
-    }
-
-    /**
-     * A unique, unmistakably-synthetic message id for a blocked send. The
-     * "blocked-" prefix keeps it from ever colliding with a real provider
-     * id or being matched by an inbound webhook.
-     *
-     * @return string
-     */
-    protected function syntheticMessageId()
-    {
-        return 'blocked-'.Str::uuid()->toString();
     }
 }

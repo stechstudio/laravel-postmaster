@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Route;
 use STS\Postmaster\Http\Controllers\WebhookController;
 use STS\Postmaster\Http\Middleware\VerifyWebhook;
+use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
+use Throwable;
 
 class Postmaster
 {
@@ -299,7 +301,7 @@ class Postmaster
                 continue;
             }
 
-            $encoded[strtolower((string) $address)] = [
+            $encoded[EmailAddress::normalize((string) $address)] = [
                 $model->getMorphClass(),
                 (string) $model->getKey(),
             ];
@@ -404,7 +406,7 @@ class Postmaster
         $record->suppress($reason);
 
         $record->logActivity([
-            'status' => \STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED,
+            'status' => EmailActivity::STATUS_SUPPRESSED,
             'reason' => $reason,
         ]);
 
@@ -450,7 +452,7 @@ class Postmaster
             try {
                 $sync->unsuppress($normalized);
                 $cleared[] = $provider;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 logger()->warning(
                     "Postmaster: provider unsuppress failed for {$provider}; the local row will still be lifted.",
                     ['address' => $address, 'error' => $e->getMessage()]
@@ -462,7 +464,7 @@ class Postmaster
         $record->unsuppress();
 
         $record->logActivity([
-            'status' => \STS\Postmaster\Models\EmailActivity::STATUS_UNSUPPRESSED,
+            'status' => EmailActivity::STATUS_UNSUPPRESSED,
             'response' => empty($cleared) ? null : 'Cleared at: '.implode(', ', $cleared),
         ]);
 

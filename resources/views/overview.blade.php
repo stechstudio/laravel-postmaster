@@ -87,7 +87,7 @@
                 <a href="{{ route('postmaster.activity') }}" class="pm-link">View all →</a>
             </div>
             @include('postmaster::partials.activity-feed', [
-                'events' => $recentEvents,
+                'events' => $recentActivity,
                 'lastId' => $recentLastId,
                 'limit'  => 8,
             ])

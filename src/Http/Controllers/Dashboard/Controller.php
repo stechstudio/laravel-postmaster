@@ -29,7 +29,7 @@ abstract class Controller
     /**
      * @return Builder<EmailActivity>
      */
-    protected function eventQuery()
+    protected function activityQuery()
     {
         $class = config('postmaster.persistence.activity_model', EmailActivity::class);
 
@@ -47,18 +47,18 @@ abstract class Controller
     }
 
     /**
-     * The most recent timeline events, newest first, each with its message
-     * eager-loaded across tenants. Shared by the activity stream and the
-     * overview's recent-activity card.
+     * The most recent timeline activity, newest first, each entry with its
+     * message eager-loaded across tenants. Shared by the activity stream and
+     * the overview's recent-activity card.
      *
-     * @param int $after Only events with a higher id (for the live feed).
+     * @param int $after Only entries with a higher id (for the live feed).
      * @param int $limit
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, EmailActivity>
      */
-    protected function recentEvents( $after = 0, $limit = 100 )
+    protected function recentActivity( $after = 0, $limit = 100 )
     {
-        $query = $this->eventQuery()
+        $query = $this->activityQuery()
             ->with(['emailMessage' => fn ($q) => $q->withoutGlobalScopes()])
             ->orderByDesc('id')
             ->limit($limit);
@@ -278,22 +278,23 @@ abstract class Controller
     }
 
     /**
-     * Flatten a timeline event for the JSON feed and the Alpine table.
+     * Flatten a timeline activity entry for the JSON feed and the Alpine
+     * live-feed table.
      *
-     * @param EmailActivity $event
+     * @param EmailActivity $entry
      *
      * @return array<string, mixed>
      */
-    protected function presentEvent( $event )
+    protected function presentActivity( $entry )
     {
         return [
-            'id'        => $event->id,
-            'status'    => $event->status,
-            'provider'  => $event->provider,
-            'to'        => $event->emailMessage?->getAttribute('to_address'),
-            'subject'   => $event->emailMessage?->getAttribute('subject'),
-            'messageId' => $event->email_message_id,
-            'at'        => $event->occurred_at?->toIso8601String(),
+            'id'        => $entry->id,
+            'status'    => $entry->status,
+            'provider'  => $entry->provider,
+            'to'        => $entry->emailMessage?->getAttribute('to_address'),
+            'subject'   => $entry->emailMessage?->getAttribute('subject'),
+            'messageId' => $entry->email_message_id,
+            'at'        => $entry->occurred_at?->toIso8601String(),
         ];
     }
 }

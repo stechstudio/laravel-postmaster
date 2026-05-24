@@ -60,7 +60,7 @@ class Provider
     {
         $class = $this->adapterClass;
 
-        foreach ($this->wrapPayload($payload) AS $data) {
+        foreach ($this->wrapPayload($payload) as $data) {
             // Some providers pack per-recipient data into a single event
             // (SES's delivery.recipients[] array, for one). Give the
             // adapter a chance to fan that out into one event per recipient.
@@ -131,7 +131,7 @@ class Provider
      */
     public function dispatch()
     {
-        foreach ($this->events AS $event) {
+        foreach ($this->events as $event) {
             event($event);
         }
 

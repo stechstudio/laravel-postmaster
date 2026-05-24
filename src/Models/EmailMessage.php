@@ -72,10 +72,8 @@ class EmailMessage extends Model
     /**
      * Used by HasStatusPredicates to drive the is*() methods. Returns the
      * latest status recorded for this message.
-     *
-     * @return string|null
      */
-    protected function currentStatus()
+    protected function currentStatus(): ?string
     {
         return $this->getAttribute('status');
     }
@@ -171,7 +169,7 @@ class EmailMessage extends Model
      * Scope to messages at a given lifecycle status.
      *
      * @param Builder $query
-     * @param string  $status One of the EmailEvent::EVENT_* constants.
+     * @param string  $status One of the EmailEvent::STATUS_* constants.
      *
      * @return Builder
      */

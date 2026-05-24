@@ -6,14 +6,14 @@ use Illuminate\Http\Request;
 
 /**
  * The activity stream — a filterable, paginated view of every recorded
- * timeline event, newest first. Reads email_activity, so it needs
+ * timeline entry, newest first. Reads email_activity, so it needs
  * record_events on. The JSON feed drives the overview's live card.
  */
 class ActivityController extends Controller
 {
     public function index( Request $request )
     {
-        $query = $this->eventQuery()
+        $query = $this->activityQuery()
             ->with([
                 'emailMessage' => fn ($q) => $q->withoutGlobalScopes(),
                 'emailAddress',
@@ -45,23 +45,25 @@ class ActivityController extends Controller
         $this->applyDateRange($query, 'occurred_at', $request->query('from'), $request->query('to'));
 
         return response()->view('postmaster::activity', [
-            'events'   => $query->paginate(50)->withQueryString(),
-            'filters'  => $request->query(),
-            'statuses' => $this->statuses(),
+            'entries'    => $query->paginate(50)->withQueryString(),
+            'filters'    => $request->query(),
+            'statuses'   => $this->statuses(),
             'tenants'    => $this->tenantLabels($this->tenantKeysInUse()),
             'tenantTerm' => $this->tenantTerm(),
-            'enabled'  => (bool) config('postmaster.persistence.record_events', false),
+            'enabled'    => (bool) config('postmaster.persistence.record_events', false),
         ]);
     }
 
     public function feed( Request $request )
     {
-        $after = (int) $request->query('after', 0);
-        $events = $this->recentEvents($after);
+        $after   = (int) $request->query('after', 0);
+        $entries = $this->recentActivity($after);
 
+        // The JSON key stays `events` because the consuming JS treats this
+        // as a real-time event stream rather than as paginated rows.
         return response()->json([
-            'events' => $events->map(fn ($event) => $this->presentEvent($event))->values(),
-            'lastId' => $events->max('id') ?? $after,
+            'events' => $entries->map(fn ($entry) => $this->presentActivity($entry))->values(),
+            'lastId' => $entries->max('id') ?? $after,
         ]);
     }
 }

@@ -133,10 +133,8 @@ class EmailEvent
 
     /**
      * Used by HasStatusPredicates to drive the is*() methods.
-     *
-     * @return string|null
      */
-    protected function currentStatus()
+    protected function currentStatus(): ?string
     {
         return $this->status();
     }

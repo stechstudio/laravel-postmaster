@@ -3,8 +3,8 @@
 namespace STS\Postmaster\Listeners;
 
 use Illuminate\Mail\Events\MessageSending;
-use Illuminate\Support\Str;
 use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Listeners\Concerns\MakesSyntheticMessageId;
 
 /**
  * Sandbox delivery: when "postmaster.delivery" is "sandbox", every outbound
@@ -22,6 +22,8 @@ use STS\Postmaster\EmailEvent;
  */
 class InterceptSandboxMail
 {
+    use MakesSyntheticMessageId;
+
     public function __construct( protected RecordOutboundMessage $recorder )
     {
     }
@@ -42,24 +44,12 @@ class InterceptSandboxMail
         if (config('postmaster.persistence.enabled')) {
             $this->recorder->record(
                 $event->message,
-                $this->syntheticMessageId(),
+                $this->syntheticMessageId('sandboxed'),
                 EmailEvent::STATUS_SANDBOXED
             );
         }
 
         // Cancel the send: the message is never handed to the transport.
         return false;
-    }
-
-    /**
-     * A unique, unmistakably-synthetic message id for a sandboxed email. The
-     * "sandboxed-" prefix keeps it from ever colliding with a real provider
-     * id or being matched by an inbound webhook.
-     *
-     * @return string
-     */
-    protected function syntheticMessageId()
-    {
-        return 'sandboxed-'.Str::uuid()->toString();
     }
 }

@@ -39,7 +39,7 @@ class OverviewController extends Controller
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
-        $recentEvents = $this->recentEvents(0, 8);
+        $recentActivity = $this->recentActivity(0, 8);
 
         return response()->view('postmaster::overview', [
             'total'          => $this->messageQuery()->where('created_at', '>=', $since)->count(),
@@ -48,12 +48,12 @@ class OverviewController extends Controller
                 ->where('status', EmailAddress::STATUS_SUPPRESSED)
                 ->where('suppressed_at', '>=', $since)
                 ->count(),
-            'chart'          => $this->activity($days),
+            'chart'          => $this->messageBuckets($days),
             'days'           => $days,
             'ranges'         => $this->ranges,
             'recentMessages' => $this->messageQuery()->latest()->limit(8)->get(),
-            'recentEvents'   => $recentEvents->map(fn ($event) => $this->presentEvent($event))->values(),
-            'recentLastId'   => $recentEvents->max('id') ?? 0,
+            'recentActivity' => $recentActivity->map(fn ($entry) => $this->presentActivity($entry))->values(),
+            'recentLastId'   => $recentActivity->max('id') ?? 0,
         ]);
     }
 
@@ -66,7 +66,7 @@ class OverviewController extends Controller
      *
      * @return array<int, array{date: \Illuminate\Support\Carbon, count: int, interval: int}>
      */
-    protected function activity( $days )
+    protected function messageBuckets( $days )
     {
         $interval = match (true) {
             $days <= 31  => 1,

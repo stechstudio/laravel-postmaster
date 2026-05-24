@@ -30,7 +30,7 @@
         </form>
     </div>
 
-    @include('postmaster::partials.pager', ['paginator' => $events, 'label' => 'events'])
+    @include('postmaster::partials.pager', ['paginator' => $entries, 'label' => 'entries'])
 
     <div class="pm-card" style="padding: 0;">
         <table class="pm-table">
@@ -45,24 +45,24 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse ($events as $event)
+                @forelse ($entries as $entry)
                     @php
                         // Lifecycle entries are clickable through to their
                         // message; address-only entries aren't (no message
                         // to drill into).
-                        $href = $event->email_message_id ? route('postmaster.messages.show', $event->email_message_id) : null;
-                        $recipient = $event->emailMessage?->to_address ?? $event->emailAddress?->address;
-                        $subject   = $event->emailMessage?->subject
-                            ?? ($event->email_address_id ? '(address activity)' : '—');
+                        $href = $entry->email_message_id ? route('postmaster.messages.show', $entry->email_message_id) : null;
+                        $recipient = $entry->emailMessage?->to_address ?? $entry->emailAddress?->address;
+                        $subject   = $entry->emailMessage?->subject
+                            ?? ($entry->email_address_id ? '(address activity)' : '—');
                     @endphp
                     <tr @class(['pm-row-link' => $href]) @if ($href) onclick="location.href='{{ $href }}'" @endif>
-                        <td class="pm-dim pm-cell-meta">@include('postmaster::partials.datetime', ['when' => $event->occurred_at])</td>
+                        <td class="pm-dim pm-cell-meta">@include('postmaster::partials.datetime', ['when' => $entry->occurred_at])</td>
                         <td class="pm-cell-sub">{{ $recipient ?? '—' }}</td>
                         <td class="pm-truncate pm-cell-title">{{ $subject }}</td>
-                        <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $event->status])</td>
-                        <td class="pm-dim">{{ $event->provider ?? '—' }}</td>
+                        <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $entry->status])</td>
+                        <td class="pm-dim">{{ $entry->provider ?? '—' }}</td>
                         @if ($hasTenants)
-                            <td class="pm-dim">{{ $tenants[$event->emailMessage?->{$tenantColumn}] ?? '—' }}</td>
+                            <td class="pm-dim">{{ $tenants[$entry->emailMessage?->{$tenantColumn}] ?? '—' }}</td>
                         @endif
                     </tr>
                 @empty
@@ -72,5 +72,5 @@
         </table>
     </div>
 
-    @include('postmaster::partials.pager', ['paginator' => $events, 'label' => 'events'])
+    @include('postmaster::partials.pager', ['paginator' => $entries, 'label' => 'entries'])
 @endsection

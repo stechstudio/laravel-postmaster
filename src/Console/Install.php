@@ -49,6 +49,7 @@ class Install extends Command
 
         $provider     = $this->askProvider();
         $envVars      = $this->askProviderAuth($provider);
+        $envVars      = array_merge($envVars, $this->askSuppressionSync($provider));
         $persistence  = confirm('Enable the persistence layer? (records every outbound, suppression list, dashboard)', default: true);
         $storeContent = $persistence
             ? confirm('Store message subject and body for the dashboard?', default: false, hint: 'Can include PII or secrets like password-reset links — short retention by default.')
@@ -208,6 +209,127 @@ class Install extends Command
     {
         note("SES delivers events through SNS; the package verifies each message's signature against AWS's certs automatically. No operator-supplied credential is needed.");
         note('After install, subscribe an SNS topic to your webhook URL — the SubscriptionConfirmation handshake completes itself.');
+
+        return [];
+    }
+
+    /**
+     * Optional: suppression sync. The provider's authoritative suppression
+     * list is reconciled against ours when `postmaster:sync` runs. Most
+     * providers need an API key for it (separate from the webhook auth);
+     * SES uses the AWS SDK; Resend has no suppression-list API at all.
+     *
+     * @return array<string, string>
+     */
+    protected function askSuppressionSync(string $provider): array
+    {
+        if ($provider === 'resend') {
+            note('Resend has no suppression-list API, so there is nothing to sync. Skipping.');
+
+            return [];
+        }
+
+        if (! confirm(
+            'Set up suppression sync now?',
+            default: true,
+            hint: 'Keeps Postmaster\'s suppression list in step with the provider\'s. Run "postmaster:sync" yourself (e.g. on a daily schedule).',
+        )) {
+            return [];
+        }
+
+        return match ($provider) {
+            'sendgrid' => $this->askSendGridSync(),
+            'postmark' => $this->askPostmarkSync(),
+            'mailgun'  => $this->askMailgunSync(),
+            'ses'      => $this->noteSesSync(),
+            default    => [],
+        };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function askSendGridSync(): array
+    {
+        note('Install the SDK with: composer require sendgrid/sendgrid');
+
+        if (config('postmaster.providers.sendgrid.api_key')) {
+            info('Found a SendGrid API key already in your environment — sync will use it.');
+
+            return [];
+        }
+
+        $key = password(
+            label: 'SendGrid API key',
+            hint: 'Settings → API Keys. Needs the "Suppressions" scope.',
+            required: true,
+        );
+
+        return ['POSTMASTER_SENDGRID_API_KEY' => $key];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function askPostmarkSync(): array
+    {
+        note('Install the SDK with: composer require wildbit/postmark-php');
+
+        if (config('postmaster.providers.postmark.server_token')) {
+            info('Found a Postmark server token already in your environment — sync will use it.');
+
+            return [];
+        }
+
+        $token = password(
+            label: 'Postmark server token',
+            hint: 'Servers → (your server) → API tokens.',
+            required: true,
+        );
+
+        return ['POSTMASTER_POSTMARK_SERVER_TOKEN' => $token];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function askMailgunSync(): array
+    {
+        note('Install the SDK with: composer require mailgun/mailgun-php');
+
+        $vars = [];
+
+        if (config('postmaster.providers.mailgun.api_key')) {
+            info('Found a Mailgun API key already in your environment — sync will use it.');
+        } else {
+            $vars['POSTMASTER_MAILGUN_API_KEY'] = password(
+                label: 'Mailgun API key',
+                hint: 'Settings → API Keys → Private API key.',
+                required: true,
+            );
+        }
+
+        if (config('postmaster.providers.mailgun.domain')) {
+            info('Found a Mailgun sending domain already in your environment — sync will use it.');
+        } else {
+            $vars['POSTMASTER_MAILGUN_DOMAIN'] = text(
+                label: 'Mailgun sending domain',
+                placeholder: 'mg.example.com',
+                required: true,
+            );
+        }
+
+        return $vars;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function noteSesSync(): array
+    {
+        note('SES sync uses the AWS SDK that is (or will be) in your app — there are no Postmaster env vars to set here.');
+        note('  · Install the SDK with: composer require aws/aws-sdk-php');
+        note('  · The IAM identity the SDK resolves to needs ses:ListSuppressedDestinations and ses:PutSuppressedDestination.');
 
         return [];
     }

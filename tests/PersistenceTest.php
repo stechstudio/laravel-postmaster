@@ -13,7 +13,7 @@ use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
-use STS\Postmaster\Models\EmailMessageEvent;
+use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
 use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
 use STS\Postmaster\Tests\Stubs\DeclaredMail;
@@ -673,11 +673,11 @@ class PersistenceTest extends TestCase
     public function testUseEmailModelSettersSetTheConfigKeys()
     {
         Postmaster::useEmailMessageModel('App\\Models\\MyEmail');
-        Postmaster::useEmailEventModel('App\\Models\\MyEvent');
+        Postmaster::useEmailActivityModel('App\\Models\\MyEvent');
         Postmaster::useEmailAddressModel('App\\Models\\MyAddress');
 
         $this->assertSame('App\\Models\\MyEmail',   config('postmaster.persistence.model'));
-        $this->assertSame('App\\Models\\MyEvent',   config('postmaster.persistence.event_model'));
+        $this->assertSame('App\\Models\\MyEvent',   config('postmaster.persistence.activity_model'));
         $this->assertSame('App\\Models\\MyAddress', config('postmaster.persistence.address_model'));
     }
 
@@ -858,7 +858,7 @@ class PersistenceTest extends TestCase
         event(EmailEvent::create(new Postmark($payload)));
 
         // One delivery row from the first webhook; the retry is dropped.
-        $this->assertCount(1, $record->refresh()->events);
+        $this->assertCount(1, $record->refresh()->activity);
     }
 
     public function testClickEventStoresTheClickedUrlOnTheTimeline()
@@ -879,7 +879,7 @@ class PersistenceTest extends TestCase
             'ReceivedAt'   => '2021-01-01T00:00:00Z',
         ])));
 
-        $event = EmailMessageEvent::where('status', EmailEvent::STATUS_CLICKED)->first();
+        $event = EmailActivity::where('status', EmailEvent::STATUS_CLICKED)->first();
         $this->assertNotNull($event);
         $this->assertSame('https://example.com/promo', $event->url);
     }
@@ -892,7 +892,7 @@ class PersistenceTest extends TestCase
 
         // Timeline recording follows persistence; the send seeds one event.
         $this->assertDatabaseCount('email_messages', 1);
-        $this->assertDatabaseCount('email_message_events', 1);
+        $this->assertDatabaseCount('email_activity', 1);
     }
 
     public function testTimelineRecordingCanBeDisabled()
@@ -904,7 +904,7 @@ class PersistenceTest extends TestCase
         });
 
         $this->assertDatabaseCount('email_messages', 1);
-        $this->assertDatabaseCount('email_message_events', 0);
+        $this->assertDatabaseCount('email_activity', 0);
     }
 
     public function testTheSendSeedsTheTimeline()
@@ -916,8 +916,8 @@ class PersistenceTest extends TestCase
         });
 
         $record = EmailMessage::first();
-        $this->assertCount(1, $record->events);
-        $this->assertSame(EmailEvent::STATUS_SENT, $record->events->first()->status);
+        $this->assertCount(1, $record->activity);
+        $this->assertSame(EmailEvent::STATUS_SENT, $record->activity->first()->status);
     }
 
     public function testWebhookEventsAreAppendedToTheTimeline()
@@ -937,9 +937,9 @@ class PersistenceTest extends TestCase
             'DeliveredAt' => '2021-01-01T00:00:00Z',
         ])));
 
-        $this->assertDatabaseCount('email_message_events', 1);
+        $this->assertDatabaseCount('email_activity', 1);
 
-        $entry = $record->events->first();
+        $entry = $record->activity->first();
         $this->assertSame(EmailEvent::STATUS_DELIVERED, $entry->status);
         $this->assertSame('Postmark', $entry->provider);
         $this->assertNotNull($entry->occurred_at);
@@ -964,7 +964,7 @@ class PersistenceTest extends TestCase
             ])));
         }
 
-        $events = $record->events;
+        $events = $record->activity;
         $this->assertCount(2, $events);
         $this->assertTrue($events->first()->occurred_at->lt($events->last()->occurred_at));
         $this->assertSame(EmailEvent::STATUS_OPENED, $record->fresh()->status);
@@ -999,31 +999,31 @@ class PersistenceTest extends TestCase
 
         $record->refresh();
         $this->assertSame(EmailEvent::STATUS_DELIVERED, $record->status);
-        $this->assertCount(2, $record->events);
+        $this->assertCount(2, $record->activity);
     }
 
     public function testPruneRemovesRoutineTimelineEventsPastRetention()
     {
-        config(['postmaster.persistence.prune_routine_events_after_days' => 30]);
+        config(['postmaster.persistence.prune_routine_activity_after_days' => 30]);
 
         $record = EmailMessage::create(['provider_message_id' => 'postmark-timeline-4']);
 
-        $old = EmailMessageEvent::create([
+        $old = EmailActivity::create([
             'email_message_id' => $record->getKey(),
             'status'           => EmailEvent::STATUS_DELIVERED,
             'occurred_at'      => now()->subDays(60),
         ]);
 
-        $recent = EmailMessageEvent::create([
+        $recent = EmailActivity::create([
             'email_message_id' => $record->getKey(),
             'status'           => EmailEvent::STATUS_OPENED,
             'occurred_at'      => now()->subDays(5),
         ]);
 
-        $this->artisan('postmaster:prune', ['--events' => true])->assertSuccessful();
+        $this->artisan('postmaster:prune', ['--activity' => true])->assertSuccessful();
 
-        $this->assertDatabaseMissing('email_message_events', ['id' => $old->getKey()]);
-        $this->assertDatabaseHas('email_message_events', ['id' => $recent->getKey()]);
+        $this->assertDatabaseMissing('email_activity', ['id' => $old->getKey()]);
+        $this->assertDatabaseHas('email_activity', ['id' => $recent->getKey()]);
     }
 
     public function testPruneKeepsFailureEventsLongerThanRoutineEvents()
@@ -1031,49 +1031,49 @@ class PersistenceTest extends TestCase
         // Routine events tidied at 30 days; failures get a 365-day window
         // — a hard bounce six months ago is still useful evidence.
         config([
-            'postmaster.persistence.prune_routine_events_after_days' => 30,
-            'postmaster.persistence.prune_failed_events_after_days'  => 365,
+            'postmaster.persistence.prune_routine_activity_after_days' => 30,
+            'postmaster.persistence.prune_failed_activity_after_days'  => 365,
         ]);
 
         $record = EmailMessage::create(['provider_message_id' => 'rec']);
 
-        $oldDelivery = EmailMessageEvent::create([
+        $oldDelivery = EmailActivity::create([
             'email_message_id' => $record->getKey(),
             'status'           => EmailEvent::STATUS_DELIVERED,
             'occurred_at'      => now()->subDays(60),
         ]);
-        $oldBounce = EmailMessageEvent::create([
+        $oldBounce = EmailActivity::create([
             'email_message_id' => $record->getKey(),
             'status'           => EmailEvent::STATUS_BOUNCED,
             'occurred_at'      => now()->subDays(60),
         ]);
-        $ancientBounce = EmailMessageEvent::create([
+        $ancientBounce = EmailActivity::create([
             'email_message_id' => $record->getKey(),
             'status'           => EmailEvent::STATUS_BOUNCED,
             'occurred_at'      => now()->subDays(400),
         ]);
 
-        $this->artisan('postmaster:prune', ['--events' => true])->assertSuccessful();
+        $this->artisan('postmaster:prune', ['--activity' => true])->assertSuccessful();
 
         // 60-day delivery: gone (past routine window).
-        $this->assertDatabaseMissing('email_message_events', ['id' => $oldDelivery->getKey()]);
+        $this->assertDatabaseMissing('email_activity', ['id' => $oldDelivery->getKey()]);
         // 60-day bounce: kept (inside failure window).
-        $this->assertDatabaseHas('email_message_events', ['id' => $oldBounce->getKey()]);
+        $this->assertDatabaseHas('email_activity', ['id' => $oldBounce->getKey()]);
         // 400-day bounce: gone (past failure window).
-        $this->assertDatabaseMissing('email_message_events', ['id' => $ancientBounce->getKey()]);
+        $this->assertDatabaseMissing('email_activity', ['id' => $ancientBounce->getKey()]);
     }
 
     public function testPruneSkipsBucketsThatAreDisabled()
     {
         // Both events buckets off; content stays at default.
         config([
-            'postmaster.persistence.prune_routine_events_after_days' => 0,
-            'postmaster.persistence.prune_failed_events_after_days'  => 0,
+            'postmaster.persistence.prune_routine_activity_after_days' => 0,
+            'postmaster.persistence.prune_failed_activity_after_days'  => 0,
             'postmaster.persistence.prune_content_after_days'        => 30,
         ]);
 
         $record = EmailMessage::create(['provider_message_id' => 'r']);
-        $ancient = EmailMessageEvent::create([
+        $ancient = EmailActivity::create([
             'email_message_id' => $record->getKey(),
             'status'           => EmailEvent::STATUS_BOUNCED,
             'occurred_at'      => now()->subDays(1000),
@@ -1082,7 +1082,7 @@ class PersistenceTest extends TestCase
         $this->artisan('postmaster:prune')->assertSuccessful();
 
         // The ancient bounce stayed put because both event windows were off.
-        $this->assertDatabaseHas('email_message_events', ['id' => $ancient->getKey()]);
+        $this->assertDatabaseHas('email_activity', ['id' => $ancient->getKey()]);
     }
 
     public function testAddressesAreTrackedByDefault()

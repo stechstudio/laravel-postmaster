@@ -206,15 +206,15 @@ class Postmaster
     }
 
     /**
-     * Swap in a custom EmailMessageEvent model at runtime.
+     * Swap in a custom EmailActivity model at runtime.
      *
      * @param string $class
      *
      * @return $this
      */
-    public function useEmailEventModel( string $class )
+    public function useEmailActivityModel( string $class )
     {
-        config(['postmaster.persistence.event_model' => $class]);
+        config(['postmaster.persistence.activity_model' => $class]);
 
         return $this;
     }
@@ -401,7 +401,14 @@ class Postmaster
             'address' => $model::normalize($address),
         ]);
 
-        return $record->suppress($reason);
+        $record->suppress($reason);
+
+        $record->logActivity([
+            'status' => \STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED,
+            'reason' => $reason,
+        ]);
+
+        return $record;
     }
 
     /**
@@ -453,6 +460,11 @@ class Postmaster
         }
 
         $record->unsuppress();
+
+        $record->logActivity([
+            'status' => \STS\Postmaster\Models\EmailActivity::STATUS_UNSUPPRESSED,
+            'response' => empty($cleared) ? null : 'Cleared at: '.implode(', ', $cleared),
+        ]);
 
         return [
             'address' => $record,

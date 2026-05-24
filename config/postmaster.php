@@ -196,7 +196,7 @@ return [
         /*
          * Record a full delivery timeline. With this on, the initial send and
          * every webhook event are also stored as their own rows in the
-         * email_message_events table — so a message keeps its complete
+         * email_activity table — so a message keeps its complete
          * history, including repeated opens and clicks, alongside the latest
          * status on the summary record.
          *
@@ -204,8 +204,8 @@ return [
          * POSTMASTER_RECORD_EVENTS=false to keep only the summary record.
          */
         'record_events' => env('POSTMASTER_RECORD_EVENTS', true),
-        'events_table'  => 'email_message_events',
-        'event_model'   => \STS\Postmaster\Models\EmailMessageEvent::class,
+        'activity_table'  => 'email_activity',
+        'activity_model'   => \STS\Postmaster\Models\EmailActivity::class,
 
         /*
          * Days to retain *routine* timeline events (sent, accepted, deferred,
@@ -214,7 +214,7 @@ return [
          * keeps the events table from growing unbounded. Set to 0 or null
          * to disable.
          */
-        'prune_routine_events_after_days' => env('POSTMASTER_PRUNE_ROUTINE_EVENTS_AFTER_DAYS', 90),
+        'prune_routine_activity_after_days' => env('POSTMASTER_PRUNE_ROUTINE_ACTIVITY_AFTER_DAYS', 90),
 
         /*
          * Days to retain *failure* timeline events (bounced, dropped,
@@ -224,7 +224,7 @@ return [
          * months later — so they're kept much longer than routine events.
          * Set to 0 or null to disable.
          */
-        'prune_failed_events_after_days' => env('POSTMASTER_PRUNE_FAILED_EVENTS_AFTER_DAYS', 365),
+        'prune_failed_activity_after_days' => env('POSTMASTER_PRUNE_FAILED_ACTIVITY_AFTER_DAYS', 365),
 
         /*
          * Track per-address deliverability. With this on, the email_addresses

@@ -8,17 +8,29 @@ return new class extends Migration
 {
     protected function table(): string
     {
-        return config('postmaster.persistence.events_table', 'email_message_events');
+        return config('postmaster.persistence.activity_table', 'email_activity');
     }
 
     public function up(): void
     {
         Schema::create($this->table(), function (Blueprint $table) {
             $table->id();
-            // Links back to the email_messages row. Apps that changed
-            // email_messages to a UUID/ULID primary key should change this
-            // column type to match.
-            $table->unsignedBigInteger('email_message_id')->index();
+            // The row this activity is about. Either FK can be present:
+            //   - email_message_id only  → a message lifecycle event
+            //     (sent, delivered, bounced, opened, …) with no separately
+            //     addressed audit value.
+            //   - email_address_id only → an address-level action
+            //     (manually suppressed, unsuppressed, added by sync, …)
+            //     with no specific message attached.
+            //   - both                  → an event that happened *to* a
+            //     specific message *and* is an event in the life of the
+            //     recipient address (the most common shape — a bounce or
+            //     complaint).
+            // Apps that changed email_messages or email_addresses to a
+            // UUID/ULID primary key should change these column types to
+            // match.
+            $table->unsignedBigInteger('email_message_id')->nullable()->index();
+            $table->unsignedBigInteger('email_address_id')->nullable()->index();
             $table->string('provider')->nullable();
             $table->string('status')->nullable()->index();
             $table->string('bounce_type')->nullable();

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
-use STS\Postmaster\Models\EmailMessageEvent;
+use STS\Postmaster\Models\EmailActivity;
 
 /**
  * Base for the dashboard controllers. Every query is built without global
@@ -27,11 +27,11 @@ abstract class Controller
     }
 
     /**
-     * @return Builder<EmailMessageEvent>
+     * @return Builder<EmailActivity>
      */
     protected function eventQuery()
     {
-        $class = config('postmaster.persistence.event_model', EmailMessageEvent::class);
+        $class = config('postmaster.persistence.activity_model', EmailActivity::class);
 
         return (new $class)->newQuery()->withoutGlobalScopes();
     }
@@ -54,7 +54,7 @@ abstract class Controller
      * @param int $after Only events with a higher id (for the live feed).
      * @param int $limit
      *
-     * @return \Illuminate\Database\Eloquent\Collection<int, EmailMessageEvent>
+     * @return \Illuminate\Database\Eloquent\Collection<int, EmailActivity>
      */
     protected function recentEvents( $after = 0, $limit = 100 )
     {
@@ -280,7 +280,7 @@ abstract class Controller
     /**
      * Flatten a timeline event for the JSON feed and the Alpine table.
      *
-     * @param EmailMessageEvent $event
+     * @param EmailActivity $event
      *
      * @return array<string, mixed>
      */

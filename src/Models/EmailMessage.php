@@ -119,13 +119,14 @@ class EmailMessage extends Model
 
     /**
      * The full delivery timeline — the send and every webhook event, oldest
-     * first. Only populated when "postmaster.persistence.record_events" is on.
+     * first. Only populated when "postmaster.persistence.record_events" is
+     * on. Each row is an EmailActivity entry.
      *
      * @return HasMany
      */
-    public function events()
+    public function activity()
     {
-        $model = config('postmaster.persistence.event_model', EmailMessageEvent::class);
+        $model = config('postmaster.persistence.activity_model', EmailActivity::class);
 
         return $this->hasMany($model, 'email_message_id')
             ->orderBy('occurred_at')

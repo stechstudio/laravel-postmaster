@@ -139,7 +139,7 @@
             <div class="pm-card">
                 <h2 class="pm-section-title">Timeline</h2>
                 <div class="pm-timeline">
-                    @forelse ($events as $event)
+                    @forelse ($activity as $event)
                         <div class="pm-timeline-item">
                             <div style="flex: 1;">
                                 @include('postmaster::partials.badge', ['status' => $event->status])

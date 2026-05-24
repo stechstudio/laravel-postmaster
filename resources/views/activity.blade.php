@@ -46,10 +46,19 @@
             </thead>
             <tbody>
                 @forelse ($events as $event)
-                    <tr class="pm-row-link" onclick="location.href='{{ route('postmaster.messages.show', $event->email_message_id) }}'">
+                    @php
+                        // Lifecycle entries are clickable through to their
+                        // message; address-only entries aren't (no message
+                        // to drill into).
+                        $href = $event->email_message_id ? route('postmaster.messages.show', $event->email_message_id) : null;
+                        $recipient = $event->emailMessage?->to_address ?? $event->emailAddress?->address;
+                        $subject   = $event->emailMessage?->subject
+                            ?? ($event->email_address_id ? '(address activity)' : '—');
+                    @endphp
+                    <tr @class(['pm-row-link' => $href]) @if ($href) onclick="location.href='{{ $href }}'" @endif>
                         <td class="pm-dim pm-cell-meta">@include('postmaster::partials.datetime', ['when' => $event->occurred_at])</td>
-                        <td class="pm-cell-sub">{{ $event->emailMessage?->to_address ?? '—' }}</td>
-                        <td class="pm-truncate pm-cell-title">{{ $event->emailMessage?->subject ?? '—' }}</td>
+                        <td class="pm-cell-sub">{{ $recipient ?? '—' }}</td>
+                        <td class="pm-truncate pm-cell-title">{{ $subject }}</td>
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $event->status])</td>
                         <td class="pm-dim">{{ $event->provider ?? '—' }}</td>
                         @if ($hasTenants)

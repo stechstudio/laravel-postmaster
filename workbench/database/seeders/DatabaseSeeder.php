@@ -6,7 +6,7 @@ use Illuminate\Database\Seeder;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
-use STS\Postmaster\Models\EmailMessageEvent;
+use STS\Postmaster\Models\EmailActivity;
 use Workbench\App\Models\Tenant;
 
 /**
@@ -95,7 +95,7 @@ class DatabaseSeeder extends Seeder
                 }
 
                 foreach ($timeline as [$eventStatus, $occurredAt]) {
-                    EmailMessageEvent::create([
+                    EmailActivity::create([
                         'email_message_id' => $row->getKey(),
                         'provider'         => $row->provider,
                         'status'           => $eventStatus,
@@ -175,7 +175,7 @@ class DatabaseSeeder extends Seeder
             // an API).
             $manual = $suppressed && $i % 8 === 0;
 
-            EmailAddress::create([
+            $row = EmailAddress::create([
                 'address'       => $address,
                 'status'        => $suppressed ? EmailAddress::STATUS_SUPPRESSED : EmailAddress::STATUS_ACTIVE,
                 'reason'        => match (true) {
@@ -191,6 +191,19 @@ class DatabaseSeeder extends Seeder
                 'suppressed_at' => $suppressed ? now()->subDays(rand(0, 13)) : null,
                 'last_event_at' => now()->subDays(rand(0, 13)),
             ]);
+
+            // Mirror the address-level activity entries we'd write in real
+            // life — suppressions on manual / sync-driven rows. Bounce-driven
+            // ones already get their lifecycle entry written above through
+            // the message timeline, so we don't double-log here.
+            if ($suppressed && $manual) {
+                $row->logActivity([
+                    'status'      => \STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED,
+                    'reason'      => EmailAddress::REASON_MANUAL,
+                    'occurred_at' => $row->suppressed_at,
+                    'created_at'  => $row->suppressed_at,
+                ]);
+            }
         }
     }
 }

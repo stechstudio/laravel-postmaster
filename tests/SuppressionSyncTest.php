@@ -142,6 +142,54 @@ class SuppressionSyncTest extends TestCase
         $this->assertSame([], $result['manual']);
     }
 
+    public function testPostmasterSuppressLogsAnAddressActivityEntry()
+    {
+        Postmaster::suppress('alice@example.com');
+
+        $address = EmailAddress::first();
+        $activity = $address->activity()->latest('id')->first();
+
+        $this->assertNotNull($activity);
+        $this->assertSame(\STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED, $activity->status);
+        $this->assertSame(EmailAddress::REASON_MANUAL, $activity->reason);
+        $this->assertNull($activity->email_message_id);
+    }
+
+    public function testPostmasterUnsuppressLogsAnAddressActivityEntry()
+    {
+        EmailAddress::create([
+            'address'       => 'alice@example.com',
+            'status'        => EmailAddress::STATUS_SUPPRESSED,
+            'reason'        => EmailAddress::REASON_BOUNCED,
+            'providers'     => ['fake'],
+            'suppressed_at' => now(),
+        ]);
+
+        Postmaster::unsuppress('alice@example.com');
+
+        $address = EmailAddress::first();
+        $activity = $address->activity()->latest('id')->first();
+
+        $this->assertNotNull($activity);
+        $this->assertSame(\STS\Postmaster\Models\EmailActivity::STATUS_UNSUPPRESSED, $activity->status);
+        $this->assertNull($activity->email_message_id);
+        $this->assertSame((int) $address->getKey(), (int) $activity->email_address_id);
+    }
+
+    public function testSyncLogsAnAddressActivityEntryWhenAddingASuppression()
+    {
+        FakeSync::$remote = ['alice@example.com' => EmailAddress::REASON_BOUNCED];
+
+        $this->artisan('postmaster:sync')->assertSuccessful();
+
+        $activity = EmailAddress::first()->activity()->latest('id')->first();
+
+        $this->assertNotNull($activity);
+        $this->assertSame(\STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED, $activity->status);
+        $this->assertSame(EmailAddress::REASON_BOUNCED, $activity->reason);
+        $this->assertSame('fake', $activity->provider);
+    }
+
     public function testUnsuppressReportsProvidersThatNeedManualCleanup()
     {
         FakeSync::$available = false;

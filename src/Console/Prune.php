@@ -3,8 +3,9 @@
 namespace STS\Postmaster\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
+use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailMessage;
-use STS\Postmaster\Models\EmailMessageEvent;
 
 /**
  * Prunes recorded persistence data past its retention windows. Runs daily
@@ -12,7 +13,7 @@ use STS\Postmaster\Models\EmailMessageEvent;
  *
  *     php artisan postmaster:prune              # both content and events
  *     php artisan postmaster:prune --content    # only stored content
- *     php artisan postmaster:prune --events     # only timeline events
+ *     php artisan postmaster:prune --activity   # only timeline activity
  *
  * Stored content is *purged from the row* — the email_messages record is
  * kept, only its content columns are cleared.
@@ -26,32 +27,32 @@ use STS\Postmaster\Models\EmailMessageEvent;
 class Prune extends Command
 {
     protected $signature = 'postmaster:prune
-                            {--content : Only purge stored content}
-                            {--events  : Only delete old timeline events}';
+                            {--content  : Only purge stored content}
+                            {--activity : Only delete old timeline activity}';
 
     protected $description = 'Prune stored email content and timeline events past their retention windows';
 
     public function handle(): int
     {
-        $only = ($this->option('content') xor $this->option('events'));
-        $runContent = ! $only || $this->option('content');
-        $runEvents  = ! $only || $this->option('events');
+        $only = ($this->option('content') xor $this->option('activity'));
+        $runContent  = ! $only || $this->option('content');
+        $runActivity = ! $only || $this->option('activity');
 
         if ($runContent) {
             $this->pruneContent();
         }
 
-        if ($runEvents) {
-            $this->pruneEvents(
+        if ($runActivity) {
+            $this->pruneActivity(
                 'routine',
-                'prune_routine_events_after_days',
+                'prune_routine_activity_after_days',
                 fn ($q) => $q->whereNotIn('status', EmailMessage::FAILED_STATUSES)
                              ->orWhereNull('status'),
             );
 
-            $this->pruneEvents(
+            $this->pruneActivity(
                 'failure',
-                'prune_failed_events_after_days',
+                'prune_failed_activity_after_days',
                 fn ($q) => $q->whereIn('status', EmailMessage::FAILED_STATUSES),
             );
         }
@@ -92,33 +93,33 @@ class Prune extends Command
                 'attachments'  => null,
             ]);
 
-        $this->info("Pruned stored content from {$pruned} email message(s).");
+        $this->info("Pruned stored content from {$pruned} ".Str::plural('email message', $pruned).'.');
     }
 
     /**
-     * Delete one bucket of timeline events older than its retention window.
+     * Delete one bucket of activity entries older than its retention window.
      *
      * @param string   $label     Bucket name, for the output line.
      * @param string   $configKey The retention-days config key on persistence.
      * @param \Closure $scope     Applies the bucket's status filter to a query.
      */
-    protected function pruneEvents( string $label, string $configKey, \Closure $scope ): void
+    protected function pruneActivity( string $label, string $configKey, \Closure $scope ): void
     {
         $days = (int) config("postmaster.persistence.{$configKey}");
 
         if ($days <= 0) {
-            $this->line("Pruning of {$label} events is disabled (persistence.{$configKey}).");
+            $this->line("Pruning of {$label} activity is disabled (persistence.{$configKey}).");
 
             return;
         }
 
-        $class = config('postmaster.persistence.event_model', EmailMessageEvent::class);
+        $class = config('postmaster.persistence.activity_model', EmailActivity::class);
 
         $pruned = (new $class)->newQuery()
             ->where('occurred_at', '<', now()->subDays($days))
             ->where(fn ($query) => $scope($query))
             ->delete();
 
-        $this->info("Pruned {$pruned} {$label} timeline event(s).");
+        $this->info("Pruned {$pruned} {$label} ".Str::plural('activity entry', $pruned).'.');
     }
 }

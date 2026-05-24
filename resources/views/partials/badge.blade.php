@@ -5,14 +5,15 @@
         'clicked'    => 'info',
         'sent'       => 'muted',
         'accepted'   => 'muted',
-        'sandboxed'  => 'warn',
-        'blocked'    => 'warn',
-        'deferred'   => 'warn',
-        'bounced'    => 'bad',
-        'dropped'    => 'bad',
-        'complained' => 'bad',
-        'active'     => 'ok',
-        'suppressed' => 'bad',
+        'sandboxed'    => 'warn',
+        'blocked'      => 'warn',
+        'deferred'     => 'warn',
+        'bounced'      => 'bad',
+        'dropped'      => 'bad',
+        'complained'   => 'bad',
+        'active'       => 'ok',
+        'suppressed'   => 'bad',
+        'unsuppressed' => 'muted',
     ];
     $tone = $tones[$status ?? ''] ?? 'muted';
 @endphp

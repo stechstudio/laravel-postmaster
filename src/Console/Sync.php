@@ -164,6 +164,12 @@ class Sync extends Command
                 $row->status        = EmailAddress::STATUS_SUPPRESSED;
                 $row->recordProvider($this->currentProvider);
                 $row->save();
+
+                $row->logActivity([
+                    'status'   => \STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED,
+                    'reason'   => $entry['reason'],
+                    'provider' => $this->currentProvider,
+                ]);
             }
 
             $stats['added']++;

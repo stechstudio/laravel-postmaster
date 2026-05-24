@@ -68,7 +68,7 @@ class MessageController extends Controller
 
         return response()->view('postmaster::message', [
             'message'    => $record,
-            'events'     => $record->events()->get(),
+            'activity'   => $record->activity()->get(),
             'siblings'   => $siblings,
             'tenants'    => $this->tenantLabels([$record->{$this->tenantColumn()}]),
             'tenantTerm' => $this->tenantTerm(),

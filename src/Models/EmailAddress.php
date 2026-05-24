@@ -4,11 +4,12 @@ namespace STS\Postmaster\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * The current deliverability status of a single recipient address.
  *
- * This is the third and most collapsed projection: email_message_events roll
+ * This is the third and most collapsed projection: email_activity roll
  * up into email_messages, which roll up into one row per address here. It
  * answers "should I send to this address?" with a single indexed lookup,
  * rather than interpreting message history.
@@ -179,6 +180,49 @@ class EmailAddress extends Model
     public function isSuppressed()
     {
         return $this->status === self::STATUS_SUPPRESSED;
+    }
+
+    /**
+     * Every activity entry attached to this address — events from a message
+     * sent to it, plus any address-level entries (manual suppression,
+     * unsuppression, sync add/clear) that target the address directly with
+     * no specific message.
+     *
+     * @return HasMany
+     */
+    public function activity()
+    {
+        $model = config('postmaster.persistence.activity_model', EmailActivity::class);
+
+        return $this->hasMany($model, 'email_address_id')
+            ->orderBy('occurred_at')
+            ->orderBy('id');
+    }
+
+    /**
+     * Write an address-level activity entry against this row — used to
+     * record manual suppressions, unsuppressions, and sync add/clear. The
+     * row carries email_address_id but no email_message_id (there's no
+     * specific message involved).
+     *
+     * A no-op when persistence.record_events is off.
+     *
+     * @param array<string, mixed> $attributes
+     *
+     * @return EmailActivity|null
+     */
+    public function logActivity( array $attributes )
+    {
+        if (! config('postmaster.persistence.record_events', true) || ! $this->exists) {
+            return null;
+        }
+
+        $class = config('postmaster.persistence.activity_model', EmailActivity::class);
+
+        return $class::create($attributes + [
+            'email_address_id' => $this->getKey(),
+            'occurred_at'      => $attributes['occurred_at'] ?? now(),
+        ]);
     }
 
     /**

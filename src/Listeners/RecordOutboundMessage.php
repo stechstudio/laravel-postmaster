@@ -78,7 +78,7 @@ class RecordOutboundMessage
 
             // Seed the timeline with the send itself, so the history is
             // complete rather than starting at the first webhook event.
-            $this->recordEvent($record, [
+            $this->recordActivity($record, [
                 'status'      => $status,
                 'occurred_at' => $shared['sent_at'],
             ]);

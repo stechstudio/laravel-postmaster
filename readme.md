@@ -371,19 +371,33 @@ The summary record above keeps only a message's *latest* status. That's enough
 for "is this delivered?" but it can't represent a message that was opened three
 times, and it overwrites the history as new events arrive.
 
-With persistence on, the package also keeps every event as its own row, the
-initial send and each webhook alike, so a message retains its complete delivery
-history. This is on by default; set `POSTMASTER_RECORD_EVENTS=false` to keep
-only the summary record.
+With persistence on, the package also keeps every event as its own row in an
+`email_activity` table — the initial send and each webhook alike — so a
+message retains its complete delivery history. This is on by default; set
+`POSTMASTER_RECORD_EVENTS=false` to keep only the summary record.
 
-Each `EmailMessage` exposes its timeline, oldest first, via the `events()`
-relationship. It's ideal for an activity feed:
+> **A note on naming.** "Event" is the live signal a webhook becomes (an
+> `EmailEvent` value object you `Event::listen` for). "Activity" is the
+> historical record we keep of those events in `email_activity` — plus
+> address-level entries (manual suppress / unsuppress / sync add) that
+> don't tie to a specific message. Same idea, two abstractions.
+
+Each `EmailMessage` exposes its timeline, oldest first, via the `activity()`
+relationship — and `EmailAddress` exposes a symmetric `activity()` of every
+entry that touched it (message lifecycle events sent to it, plus any
+address-level entries):
 
 ```php
-foreach ($message->events as $event) {
-    // $event->status:      sent, delivered, opened, bounced, ...
-    // $event->occurred_at: when it happened
-    // $event->bounce_type, $event->response, $event->reason, $event->code
+foreach ($message->activity as $entry) {
+    // $entry->status:      sent, delivered, opened, bounced, ...
+    // $entry->occurred_at: when it happened
+    // $entry->bounce_type, $entry->response, $entry->reason, $entry->code
+}
+
+foreach ($address->activity as $entry) {
+    // Every event that touched this address — message lifecycle events
+    // from messages sent to it, plus suppressed/unsuppressed entries
+    // for the address itself.
 }
 ```
 
@@ -399,8 +413,8 @@ is noise but a six-month-old bounce is still evidence:
 
 | Bucket | Default | `.env` |
 |---|---|---|
-| Routine | **90 days** | `POSTMASTER_PRUNE_ROUTINE_EVENTS_AFTER_DAYS` |
-| Failures | **365 days** | `POSTMASTER_PRUNE_FAILED_EVENTS_AFTER_DAYS` |
+| Routine | **90 days** | `POSTMASTER_PRUNE_ROUTINE_ACTIVITY_AFTER_DAYS` |
+| Failures | **365 days** | `POSTMASTER_PRUNE_FAILED_ACTIVITY_AFTER_DAYS` |
 
 Set either to `0` to disable that bucket. The pruner deletes whole rows;
 summary records are left untouched.
@@ -542,7 +556,7 @@ hand any time:
 ```bash
 php artisan postmaster:prune              # both content and events
 php artisan postmaster:prune --content    # only stored content
-php artisan postmaster:prune --events     # only timeline events
+php artisan postmaster:prune --activity   # only timeline activity
 ```
 
 A single email can override the global setting. A Mailable's `Tracking` carries

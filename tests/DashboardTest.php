@@ -8,7 +8,7 @@ use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
-use STS\Postmaster\Models\EmailMessageEvent;
+use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Tests\Stubs\Account;
 use STS\Postmaster\Tests\Stubs\Tenant;
 use STS\Postmaster\Tests\Stubs\User;
@@ -388,7 +388,7 @@ class DashboardTest extends TestCase
     {
         Postmaster::auth(fn () => true);
         $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'seen@example.com']);
-        EmailMessageEvent::create([
+        EmailActivity::create([
             'email_message_id' => $message->getKey(),
             'status'           => EmailEvent::STATUS_DELIVERED,
             'occurred_at'      => now(),
@@ -403,7 +403,7 @@ class DashboardTest extends TestCase
     {
         Postmaster::auth(fn () => true);
         $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'r@example.com']);
-        EmailMessageEvent::create([
+        EmailActivity::create([
             'email_message_id' => $message->getKey(),
             'status'           => EmailEvent::STATUS_DELIVERED,
             'occurred_at'      => now(),

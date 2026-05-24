@@ -12,7 +12,7 @@ use STS\Postmaster\Models\EmailMessage;
  * by provider message id.
  *
  * Each event refreshes the email_messages summary row (its latest status) and,
- * when timeline recording is enabled, is also appended to email_message_events
+ * when timeline recording is enabled, is also appended to email_activity
  * so the message keeps its full delivery history. If no summary record exists
  * (e.g. the email was sent before persistence was enabled) one is created.
  */
@@ -46,7 +46,7 @@ class UpdateMessageFromEvent
 
         $this->applyEventToAddress($event);
 
-        $this->recordEvent($record, [
+        $this->recordActivity($record, [
             'provider'    => $event->provider(),
             'status'      => $event->status(),
             'bounce_type' => $event->bounceType(),

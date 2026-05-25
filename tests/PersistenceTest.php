@@ -58,7 +58,10 @@ class PersistenceTest extends TestCase
         $record = EmailMessage::first();
         $this->assertSame('recipient@example.com', $record->to_address);
         $this->assertSame('Greetings', $record->subject);
-        $this->assertSame(EmailEvent::STATUS_SENT, $record->status);
+        // Tests run through Laravel's `array` mailer (no real transport), so
+        // the recorded row is captured rather than sent — see
+        // statusForCurrentTransport() on the listener.
+        $this->assertSame(EmailEvent::STATUS_CAPTURED, $record->status);
         $this->assertNotEmpty($record->provider_message_id);
         $this->assertNotNull($record->sent_at);
     }
@@ -265,7 +268,7 @@ class PersistenceTest extends TestCase
         Mail::to('recipient@example.com')->send(new OrderConfirmationMail($order));
 
         $this->assertCount(1, $order->emailMessages);
-        $this->assertSame(EmailEvent::STATUS_SENT, $order->emailMessages->first()->status);
+        $this->assertSame(EmailEvent::STATUS_CAPTURED, $order->emailMessages->first()->status);
         $this->assertTrue($order->is($order->emailMessages->first()->related));
     }
 
@@ -307,6 +310,23 @@ class PersistenceTest extends TestCase
 
         $record = EmailMessage::first();
         $this->assertSame((string) $declared->getKey(), (string) $record->recipient_id);
+    }
+
+    public function testRecordedRowIsMarkedLoggedWhenTheLogDriverIsTheDefault()
+    {
+        // Local dev's typical MAIL_MAILER=log — no real provider, no
+        // webhook to follow. The row is marked terminal so the dashboard
+        // does not keep showing it as "sent, waiting on the provider."
+        config()->set('mail.default', 'log');
+        config()->set('mail.mailers.log', ['transport' => 'log']);
+
+        Mail::raw('Hello there', function ($message) {
+            $message->to('recipient@example.com')->subject('Greetings');
+        });
+
+        $record = EmailMessage::first();
+        $this->assertSame(EmailEvent::STATUS_LOGGED, $record->status);
+        $this->assertTrue($record->isLogged());
     }
 
     public function testResolveRecipientByEmailLooksUpTheModelByItsEmailColumn()
@@ -582,7 +602,7 @@ class PersistenceTest extends TestCase
         $alice = EmailMessage::where('to_address', 'alice@example.com')->first();
         $bob   = EmailMessage::where('to_address', 'bob@example.com')->first();
 
-        $this->assertTrue($alice->isSent());
+        $this->assertTrue($alice->isCaptured());
         $this->assertTrue($bob->isBounced());
     }
 
@@ -971,7 +991,7 @@ class PersistenceTest extends TestCase
 
         $record = EmailMessage::first();
         $this->assertCount(1, $record->activity);
-        $this->assertSame(EmailEvent::STATUS_SENT, $record->activity->first()->status);
+        $this->assertSame(EmailEvent::STATUS_CAPTURED, $record->activity->first()->status);
     }
 
     public function testWebhookEventsAreAppendedToTheTimeline()

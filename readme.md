@@ -260,8 +260,11 @@ $event->toArray();            // everything above as an array
 
 `EmailEvent::STATUS_ACCEPTED`, `STATUS_DEFERRED`, `STATUS_DELIVERED`,
 `STATUS_BOUNCED`, `STATUS_DROPPED`, `STATUS_COMPLAINED`, `STATUS_OPENED`,
-`STATUS_CLICKED`. (Plus `STATUS_SENT`, `STATUS_SANDBOXED`, and `STATUS_BLOCKED`
-for outbound records the package writes itself.)
+`STATUS_CLICKED`. (Plus `STATUS_SENT`, `STATUS_SANDBOXED`, `STATUS_BLOCKED`,
+`STATUS_LOGGED`, and `STATUS_CAPTURED` for outbound records the package writes
+itself — `STATUS_LOGGED` is for sends through Laravel's `log` mail driver,
+`STATUS_CAPTURED` for sends through the `array` driver. Both are terminal:
+no webhook ever follows.)
 
 For comparing against a single value, every status has a matching `is*()`
 predicate. They make a status check read clearly and they autocomplete:

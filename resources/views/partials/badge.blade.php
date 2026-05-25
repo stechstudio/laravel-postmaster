@@ -7,6 +7,8 @@
         'accepted'   => 'muted',
         'sandboxed'    => 'warn',
         'blocked'      => 'warn',
+        'logged'       => 'muted',
+        'captured'     => 'muted',
         'deferred'     => 'warn',
         'bounced'      => 'bad',
         'dropped'      => 'bad',

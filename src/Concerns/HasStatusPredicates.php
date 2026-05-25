@@ -47,6 +47,24 @@ trait HasStatusPredicates
         return $this->currentStatus() === EmailEvent::STATUS_BLOCKED;
     }
 
+    /**
+     * The terminal status for a send through Laravel's `log` mail driver —
+     * no real provider, no webhook to follow. Typical of local dev.
+     */
+    public function isLogged(): bool
+    {
+        return $this->currentStatus() === EmailEvent::STATUS_LOGGED;
+    }
+
+    /**
+     * The terminal status for a send through Laravel's `array` mail driver
+     * (Mail::fake() and assertion-style tests). No I/O happened.
+     */
+    public function isCaptured(): bool
+    {
+        return $this->currentStatus() === EmailEvent::STATUS_CAPTURED;
+    }
+
     public function isDeferred(): bool
     {
         return $this->currentStatus() === EmailEvent::STATUS_DEFERRED;

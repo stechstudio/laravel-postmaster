@@ -54,7 +54,7 @@ class SuppressionBlockingTest extends TestCase
         });
 
         $this->assertCount(1, Mail::getSymfonyTransport()->messages());
-        $this->assertTrue(EmailMessage::first()->isSent());
+        $this->assertTrue(EmailMessage::first()->isCaptured());
     }
 
     public function testFeatureIsOffByDefault()

@@ -34,7 +34,31 @@ class RecordOutboundMessage
      */
     public function handle( MessageSent $event )
     {
-        $this->record($event->message, $event->sent->getMessageId(), EmailEvent::STATUS_SENT);
+        $this->record($event->message, $event->sent->getMessageId(), $this->statusForCurrentTransport());
+    }
+
+    /**
+     * The lifecycle status to record for a send completing right now. Usually
+     * STATUS_SENT — but when the default mailer's transport is Laravel's `log`
+     * or `array` driver, there's no real delivery and no webhook will ever
+     * land, so the row is marked terminal so the dashboard doesn't keep it in
+     * a "waiting on the provider" state forever.
+     *
+     * Detection is best-effort and reads the default mailer's transport from
+     * config. A per-call mailer override (e.g. Mail::mailer('log')->send())
+     * while a different default is configured will fall through to
+     * STATUS_SENT — same as the previous behavior, no regression.
+     */
+    protected function statusForCurrentTransport(): string
+    {
+        $default   = config('mail.default');
+        $transport = config("mail.mailers.{$default}.transport", $default);
+
+        return match ($transport) {
+            'log'   => EmailEvent::STATUS_LOGGED,
+            'array' => EmailEvent::STATUS_CAPTURED,
+            default => EmailEvent::STATUS_SENT,
+        };
     }
 
     /**

@@ -25,6 +25,13 @@ class EmailEvent
     // Terminal status for a send we refused on the way out — the recipient
     // is on our suppression list — when block_suppressed is enabled.
     const string STATUS_BLOCKED    = "blocked";
+    // Terminal status for a send through Laravel's "log" mail driver. Local
+    // dev typically has MAIL_MAILER=log, so without this every recorded row
+    // would sit at STATUS_SENT forever (no webhook will ever land).
+    const string STATUS_LOGGED     = "logged";
+    // Terminal status for a send through Laravel's "array" mail driver
+    // (what Mail::fake() and assertion-style tests use). No I/O happened.
+    const string STATUS_CAPTURED   = "captured";
     const string STATUS_DEFERRED   = "deferred";
     const string STATUS_DELIVERED  = "delivered";
     const string STATUS_BOUNCED    = "bounced";

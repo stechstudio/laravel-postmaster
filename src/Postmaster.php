@@ -156,6 +156,33 @@ class Postmaster
     }
 
     /**
+     * Shortcut for the common "look up the recipient model by its email
+     * column" case. Equivalent to:
+     *
+     *   Postmaster::resolveRecipientUsing(
+     *       fn ($address) => User::firstWhere('email', $address)
+     *   );
+     *
+     * The address is normalized (lower-cased, trimmed) the same way it is
+     * stored, so a webhook for "Alice@Example.com" still matches the row
+     * saved as "alice@example.com".
+     *
+     * @param class-string<Model> $class  The recipient model class.
+     * @param string              $column The column on that model to match
+     *                                    the address against.
+     *
+     * @return $this
+     */
+    public function resolveRecipientByEmail( string $class, string $column = 'email' )
+    {
+        return $this->resolveRecipientUsing(
+            fn ($address) => $class::query()
+                ->where($column, EmailAddress::normalize((string) $address))
+                ->first()
+        );
+    }
+
+    /**
      * Resolve the recipient model for the given address via the registered
      * resolver, or null if none is registered or the resolver yields nothing.
      *

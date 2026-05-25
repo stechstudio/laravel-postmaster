@@ -621,13 +621,28 @@ service provider, and skip `recipient:` on every Mailable:
 ```php
 use STS\Postmaster\Facades\Postmaster;
 
+Postmaster::resolveRecipientByEmail(User::class);
+```
+
+That's the one-liner for the "look up the model by its `email` column"
+case — pass `column: 'whatever'` to match against a different column. The
+address is normalized (lower-cased, trimmed) before the lookup, so a
+mixed-case webhook still finds the row.
+
+For anything else (a derived column, a join, a custom query), drop down to
+the lower-level form:
+
+```php
 Postmaster::resolveRecipientUsing(
-    fn ($address) => User::firstWhere('email', $address)
+    fn ($address) => Contact::query()
+        ->where('primary_email', $address)
+        ->orWhere('billing_email', $address)
+        ->first()
 );
 ```
 
-An explicit `Tracking(recipient: …)` declaration always wins over the
-resolver — useful when an email about User A is sent to User B.
+An explicit `Tracking(recipient: …)` declaration always wins over either
+form of the resolver — useful when an email about User A is sent to User B.
 
 #### Multi-recipient sends
 

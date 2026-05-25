@@ -309,6 +309,60 @@ class PersistenceTest extends TestCase
         $this->assertSame((string) $declared->getKey(), (string) $record->recipient_id);
     }
 
+    public function testResolveRecipientByEmailLooksUpTheModelByItsEmailColumn()
+    {
+        Schema::create('users', function ($table) {
+            $table->id();
+            $table->string('email');
+        });
+
+        $user = User::create(['email' => 'alice@example.com']);
+
+        Postmaster::resolveRecipientByEmail(User::class);
+
+        Mail::to('alice@example.com')->send(new DeclaredMail);
+
+        $record = EmailMessage::first();
+        $this->assertSame((string) $user->getKey(), (string) $record->recipient_id);
+        $this->assertSame($user->getMorphClass(), $record->recipient_type);
+    }
+
+    public function testResolveRecipientByEmailNormalizesTheAddressBeforeMatching()
+    {
+        // Webhook arrives with mixed-case from a sloppy provider; the user
+        // row was stored lowercase. The resolver should still match.
+        Schema::create('users', function ($table) {
+            $table->id();
+            $table->string('email');
+        });
+
+        $user = User::create(['email' => 'alice@example.com']);
+
+        Postmaster::resolveRecipientByEmail(User::class);
+
+        Mail::to('Alice@Example.com')->send(new DeclaredMail);
+
+        $record = EmailMessage::first();
+        $this->assertSame((string) $user->getKey(), (string) $record->recipient_id);
+    }
+
+    public function testResolveRecipientByEmailAcceptsAColumnOverride()
+    {
+        Schema::create('users', function ($table) {
+            $table->id();
+            $table->string('contact_email');
+        });
+
+        $user = User::create(['contact_email' => 'alice@example.com']);
+
+        Postmaster::resolveRecipientByEmail(User::class, column: 'contact_email');
+
+        Mail::to('alice@example.com')->send(new DeclaredMail);
+
+        $record = EmailMessage::first();
+        $this->assertSame((string) $user->getKey(), (string) $record->recipient_id);
+    }
+
     public function testIsEmailRecipientLoadsEveryEmailSentToTheModel()
     {
         Schema::create('users', fn ($table) => $table->id());

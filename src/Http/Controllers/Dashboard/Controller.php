@@ -306,7 +306,7 @@ abstract class Controller
                 EmailActivity::STATUS_UNSUPPRESSED => 'Address unsuppressed',
                 default                            => 'Address activity',
             };
-            $to = $entry->emailAddress->address;
+            $to = $entry->emailAddress->getAttribute('address');
         }
 
         return [

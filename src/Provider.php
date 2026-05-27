@@ -127,12 +127,30 @@ class Provider
     }
 
     /**
+     * Fire every adapted event. The umbrella EmailEvent goes out first, so
+     * the package's own listeners (UpdateMessageFromEvent in particular)
+     * correlate it to its persisted message before any targeted variant
+     * fires. The targeted variant — EmailBounced, EmailDelivered, and the
+     * rest — fires immediately after, carrying the same adapter and the
+     * already-correlated EmailMessage so listeners on the specific class
+     * see the same payload the umbrella listener does.
+     *
      * @return $this
      */
     public function dispatch()
     {
         foreach ($this->events as $event) {
             event($event);
+
+            if ($class = $event->specificEventClass()) {
+                $specific = new $class($event->adapter());
+
+                if ($message = $event->emailMessage()) {
+                    $specific->setEmailMessage($message);
+                }
+
+                event($specific);
+            }
         }
 
         return $this;

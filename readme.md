@@ -101,29 +101,40 @@ https://your-app.com/webhooks/postmaster/{provider}
 
 ### 2. Listen for the event
 
-Every webhook, from any provider, is dispatched as a normalized `EmailEvent`.
-Listen for it in a service provider's `boot()` method:
+Every webhook becomes a normalized event you can listen for in a service
+provider's `boot()`. The common path is a targeted event for what you
+care about — `EmailBounced`, `EmailComplained`, `EmailDelivered`,
+`EmailOpened`, `EmailClicked`, `EmailDropped`:
 
 ```php
 use Illuminate\Support\Facades\Event;
-use STS\Postmaster\EmailEvent;
+use STS\Postmaster\EmailBounced;
 
-Event::listen(function (EmailEvent $event) {
-    if ($event->isPermanent()) {
-        // Uh oh, a hard bounce or a block. This address won't accept mail again.
-        // What happens next is your call: pause sends, flag the account, alert the team.
-        logger()->warning("Email permanently failed for {$event->toAddress()}");
-    }
+Event::listen(function (EmailBounced $event) {
+    // The address bounced. Pause sends, flag the account, alert the team.
+    logger()->warning("Email permanently failed for {$event->toAddress()}");
 });
 ```
 
-That's the whole integration. Deliveries, opens, bounces, and complaints from
-every provider all arrive here as one `EmailEvent` with one API.
+Each targeted event carries the same API: `$event->toAddress()`,
+`$event->provider()`, `$event->bounceType()`, and so on — see
+[The EmailEvent](#the-emailevent) for the full list.
 
-For anything beyond a few lines, use a dedicated listener class instead.
-Laravel auto-discovers it, and it can implement
-`Illuminate\Contracts\Queue\ShouldQueue` to process webhooks off the request
-cycle.
+For cross-cutting concerns (logging, audit feeds, anything that wants
+every webhook regardless of status) listen on the umbrella `EmailEvent`,
+fired alongside the targeted one:
+
+```php
+use STS\Postmaster\EmailEvent;
+
+Event::listen(function (EmailEvent $event) {
+    logger()->info("[{$event->provider()}] {$event->status()} for {$event->toAddress()}");
+});
+```
+
+For anything beyond a few lines, use a dedicated listener class. Laravel
+auto-discovers it, and it can implement `Illuminate\Contracts\Queue\ShouldQueue`
+to process webhooks off the request cycle.
 
 > **High-volume installs.** By default, parsing the webhook and dispatching
 > the event(s) runs inline before the response returns to the provider.
@@ -138,9 +149,10 @@ a drop-in notification:
 
 ```php
 use Illuminate\Support\Facades\Notification;
+use STS\Postmaster\EmailBounced;
 use STS\Postmaster\Notifications\EmailDeliveryFailed;
 
-Event::listen(function (EmailEvent $event) {
+Event::listen(function (EmailBounced $event) {
     if ($event->isPermanent()) {
         Notification::route('mail', config('ops.alerts_to'))
             ->notify(new EmailDeliveryFailed($event));
@@ -284,6 +296,40 @@ against the latest recorded status):
 ```php
 if ($message->isFailed())   { /* the latest event was a failure */ }
 ```
+
+### Targeted event classes
+
+For the six lifecycle statuses worth dedicated listeners, a targeted event
+class fires alongside the umbrella `EmailEvent` and lets you skip the
+predicate:
+
+| Targeted class | Fires for |
+|---|---|
+| `EmailDelivered` | `STATUS_DELIVERED` |
+| `EmailBounced` | `STATUS_BOUNCED` |
+| `EmailComplained` | `STATUS_COMPLAINED` |
+| `EmailDropped` | `STATUS_DROPPED` |
+| `EmailOpened` | `STATUS_OPENED` |
+| `EmailClicked` | `STATUS_CLICKED` |
+
+Every targeted class extends `EmailEvent`, so the API is the same — you
+get all the accessors, predicates, and the correlated `emailMessage()`
+record without needing to know which class fired:
+
+```php
+use STS\Postmaster\EmailBounced;
+
+Event::listen(function (EmailBounced $event) {
+    $event->toAddress();       // works
+    $event->bounceType();      // works
+    $event->emailMessage();    // works — same EmailMessage the umbrella listener saw
+});
+```
+
+Statuses without a dedicated class (`STATUS_ACCEPTED`, `STATUS_DEFERRED`,
+the outbound `STATUS_SENT`/`SANDBOXED`/`BLOCKED`/`LOGGED`/`CAPTURED`)
+fire only the umbrella; listen on `EmailEvent` and use `is*()` if you
+need them.
 
 ### Bounce classification
 

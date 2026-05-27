@@ -147,6 +147,27 @@ class EmailEvent
     }
 
     /**
+     * The targeted event class for this event's status — fired alongside the
+     * umbrella EmailEvent by Provider::dispatch() so callers can listen on a
+     * specific class (`EmailBounced::class`) instead of the umbrella plus a
+     * predicate. Returns null for statuses with no dedicated class.
+     *
+     * @return class-string<EmailEvent>|null
+     */
+    public function specificEventClass(): ?string
+    {
+        return match ($this->status()) {
+            self::STATUS_DELIVERED  => EmailDelivered::class,
+            self::STATUS_BOUNCED    => EmailBounced::class,
+            self::STATUS_COMPLAINED => EmailComplained::class,
+            self::STATUS_DROPPED    => EmailDropped::class,
+            self::STATUS_OPENED     => EmailOpened::class,
+            self::STATUS_CLICKED    => EmailClicked::class,
+            default                 => null,
+        };
+    }
+
+    /**
      * @return string|null
      */
     public function providerMessageId()

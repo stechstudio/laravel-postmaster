@@ -8,8 +8,8 @@
 
 **Provider-agnostic email webhooks and delivery tracking for Laravel.**
 
-Your app sends mail; Postmaster turns every provider's webhook — SendGrid,
-Postmark, Mailgun, Amazon SES, Resend — into one normalized event:
+Your app sends mail. Postmaster turns every webhook from SendGrid, Postmark,
+Mailgun, Amazon SES, and Resend into one normalized event:
 
 ```php
 use STS\Postmaster\EmailEvent;
@@ -23,9 +23,9 @@ Event::listen(function (EmailEvent $event) {
 
 Switch providers, run several at once, or fail over between them without
 touching that code. Run the migrations and Postmaster also records every
-outbound email and keeps it current as events arrive — a queryable delivery
-history, a self-maintaining suppression list, and a dashboard to browse it
-all.
+outbound email and keeps it current as events arrive. You get a queryable
+delivery history, a self-maintaining suppression list, and a dashboard to
+browse it all.
 
 ## What you get
 
@@ -73,10 +73,10 @@ It walks through the rest in one pass:
 - detects which provider your `mail` config points at and gathers its webhook
   verification credential,
 - optionally sets up suppression sync (collecting an API key for the providers
-  that need one — see [Two-way sync with your provider](#two-way-sync-with-your-provider)),
+  that need one; see [Two-way sync with your provider](#two-way-sync-with-your-provider)),
 - offers to enable persistence, content storage, or sandbox delivery,
-- publishes and runs the package's migrations, and
-- runs `postmaster:verify` at the end to confirm the round trip works end-to-end.
+- publishes and runs the package's migrations,
+- runs `postmaster:verify` at the end to confirm the round trip works.
 
 Everything goes into your `.env`, with the previous version backed up to
 `.env.backup`. Re-running the wizard later is safe: it edits values in place
@@ -103,8 +103,8 @@ https://your-app.com/webhooks/postmaster/{provider}
 
 Every webhook becomes a normalized event you can listen for in a service
 provider's `boot()`. The common path is a targeted event for what you
-care about — `EmailBounced`, `EmailComplained`, `EmailDelivered`,
-`EmailOpened`, `EmailClicked`, `EmailDropped`:
+care about: `EmailBounced`, `EmailComplained`, `EmailDelivered`,
+`EmailOpened`, `EmailClicked`, or `EmailDropped`.
 
 ```php
 use Illuminate\Support\Facades\Event;
@@ -116,8 +116,8 @@ Event::listen(function (EmailBounced $event) {
 });
 ```
 
-Each targeted event carries the same API: `$event->toAddress()`,
-`$event->provider()`, `$event->bounceType()`, and so on — see
+Each targeted event carries the same API (`$event->toAddress()`,
+`$event->provider()`, `$event->bounceType()`, and so on). See
 [The EmailEvent](#the-emailevent) for the full list.
 
 For cross-cutting concerns (logging, audit feeds, anything that wants
@@ -275,11 +275,11 @@ $event->toArray();            // everything above as an array
 
 `EmailEvent::STATUS_ACCEPTED`, `STATUS_DEFERRED`, `STATUS_DELIVERED`,
 `STATUS_BOUNCED`, `STATUS_DROPPED`, `STATUS_COMPLAINED`, `STATUS_OPENED`,
-`STATUS_CLICKED`. (Plus `STATUS_SENT`, `STATUS_SANDBOXED`, `STATUS_BLOCKED`,
-`STATUS_LOGGED`, and `STATUS_CAPTURED` for outbound records the package writes
-itself — `STATUS_LOGGED` is for sends through Laravel's `log` mail driver,
-`STATUS_CAPTURED` for sends through the `array` driver. Both are terminal:
-no webhook ever follows.)
+`STATUS_CLICKED`. There are five more for outbound records the package
+writes itself: `STATUS_SENT`, `STATUS_SANDBOXED`, `STATUS_BLOCKED`,
+`STATUS_LOGGED` (sends through Laravel's `log` driver), and `STATUS_CAPTURED`
+(sends through the `array` driver). The last four are terminal; no webhook
+will follow.
 
 For comparing against a single value, every status has a matching `is*()`
 predicate. They make a status check read clearly and they autocomplete:
@@ -312,9 +312,9 @@ predicate:
 | `EmailOpened` | `STATUS_OPENED` |
 | `EmailClicked` | `STATUS_CLICKED` |
 
-Every targeted class extends `EmailEvent`, so the API is the same — you
-get all the accessors, predicates, and the correlated `emailMessage()`
-record without needing to know which class fired:
+Every targeted class extends `EmailEvent`, so the API is the same. You get
+all the accessors, predicates, and the correlated `emailMessage()` record
+without needing to know which class fired:
 
 ```php
 use STS\Postmaster\EmailBounced;
@@ -322,7 +322,7 @@ use STS\Postmaster\EmailBounced;
 Event::listen(function (EmailBounced $event) {
     $event->toAddress();       // works
     $event->bounceType();      // works
-    $event->emailMessage();    // works — same EmailMessage the umbrella listener saw
+    $event->emailMessage();    // same EmailMessage the umbrella listener saw
 });
 ```
 
@@ -366,7 +366,7 @@ php artisan vendor:publish --tag=postmaster.migrations
 php artisan migrate
 ```
 
-That's it — persistence is on. To run the package as a pure event dispatcher
+That's it. Persistence is on. To run the package as a pure event dispatcher
 with no database writes, set:
 
 ```
@@ -418,20 +418,20 @@ for "is this delivered?" but it can't represent a message that was opened three
 times, and it overwrites the history as new events arrive.
 
 With persistence on, the package also keeps every event as its own row in an
-`email_activity` table — the initial send and each webhook alike — so a
+`email_activity` table (the initial send and each webhook alike), so a
 message retains its complete delivery history. This is on by default; set
 `POSTMASTER_RECORD_EVENTS=false` to keep only the summary record.
 
 > **A note on naming.** "Event" is the live signal a webhook becomes (an
 > `EmailEvent` value object you `Event::listen` for). "Activity" is the
-> historical record we keep of those events in `email_activity` — plus
-> address-level entries (manual suppress / unsuppress / sync add) that
+> historical record we keep of those events in `email_activity`, plus
+> address-level entries (manual suppress, unsuppress, sync add) that
 > don't tie to a specific message. Same idea, two abstractions.
 
 Each `EmailMessage` exposes its timeline, oldest first, via the `activity()`
-relationship — and `EmailAddress` exposes a symmetric `activity()` of every
-entry that touched it (message lifecycle events sent to it, plus any
-address-level entries):
+relationship. `EmailAddress` exposes a symmetric `activity()` of every entry
+that touched it (message lifecycle events sent to it, plus any address-level
+entries):
 
 ```php
 foreach ($message->activity as $entry) {
@@ -441,7 +441,7 @@ foreach ($message->activity as $entry) {
 }
 
 foreach ($address->activity as $entry) {
-    // Every event that touched this address — message lifecycle events
+    // Every event that touched this address: message lifecycle events
     // from messages sent to it, plus suppressed/unsuppressed entries
     // for the address itself.
 }
@@ -453,9 +453,10 @@ status regress. Query `EmailMessage` for current state, walk `events()` for
 history.
 
 Timeline rows accumulate one per event, so the package prunes them on a
-schedule with two windows — routine activity (sent, delivered, opened, clicked,
-…) and failures (bounced, dropped, complained) — because a six-month-old open
-is noise but a six-month-old bounce is still evidence:
+schedule. There are two windows, because a six-month-old open is noise but
+a six-month-old bounce is still evidence. Routine activity (sent, delivered,
+opened, clicked, …) and failures (bounced, dropped, complained) are pruned
+separately:
 
 | Bucket | Default | `.env` |
 |---|---|---|
@@ -518,11 +519,11 @@ POSTMASTER_BLOCK_SUPPRESSED=true
 Anything addressed to a suppressed recipient is intercepted before it reaches
 the mail transport, recorded with status `blocked` (so the attempt is visible
 in the dashboard), and dropped. Bypass it per send by lifting the suppression
-or by skipping the check yourself — there's no per-message bypass flag.
+or by skipping the check yourself. There's no per-message bypass flag.
 
 #### Two-way sync with your provider
 
-The webhook stream is one feed into the suppression table — every time a
+The webhook stream is one feed into the suppression table. Every time a
 provider tells us about a bounce or complaint, we record it. But it's not
 the only source of truth. The provider has its own authoritative list, and
 admins can clear suppressions in the provider's dashboard or via their API.
@@ -530,7 +531,7 @@ If you only listen to webhooks you can't see those clearances and your
 local table drifts out of date.
 
 `postmaster:sync` pulls each configured provider's current suppression list
-and reconciles it with our local table — new provider suppressions land
+and reconciles it with our local table. New provider suppressions land
 here, and addresses the provider no longer holds are cleared locally
 (unless they're **manual** suppressions, which are operator decisions and
 never auto-cleared). It runs daily at 04:00 once persistence is on, and
@@ -556,8 +557,8 @@ missing, that provider is skipped with an informative line:
 
 **Unsuppress is two-way too.** Each suppression row records which
 provider(s) put it on the list (via webhook events or sync). When you
-call `Postmaster::unsuppress($address)` — or click Unsuppress in the
-dashboard — the local row is lifted and every recorded provider with
+call `Postmaster::unsuppress($address)`, or click Unsuppress in the
+dashboard, the local row is lifted and every recorded provider with
 API support is asked to clear theirs. The method returns an array
 with `cleared` (providers we successfully called) and `manual`
 (providers without API support, where the suppression has to be
@@ -588,8 +589,8 @@ POSTMASTER_STORE_CONTENT=true
 > rewriting some providers apply afterward.
 
 Because of the size and sensitivity, content carries a short retention window
-by default — **30 days** — after which the daily prune clears the content
-columns and leaves the record itself in place. Adjust or disable from `.env`:
+by default (30 days), after which the daily prune clears the content columns
+and leaves the record itself in place. Adjust or disable from `.env`:
 
 ```
 POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=14   # tighter
@@ -667,8 +668,8 @@ Every field is optional, so declare only the ones that apply.
 > mailable is sent.
 
 For apps where every email is to a known `User`, the recipient can be
-resolved from the to-address automatically — declare a resolver once, in a
-service provider, and skip `recipient:` on every Mailable:
+resolved from the to-address automatically. Declare a resolver once in a
+service provider and skip `recipient:` on every Mailable:
 
 ```php
 use STS\Postmaster\Facades\Postmaster;
@@ -677,7 +678,7 @@ Postmaster::resolveRecipientByEmail(User::class);
 ```
 
 That's the one-liner for the "look up the model by its `email` column"
-case — pass `column: 'whatever'` to match against a different column. The
+case. Pass `column: 'whatever'` to match against a different column. The
 address is normalized (lower-cased, trimmed) before the lookup, so a
 mixed-case webhook still finds the row.
 
@@ -694,13 +695,14 @@ Postmaster::resolveRecipientUsing(
 ```
 
 An explicit `Tracking(recipient: …)` declaration always wins over either
-form of the resolver — useful when an email about User A is sent to User B.
+form of the resolver, which is useful when an email about User A is sent
+to User B.
 
 #### Multi-recipient sends
 
 Each envelope recipient (To, Cc, Bcc) gets its own `email_messages` row,
 all sharing the provider message id and the related/tenant/tags. That's
-because providers fire delivery and bounce webhooks **per recipient** —
+because providers fire delivery and bounce webhooks **per recipient**, and
 one row per address keeps each delivery state accurate. A bounce for
 `bob@x` lands on bob's row; alice's stays untouched.
 
@@ -758,8 +760,8 @@ class User extends Model
 }
 ```
 
-Both traits expose the same shape — `emailMessages()`, `latestEmailMessage()`,
-`emailDeliveryFailed()` — but key off different polymorphic links, so each
+Both traits expose the same shape (`emailMessages()`, `latestEmailMessage()`,
+`emailDeliveryFailed()`) but key off different polymorphic links, so each
 model only sees the emails it owns:
 
 ```php
@@ -924,7 +926,7 @@ environment**, so the dashboard is never unguarded in production by accident.
   content, rendered in a sandboxed, CSP-restricted frame. Click events show
   the URL the recipient clicked, inline on the timeline.
 - **Person view.** Click the Recipient row on a message detail page to land
-  on a page listing every email recorded against that recipient model — the
+  on a page listing every email recorded against that recipient model. The
   "all the email a user has received" view.
 - **Resend.** A button on the message detail page replays the stored email
   through the configured mailer, keeping the original's related model,

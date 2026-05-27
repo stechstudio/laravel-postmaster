@@ -2,7 +2,7 @@
 
 namespace STS\Postmaster\Providers\Resend;
 
-use Resend\Resend as ResendClient;
+use Resend\Client as ResendClient;
 use STS\Postmaster\Contracts\SuppressionSync as Contract;
 
 /**

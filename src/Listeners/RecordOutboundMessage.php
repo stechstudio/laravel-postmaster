@@ -34,7 +34,26 @@ class RecordOutboundMessage
      */
     public function handle( MessageSent $event )
     {
-        $this->record($event->message, $event->sent->getMessageId(), $this->statusForCurrentTransport());
+        $this->record($event->message, $this->resolveProviderMessageId($event), $this->statusForCurrentTransport());
+    }
+
+    /**
+     * The provider's id for this outbound message — the same id their
+     * webhooks will correlate on. Usually `$event->sent->getMessageId()`
+     * carries this, because every Symfony mailer transport sets the
+     * SentMessage's id from the provider's API response. Laravel's
+     * ResendTransport is the exception: it stamps the id on the email
+     * as `X-Resend-Email-ID` and leaves the SentMessage with Symfony's
+     * auto-generated id, so without this fallback the webhook arrives
+     * with a different id and we record a phantom second row.
+     */
+    protected function resolveProviderMessageId( MessageSent $event ): ?string
+    {
+        if ($header = $event->message->getHeaders()->get('X-Resend-Email-ID')) {
+            return $header->getBodyAsString();
+        }
+
+        return $event->sent->getMessageId();
     }
 
     /**

@@ -13,7 +13,7 @@ class SendGridAdapterTest extends TestCase
             'email'         => 'recipient@example.com',
             'event'         => 'delivered',
             'timestamp'     => 1609459200,
-            'smtp-id'       => '<message-id@example.com>',
+            'smtp-id'       => 'sg-message-1',
             'sg_event_id'   => 'sg-event-1',
             'sg_message_id' => 'sg-message-1',
             'status'        => '2.0.0',
@@ -38,7 +38,7 @@ class SendGridAdapterTest extends TestCase
         $this->assertSame(EmailEvent::STATUS_DELIVERED, $adapter->status());
         $this->assertSame('recipient@example.com', $adapter->toAddress());
         $this->assertSame(1609459200, $adapter->occurredAt()->getTimestamp());
-        $this->assertSame('<message-id@example.com>', $adapter->providerMessageId());
+        $this->assertSame('sg-message-1', $adapter->providerMessageId());
         $this->assertSame('250 OK', $adapter->response());
         $this->assertSame('2.0.0', $adapter->code());
     }
@@ -113,7 +113,7 @@ class SendGridAdapterTest extends TestCase
         $this->assertSame([
             'provider'            => 'SendGrid',
             'status'              => EmailEvent::STATUS_DELIVERED,
-            'provider_message_id' => '<message-id@example.com>',
+            'provider_message_id' => 'sg-message-1',
             'to_address'          => 'recipient@example.com',
             'occurred_at'         => '2021-01-01T00:00:00+00:00',
             'bounce_type'         => null,

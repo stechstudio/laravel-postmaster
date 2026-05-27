@@ -68,6 +68,9 @@ class RecordOutboundMessage
         // brackets straight from the Mailgun API; the webhook payload
         // delivers it without brackets. Strip them so correlation matches.
         // No-op for the other providers (their ids never have brackets).
+        // (For SMTP sends, Symfony's transport returns the queue id from
+        // the 250 OK response, which matches the prefix of SendGrid's
+        // sg_message_id — the SendGrid adapter handles that side.)
         return trim((string) $event->sent->getMessageId(), '<>');
     }
 

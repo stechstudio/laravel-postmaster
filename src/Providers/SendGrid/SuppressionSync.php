@@ -19,13 +19,15 @@ class SuppressionSync implements Contract
 {
     /**
      * SendGrid suppression endpoints to pull from, mapped to the normalized
-     * EmailAddress::REASON_* value we record locally.
+     * EmailAddress::REASON_* value we record locally. The SDK's base URL
+     * already includes `/v3`, so endpoints here are recorded relative to
+     * that prefix (don't prepend `/v3/` — that produces `/v3/v3/...` and 404s).
      */
     protected const LISTS = [
-        '/v3/suppression/bounces'        => EmailAddress::REASON_BOUNCED,
-        '/v3/suppression/blocks'         => EmailAddress::REASON_BOUNCED,
-        '/v3/suppression/invalid_emails' => EmailAddress::REASON_DROPPED,
-        '/v3/suppression/spam_reports'   => EmailAddress::REASON_COMPLAINED,
+        'suppression/bounces'        => EmailAddress::REASON_BOUNCED,
+        'suppression/blocks'         => EmailAddress::REASON_BOUNCED,
+        'suppression/invalid_emails' => EmailAddress::REASON_DROPPED,
+        'suppression/spam_reports'   => EmailAddress::REASON_COMPLAINED,
     ];
 
     public function __construct( protected array $config )
@@ -52,8 +54,9 @@ class SuppressionSync implements Contract
 
         foreach (array_keys(static::LISTS) as $endpoint) {
             // DELETE /v3/suppression/{list}/{email} — 204 on success,
-            // 404 when the address isn't on that list.
-            $response = $client->client->_(ltrim($endpoint, '/'))->_($address)->delete();
+            // 404 when the address isn't on that list. The endpoint is
+            // recorded relative to the SDK's /v3 base (no leading slash).
+            $response = $client->client->_($endpoint)->_($address)->delete();
 
             if ($response->statusCode() === 204) {
                 $removed = true;
@@ -75,7 +78,7 @@ class SuppressionSync implements Contract
         // SendGrid's suppression endpoints have no documented pagination
         // limit and return the full list as JSON. A million-row response
         // would be a problem, but at typical volumes this is fine.
-        $response = $client->client->_(ltrim($endpoint, '/'))->get();
+        $response = $client->client->_($endpoint)->get();
 
         if ($response->statusCode() !== 200) {
             return;

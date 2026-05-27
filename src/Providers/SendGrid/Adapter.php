@@ -80,7 +80,24 @@ class Adapter extends AbstractAdapter
     #[\Override]
     public function providerMessageId()
     {
-        return Arr::get($this->payload, "smtp-id");
+        // SendGrid sends two ids in every webhook payload. `sg_message_id`
+        // is SendGrid's canonical id of the form `<queue-id>.<filter-tags>`;
+        // its prefix is the same value SendGrid returns in the SMTP 250 OK
+        // response, which is what Symfony's SMTP transport records on the
+        // SentMessage. Splitting at the first dot gives us a value that
+        // matches what RecordOutboundMessage stored at send time.
+        //
+        // `smtp-id` (the other id) is the email's Message-ID header value,
+        // but Symfony only stamps that on the outgoing wire, never on the
+        // Email object itself — so the SMTP-side flow can't record it for
+        // correlation. sg_message_id is the more reliable match.
+        $sgMessageId = Arr::get($this->payload, 'sg_message_id');
+
+        if (is_string($sgMessageId) && $sgMessageId !== '') {
+            return strstr($sgMessageId, '.', true) ?: $sgMessageId;
+        }
+
+        return null;
     }
 
     /**

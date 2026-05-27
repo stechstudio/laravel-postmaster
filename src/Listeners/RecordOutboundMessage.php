@@ -39,18 +39,29 @@ class RecordOutboundMessage
 
     /**
      * The provider's id for this outbound message — the same id their
-     * webhooks will correlate on. Usually `$event->sent->getMessageId()`
-     * carries this, because every Symfony mailer transport sets the
-     * SentMessage's id from the provider's API response. Laravel's
-     * ResendTransport is the exception: it stamps the id on the email
-     * as `X-Resend-Email-ID` and leaves the SentMessage with Symfony's
-     * auto-generated id, so without this fallback the webhook arrives
-     * with a different id and we record a phantom second row.
+     * webhooks will correlate on. Most Symfony mailer transports set the
+     * SentMessage's id from the provider's API response, so
+     * `$event->sent->getMessageId()` is the default. Two of Laravel's
+     * homegrown transports (ResendTransport, SesTransport) stamp the
+     * provider id on the email as a header instead and leave the
+     * SentMessage with Symfony's auto-generated id; check those headers
+     * first so correlation lands on the right row.
+     *
+     * @var array<int, string> Headers to prefer, in order. First match wins.
      */
+    protected const PROVIDER_MESSAGE_ID_HEADERS = [
+        'X-Resend-Email-ID',   // Laravel's ResendTransport
+        'X-SES-Message-ID',    // Laravel's SesTransport
+    ];
+
     protected function resolveProviderMessageId( MessageSent $event ): ?string
     {
-        if ($header = $event->message->getHeaders()->get('X-Resend-Email-ID')) {
-            return $header->getBodyAsString();
+        $headers = $event->message->getHeaders();
+
+        foreach (self::PROVIDER_MESSAGE_ID_HEADERS as $name) {
+            if ($header = $headers->get($name)) {
+                return $header->getBodyAsString();
+            }
         }
 
         // Symfony's Mailgun transport returns the Message-ID with angle

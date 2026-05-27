@@ -57,6 +57,37 @@ class ResendMessageIdCorrelationTest extends TestCase
         );
     }
 
+    public function testProviderMessageIdPrefersSesHeaderOverSentMessageId()
+    {
+        // Same pattern: Laravel's SesTransport stamps the SES MessageId on
+        // X-SES-Message-ID after the SES API call but leaves the SentMessage
+        // with Symfony's auto-generated id. Without this header check,
+        // delivery and bounce SNS notifications can't correlate.
+        $email = (new Email)
+            ->from('hello@example.com')
+            ->to('r@example.com')
+            ->subject('test')
+            ->html('<p>hi</p>');
+
+        $email->getHeaders()->addHeader('X-SES-Message-ID', '0100019e6b9004c8-2f5449de-4192-47ab-b688-c8fd7c993b98-000000');
+
+        $sent = new SentMessage($email, new Envelope(new Address('hello@example.com'), [new Address('r@example.com')]));
+        $event = new MessageSent(new LaravelSentMessage($sent), []);
+
+        $listener = new class(app(Postmaster::class)) extends RecordOutboundMessage {
+            public function exposedResolveProviderMessageId(MessageSent $event): ?string
+            {
+                return $this->resolveProviderMessageId($event);
+            }
+        };
+
+        $this->assertSame(
+            '0100019e6b9004c8-2f5449de-4192-47ab-b688-c8fd7c993b98-000000',
+            $listener->exposedResolveProviderMessageId($event),
+            'Bug: SesTransport stamps the id on X-SES-Message-ID, not on SentMessage — without preferring the header, SNS notifications create a phantom second row.'
+        );
+    }
+
     public function testProviderMessageIdFallsBackToSentMessageIdWhenHeaderAbsent()
     {
         $email = (new Email)

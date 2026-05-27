@@ -53,7 +53,11 @@ class RecordOutboundMessage
             return $header->getBodyAsString();
         }
 
-        return $event->sent->getMessageId();
+        // Symfony's Mailgun transport returns the Message-ID with angle
+        // brackets straight from the Mailgun API; the webhook payload
+        // delivers it without brackets. Strip them so correlation matches.
+        // No-op for the other providers (their ids never have brackets).
+        return trim((string) $event->sent->getMessageId(), '<>');
     }
 
     /**

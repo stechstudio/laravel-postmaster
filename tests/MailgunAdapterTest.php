@@ -17,11 +17,18 @@ class MailgunAdapterTest extends TestCase
             ],
             'event-data' => [
                 'event'           => 'delivered',
-                'id'              => 'mailgun-message-1',
+                // `id` is Mailgun's per-event token; correlation runs
+                // against the email's Message-ID header instead.
+                'id'              => 'Nz5rUz2sT6OY5t7hJt2WsA',
                 'recipient'       => 'recipient@example.com',
                 'timestamp'       => 1609459200,
                 'tags'            => ['welcome', 'newsletter'],
                 'user-variables'  => ['order_id' => '1234'],
+                'message'         => [
+                    'headers' => [
+                        'message-id' => 'mailgun-message-1@example.com',
+                    ],
+                ],
                 'delivery-status' => [
                     'code'        => 250,
                     'description' => 'OK',
@@ -47,7 +54,7 @@ class MailgunAdapterTest extends TestCase
         $this->assertSame(EmailEvent::STATUS_DELIVERED, $adapter->status());
         $this->assertSame('recipient@example.com', $adapter->toAddress());
         $this->assertSame(1609459200, $adapter->occurredAt()->getTimestamp());
-        $this->assertSame('mailgun-message-1', $adapter->providerMessageId());
+        $this->assertSame('mailgun-message-1@example.com', $adapter->providerMessageId());
         $this->assertSame(['welcome', 'newsletter'], $adapter->tags()->all());
         $this->assertSame(['order_id' => '1234'], $adapter->data()->all());
         $this->assertSame(250, $adapter->code());
@@ -107,7 +114,7 @@ class MailgunAdapterTest extends TestCase
         $this->assertSame([
             'provider'            => 'Mailgun',
             'status'              => EmailEvent::STATUS_DELIVERED,
-            'provider_message_id' => 'mailgun-message-1',
+            'provider_message_id' => 'mailgun-message-1@example.com',
             'to_address'          => 'recipient@example.com',
             'occurred_at'         => '2021-01-01T00:00:00+00:00',
             'bounce_type'         => null,

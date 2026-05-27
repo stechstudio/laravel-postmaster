@@ -78,7 +78,15 @@ class Adapter extends AbstractAdapter
     #[\Override]
     public function providerMessageId()
     {
-        return Arr::get($this->payload, "id");
+        // Mailgun's payload carries two ids: top-level `id` is the *event*
+        // id (a short base64 token like Nz5rUz2sT6OY5t7hJt2WsA), separate
+        // for each event. `message.headers.message-id` is the email's
+        // Message-ID header — the only id that matches what Symfony's
+        // Mailgun transport stored at send time, and what we need for
+        // correlation. Mailgun strips the angle brackets from the webhook
+        // payload; RecordOutboundMessage strips them on storage too, so
+        // they meet in the middle as a bare value.
+        return Arr::get($this->payload, 'message.headers.message-id');
     }
 
     /**

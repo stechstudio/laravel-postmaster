@@ -26,9 +26,19 @@ class VerifyWebhook
      */
     public function handle( Request $request, Closure $next )
     {
-        $provider = $this->events->provider($request->route('provider'));
+        $providerName = $request->route('provider');
+        $provider = $this->events->provider($providerName);
 
         if (! $provider->passesAuthorization($request)) {
+            // Logged at info so it's visible during setup / debugging without
+            // dominating logs in steady-state. A failing webhook in
+            // production usually means a misconfigured credential or a clock
+            // skew, both of which are silent failures otherwise.
+            logger()->info("Postmaster: webhook auth failed for provider [{$providerName}]", [
+                'ip'         => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
             throw new UnauthorizedException($request);
         }
 

@@ -35,7 +35,12 @@ class SignatureAuth
             return false;
         }
 
-        if (abs(time() - $request->input('signature.timestamp')) > 15) {
+        // Replay-prevention window. Mailgun's documented token validity is
+        // 15 minutes (900s); we accept anything within 5 minutes, which is
+        // generous enough for normal webhook latency plus tunnel/proxy
+        // delays without giving a captured payload an indefinitely long
+        // replay opportunity.
+        if (abs(time() - (int) $request->input('signature.timestamp')) > 300) {
             return false;
         }
 

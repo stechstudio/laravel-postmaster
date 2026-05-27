@@ -35,6 +35,12 @@ class DatabaseSeeder extends Seeder
             ->map(fn ($name) => Tenant::create(['name' => $name])->getKey())
             ->all();
 
+        // Seed addresses first so the message timeline activity gets the
+        // highest IDs and dominates the overview's "Recent activity" feed
+        // (which orders by id DESC). The manual-suppression activity entries
+        // are still here — they just sit further down the feed.
+        $this->seedAddresses($names, $domains);
+
         foreach (range(1, 90) as $i) {
             $sentAt    = now()->subDays(rand(0, 13))->subMinutes(rand(0, 1439));
             $status    = $statuses[array_rand($statuses)];
@@ -106,8 +112,6 @@ class DatabaseSeeder extends Seeder
                 }
             }
         }
-
-        $this->seedAddresses($names, $domains);
     }
 
     /**

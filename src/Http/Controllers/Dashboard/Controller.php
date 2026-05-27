@@ -59,7 +59,10 @@ abstract class Controller
     protected function recentActivity( $after = 0, $limit = 100 )
     {
         $query = $this->activityQuery()
-            ->with(['emailMessage' => fn ($q) => $q->withoutGlobalScopes()])
+            ->with([
+                'emailMessage' => fn ($q) => $q->withoutGlobalScopes(),
+                'emailAddress',
+            ])
             ->orderByDesc('id')
             ->limit($limit);
 
@@ -289,12 +292,29 @@ abstract class Controller
      */
     protected function presentActivity( $entry )
     {
+        // Lifecycle entries (those tied to a message) read their headline
+        // from the message. Address-only entries — manual suppress, sync
+        // add, unsuppress — don't have a message, so they're labeled by
+        // what happened at the address level, with the address itself
+        // standing in as the recipient line.
+        $subject = $entry->emailMessage?->getAttribute('subject');
+        $to      = $entry->emailMessage?->getAttribute('to_address');
+
+        if ($subject === null && $entry->emailAddress !== null) {
+            $subject = match ($entry->status) {
+                EmailActivity::STATUS_SUPPRESSED   => 'Address suppressed',
+                EmailActivity::STATUS_UNSUPPRESSED => 'Address unsuppressed',
+                default                            => 'Address activity',
+            };
+            $to = $entry->emailAddress->address;
+        }
+
         return [
             'id'        => $entry->id,
             'status'    => $entry->status,
             'provider'  => $entry->provider,
-            'to'        => $entry->emailMessage?->getAttribute('to_address'),
-            'subject'   => $entry->emailMessage?->getAttribute('subject'),
+            'to'        => $to,
+            'subject'   => $subject,
             'messageId' => $entry->email_message_id,
             'at'        => $entry->occurred_at?->toIso8601String(),
         ];

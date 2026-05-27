@@ -39,6 +39,20 @@ class SuppressionSyncTest extends TestCase
         FakeSync::reset();
     }
 
+    public function testPostmasterSyncLookupIsCaseInsensitive()
+    {
+        // The providers JSON column on email_addresses stores the canonical
+        // product name ("Postmark", "SendGrid"); the config keys are
+        // lowercase identifiers. Postmaster::sync() must accept either, or
+        // unsuppress() can't find the sync class for a recorded provider.
+        $pm = app(\STS\Postmaster\Postmaster::class);
+
+        $this->assertInstanceOf(FakeSync::class, $pm->sync('fake'));
+        $this->assertInstanceOf(FakeSync::class, $pm->sync('Fake'));
+        $this->assertInstanceOf(FakeSync::class, $pm->sync('FAKE'));
+        $this->assertNull($pm->sync('nonexistent'));
+    }
+
     public function testSyncAddsProviderSuppressionsToTheLocalTable()
     {
         FakeSync::$remote = [

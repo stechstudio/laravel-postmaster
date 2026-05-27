@@ -46,11 +46,12 @@ class SuppressionSync implements Contract
         $client = $this->client();
         $stream = $this->config['message_stream'] ?? 'outbound';
 
-        // PostmarkClient::getSuppressions returns a DynamicResponseModel
-        // whose top-level "Suppressions" property is the array we want.
+        // PostmarkClient::getSuppressions returns a PostmarkSuppressionList
+        // whose Suppressions property is protected — read it via the
+        // getSuppressions() accessor, not direct property access.
         $response = $client->getSuppressions($stream);
 
-        foreach ($response->Suppressions ?? [] as $entry) {
+        foreach ($response->getSuppressions() as $entry) {
             $address = $entry->EmailAddress ?? null;
 
             if (! is_string($address) || $address === '') {
@@ -70,19 +71,25 @@ class SuppressionSync implements Contract
         $client = $this->client();
         $stream = $this->config['message_stream'] ?? 'outbound';
 
-        $response = $client->deleteSuppressions($stream, [strtolower($address)]);
+        // PostmarkClient::deleteSuppressions expects an array of
+        // [['EmailAddress' => '...']] entries first, then the stream.
+        $response = $client->deleteSuppressions(
+            [['EmailAddress' => strtolower($address)]],
+            $stream
+        );
 
-        // Postmark returns per-address status; "Suppressed" means the
-        // unsuppress was *requested* (it can take a moment to propagate).
-        $entries = $response->Suppressions ?? [];
-
-        foreach ($entries as $entry) {
-            if (isset($entry->Status) && $entry->Status !== 'Failed') {
-                return true;
+        // The SDK throws on a real API error. Reaching here means Postmark
+        // accepted the request. An entry with Status != 'Failed' confirms
+        // the unsuppress is in flight. An empty Suppressions list is
+        // Postmark's idempotent response when there was nothing to delete
+        // (the address was already cleared); still success, just a no-op.
+        foreach ($response->getSuppressions() as $entry) {
+            if (isset($entry->Status) && $entry->Status === 'Failed') {
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
     protected function client(): PostmarkClient

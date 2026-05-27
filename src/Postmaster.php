@@ -513,7 +513,12 @@ class Postmaster
      */
     public function sync( $provider )
     {
-        $config = $this->config['providers'][$provider] ?? null;
+        // The providers JSON column on email_addresses stores canonical-case
+        // names ("Postmark", "SendGrid", …); the config keys are lower-case
+        // identifiers ("postmark", "sendgrid", …). Accept either by
+        // normalizing the lookup.
+        $key    = strtolower((string) $provider);
+        $config = $this->config['providers'][$key] ?? null;
         $class  = $config['sync'] ?? null;
 
         if (! is_string($class) || ! class_exists($class)) {

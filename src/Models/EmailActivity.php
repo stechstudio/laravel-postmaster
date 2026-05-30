@@ -4,6 +4,7 @@ namespace STS\Postmaster\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * A single recorded entry in the email_activity table. Two shapes share the
@@ -32,6 +33,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $reason
  * @property string|null $code
  * @property string|null $url
+ * @property string|null $causer_type
+ * @property int|string|null $causer_id
+ * @property string|null $source
  * @property \Illuminate\Support\Carbon|null $occurred_at
  * @property \Illuminate\Support\Carbon|null $created_at
  */
@@ -88,5 +92,23 @@ class EmailActivity extends Model
         $model = config('postmaster.persistence.address_model', EmailAddress::class);
 
         return $this->belongsTo($model, 'email_address_id');
+    }
+
+    /**
+     * Who acted, when the entry was operator-initiated. Resolved through
+     * Laravel's morph map (causer_type stores 'user', not the consumer's
+     * FQCN) so the relation is decoupled from app class names.
+     *
+     * Null on entries with no model actor — anything written by the sync
+     * command, a webhook, or any automatic source — and on installs whose
+     * email_activity table lives on a different DB connection than the
+     * consumer's users table, where this relation can't be hydrated across
+     * the boundary. In both cases the `source` column carries the label.
+     *
+     * @return MorphTo
+     */
+    public function causer()
+    {
+        return $this->morphTo('causer');
     }
 }

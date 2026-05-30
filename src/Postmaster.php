@@ -487,25 +487,35 @@ class Postmaster
      * Manually suppress an address — for an unsubscribe, an abuse report, or
      * any reason of your own. Creates the record if it does not exist yet.
      *
-     * @param string $address
-     * @param string $reason
+     * The activity entry written by EmailAddress::suppress() carries the
+     * causer / source attribution, so a consumer can answer "who suppressed
+     * this address, when, and why" from the ledger alone.
+     *
+     * @param string                                   $address
+     * @param string                                   $reason
+     *  Why the address is being suppressed — defaults to REASON_MANUAL.
+     * @param \Illuminate\Database\Eloquent\Model|null $causer
+     *  The acting user, when there is one. Stored via the morph map.
+     * @param string|null                              $source
+     *  Free-form label for the actor (e.g. 'dashboard', 'console'); also
+     *  used as a fallback when the morph relation can't be hydrated across
+     *  DB connections.
      *
      * @return EmailAddress
      */
-    public function suppress( string $address, string $reason = EmailAddress::REASON_MANUAL )
-    {
+    public function suppress(
+        string $address,
+        string $reason = EmailAddress::REASON_MANUAL,
+        ?Model $causer = null,
+        ?string $source = null,
+    ) {
         $model = $this->addressModel();
 
         $record = $model->newQuery()->firstOrNew([
             'address' => $model::normalize($address),
         ]);
 
-        $record->suppress($reason);
-
-        $record->logActivity([
-            'status' => EmailActivity::STATUS_SUPPRESSED,
-            'reason' => $reason,
-        ]);
+        $record->suppress($reason, $causer, $source);
 
         return $record;
     }
@@ -517,7 +527,18 @@ class Postmaster
      * locally has to happen upstream, or the next sync would just put it
      * back.
      *
-     * @param string $address
+     * The activity entry written by EmailAddress::unsuppress() carries the
+     * causer / source attribution plus the "Cleared at: ..." response blurb
+     * for any providers whose API was called.
+     *
+     * @param string                                   $address
+     * @param \Illuminate\Database\Eloquent\Model|null $causer
+     *  The acting user, when there is one. Stored via the morph map.
+     * @param string|null                              $source
+     *  Free-form label for the actor (e.g. 'dashboard', 'console').
+     * @param string|null                              $reason
+     *  A human note for the ledger ("customer confirmed the mailbox was
+     *  fixed"). Distinct from the address-row reason, which is cleared.
      *
      * @return array{address: EmailAddress, cleared: array<int, string>, manual: array<int, string>}
      *
@@ -528,8 +549,12 @@ class Postmaster
      *                or no API key) or threw — operator has to clear those
      *                in the provider's dashboard manually.
      */
-    public function unsuppress( string $address )
-    {
+    public function unsuppress(
+        string $address,
+        ?Model $causer = null,
+        ?string $source = null,
+        ?string $reason = null,
+    ) {
         $model      = $this->addressModel();
         $normalized = $model::normalize($address);
 
@@ -558,10 +583,7 @@ class Postmaster
             }
         }
 
-        $record->unsuppress();
-
-        $record->logActivity([
-            'status' => EmailActivity::STATUS_UNSUPPRESSED,
+        $record->unsuppress($causer, $source, $reason, [
             'response' => empty($cleared) ? null : 'Cleared at: '.implode(', ', $cleared),
         ]);
 

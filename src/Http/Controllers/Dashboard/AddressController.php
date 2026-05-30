@@ -48,7 +48,11 @@ class AddressController extends Controller
                 ->with('postmasterError', 'That is not a valid email address.');
         }
 
-        $result = $postmaster->unsuppress($address);
+        $result = $postmaster->unsuppress(
+            $address,
+            causer: $request->user(),
+            source: 'dashboard',
+        );
 
         return redirect()->route('postmaster.addresses')
             ->with('postmasterFlash', $this->flashFor($address, $result));

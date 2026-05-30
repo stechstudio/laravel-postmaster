@@ -229,16 +229,45 @@ class EmailAddress extends Model
      * Mark this address suppressed. Suppression is sticky: a later delivery
      * or open never clears it — only an explicit unsuppress() does.
      *
-     * @param string $reason
+     * Also writes an address-level activity entry attributing the action,
+     * so the ledger reflects every programmatic suppress regardless of who
+     * called it (the entry is gated by persistence.record_events the way
+     * logActivity() already is).
+     *
+     * @param string                                       $reason
+     *  Why the address is being suppressed — defaults to REASON_MANUAL.
+     *  Stored on the row AND on the activity entry.
+     * @param \Illuminate\Database\Eloquent\Model|null     $causer
+     *  Who acted — usually a user model. Stored via the morph map (so
+     *  causer_type is the consumer's morph alias, not its FQCN). Null when
+     *  there's no model actor.
+     * @param string|null                                  $source
+     *  Free-form label for the actor (e.g. 'dashboard', 'sync', 'webhook')
+     *  — used both for non-model actors and as a fallback the consumer can
+     *  always render when the morph relation can't be hydrated across DB
+     *  connections.
+     * @param array<string, mixed>                         $activity
+     *  Extra attributes merged into the activity entry — e.g. a provider
+     *  name for sync-driven entries, or a `response` blurb.
      *
      * @return $this
      */
-    public function suppress( $reason = self::REASON_MANUAL )
-    {
+    public function suppress(
+        $reason = self::REASON_MANUAL,
+        $causer = null,
+        $source = null,
+        array $activity = []
+    ) {
         $this->status = self::STATUS_SUPPRESSED;
         $this->reason = $reason;
         $this->suppressed_at = now();
         $this->save();
+
+        $this->logActivity($activity + [
+            'status' => EmailActivity::STATUS_SUPPRESSED,
+            'reason' => $reason,
+            'source' => $source,
+        ] + $this->causerAttributes($causer));
 
         return $this;
     }
@@ -247,16 +276,58 @@ class EmailAddress extends Model
      * Return this address to active — e.g. after the recipient fixes their
      * mailbox, or you clear the suppression on the provider's side.
      *
+     * Also writes an address-level activity entry attributing the action.
+     * Same attribution arguments as suppress(); see that method for the
+     * causer/source/activity semantics.
+     *
+     * @param \Illuminate\Database\Eloquent\Model|null     $causer
+     * @param string|null                                  $source
+     * @param string|null                                  $reason
+     *  A human note recorded on the entry (e.g. "customer confirmed the
+     *  mailbox was fixed"). Distinct from the address-row reason, which is
+     *  always cleared.
+     * @param array<string, mixed>                         $activity
+     *
      * @return $this
      */
-    public function unsuppress()
-    {
+    public function unsuppress(
+        $causer = null,
+        $source = null,
+        $reason = null,
+        array $activity = []
+    ) {
         $this->status = self::STATUS_ACTIVE;
         $this->reason = null;
         $this->suppressed_at = null;
         $this->save();
 
+        $this->logActivity($activity + [
+            'status' => EmailActivity::STATUS_UNSUPPRESSED,
+            'reason' => $reason,
+            'source' => $source,
+        ] + $this->causerAttributes($causer));
+
         return $this;
+    }
+
+    /**
+     * Translate a causer model into the morph columns logActivity() writes.
+     * Empty when no causer was provided — leaves causer_type/causer_id null.
+     *
+     * @param \Illuminate\Database\Eloquent\Model|null $causer
+     *
+     * @return array{causer_type?: string, causer_id?: mixed}
+     */
+    protected function causerAttributes( $causer )
+    {
+        if ($causer === null) {
+            return [];
+        }
+
+        return [
+            'causer_type' => $causer->getMorphClass(),
+            'causer_id'   => $causer->getKey(),
+        ];
     }
 
     /** @return Builder */

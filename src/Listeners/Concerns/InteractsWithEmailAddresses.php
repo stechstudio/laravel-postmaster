@@ -102,6 +102,7 @@ trait InteractsWithEmailAddresses
                 'provider'    => $event->provider(),
                 'reason'      => null,
                 'response'    => 'Auto-cleared after a delivery proved the address works.',
+                'source'      => 'webhook',
                 'occurred_at' => $occurredAt,
             ]);
         }

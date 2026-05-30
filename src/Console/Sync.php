@@ -165,10 +165,16 @@ class Sync extends Command
                 $row->recordProvider($this->currentProvider);
                 $row->save();
 
+                // Sync mutates the row in place to preserve the provider's
+                // own suppressed_at timestamp — so the activity entry is
+                // written by hand here rather than through EmailAddress::
+                // suppress() (which would stamp it with now()). Source =
+                // 'sync' attributes the entry to the reconciliation job.
                 $row->logActivity([
                     'status'   => \STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED,
                     'reason'   => $entry['reason'],
                     'provider' => $this->currentProvider,
+                    'source'   => 'sync',
                 ]);
             }
 
@@ -188,7 +194,14 @@ class Sync extends Command
             }
 
             if (! $dryRun) {
-                $row->unsuppress();
+                // EmailAddress::unsuppress() writes the activity entry for
+                // us; passing source='sync' attributes it to the sync job
+                // (the provider's authoritative list no longer holds the
+                // address, so we mirror that locally).
+                $row->unsuppress(source: 'sync', activity: [
+                    'provider' => $this->currentProvider,
+                    'response' => "Cleared locally: {$this->currentProvider} no longer holds the suppression.",
+                ]);
             }
 
             $stats['cleared']++;

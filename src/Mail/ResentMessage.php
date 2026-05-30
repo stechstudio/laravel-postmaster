@@ -26,7 +26,7 @@ class ResentMessage extends Mailable
     {
     }
 
-    public function build()
+    public function build(): static
     {
         if ($this->record->from_address) {
             $this->from($this->record->from_address);
@@ -76,13 +76,11 @@ class ResentMessage extends Mailable
      * (related, recipient, tenant) via the in-process courier headers
      * — the same channel a fresh send would use. Stripped from the wire by
      * StashOutboundMetadata before the message is transmitted.
-     *
-     * @return \Closure
      */
-    protected function propagateContext()
+    protected function propagateContext(): \Closure
     {
         $record = $this->record;
-        $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
+        $tenantColumn = EmailMessage::tenantColumn();
 
         return function ($message) use ($record, $tenantColumn) {
             // Text alternative. Always set when text_body is present — the

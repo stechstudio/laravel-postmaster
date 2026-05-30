@@ -15,7 +15,7 @@ class SignatureAuth
     /** @var string|null */
     protected $signingSecret;
 
-    public function __construct( $signingSecret )
+    public function __construct(?string $signingSecret)
     {
         $this->signingSecret = $signingSecret;
     }
@@ -25,7 +25,7 @@ class SignatureAuth
      *
      * @return bool
      */
-    public function __invoke( Request $request )
+    public function __invoke(Request $request): bool
     {
         if (empty($this->signingSecret)) {
             return false;
@@ -61,7 +61,7 @@ class SignatureAuth
     /**
      * @return string
      */
-    protected function secretBytes()
+    protected function secretBytes(): string
     {
         $secret = $this->signingSecret;
 

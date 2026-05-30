@@ -27,8 +27,7 @@ class ProcessWebhook implements ShouldQueue
     use SerializesModels;
 
     /**
-     * @param string $provider
-     * @param array  $payload
+     * @param array<string, mixed> $payload
      */
     public function __construct(
         public readonly string $provider,
@@ -38,7 +37,7 @@ class ProcessWebhook implements ShouldQueue
              ->onQueue(config('postmaster.queue_name'));
     }
 
-    public function handle( Postmaster $postmaster ): void
+    public function handle(Postmaster $postmaster): void
     {
         $postmaster->provider($this->provider)
             ->adapt($this->payload)

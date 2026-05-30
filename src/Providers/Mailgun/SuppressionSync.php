@@ -30,21 +30,21 @@ class SuppressionSync implements Contract
     {
     }
 
-    public function isAvailable()
+    public function isAvailable(): bool
     {
         return class_exists(Mailgun::class)
             && ! empty($this->config['api_key'])
             && ! empty($this->config['domain']);
     }
 
-    public function pull()
+    public function pull(): iterable
     {
         foreach (static::LISTS as $list => $reason) {
             yield from $this->pullList($list, $reason);
         }
     }
 
-    public function unsuppress( $address )
+    public function unsuppress(string $address): bool
     {
         $client  = $this->client();
         $domain  = $this->config['domain'];
@@ -71,7 +71,7 @@ class SuppressionSync implements Contract
      *
      * @return iterable<int, array{address: string, reason: string, suppressed_at: DateTimeImmutable|null}>
      */
-    protected function pullList( string $list, string $reason )
+    protected function pullList(string $list, string $reason): iterable
     {
         $client = $this->client();
         $domain = $this->config['domain'];

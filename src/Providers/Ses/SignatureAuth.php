@@ -28,7 +28,7 @@ class SignatureAuth
      *
      * @return bool
      */
-    public function __invoke( Request $request )
+    public function __invoke(Request $request): bool
     {
         $message = json_decode($request->getContent(), true);
 
@@ -68,12 +68,8 @@ class SignatureAuth
     /**
      * Whether the URL is an https amazonaws.com SNS host. Critical: an
      * attacker-supplied cert URL would otherwise defeat verification.
-     *
-     * @param string $url
-     *
-     * @return bool
      */
-    public static function isAmazonUrl( $url )
+    public static function isAmazonUrl(?string $url): bool
     {
         $parts = parse_url((string) $url);
 
@@ -88,7 +84,7 @@ class SignatureAuth
      *
      * @return string|null
      */
-    protected function stringToSign( array $message )
+    protected function stringToSign(array $message): ?string
     {
         $keys = self::SIGNED_KEYS[$message['Type'] ?? ''] ?? null;
 
@@ -115,7 +111,7 @@ class SignatureAuth
      *
      * @return string|null
      */
-    protected function fetchCertificate( $url )
+    protected function fetchCertificate(string $url): ?string
     {
         $key = 'postmaster:sns-cert:' . sha1($url);
 

@@ -74,9 +74,7 @@ class Prune extends Command
             return;
         }
 
-        $class = config('postmaster.persistence.model', EmailMessage::class);
-
-        $pruned = (new $class)->newQuery()
+        $pruned = EmailMessage::model()->newQuery()
             ->where('created_at', '<', now()->subDays($days))
             ->where(function ($query) {
                 $query->whereNotNull('html_body')
@@ -113,9 +111,7 @@ class Prune extends Command
             return;
         }
 
-        $class = config('postmaster.persistence.activity_model', EmailActivity::class);
-
-        $pruned = (new $class)->newQuery()
+        $pruned = EmailActivity::model()->newQuery()
             ->where('occurred_at', '<', now()->subDays($days))
             ->where(fn ($query) => $scope($query))
             ->delete();

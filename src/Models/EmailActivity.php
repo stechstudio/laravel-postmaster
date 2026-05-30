@@ -57,7 +57,20 @@ class EmailActivity extends Model
         'occurred_at' => 'datetime',
     ];
 
-    public function getTable()
+    /**
+     * A fresh instance of the configured (swappable) email activity model.
+     * Use this anywhere a query starts from — `EmailActivity::model()->newQuery()…`
+     * — so an app that swapped in a custom subclass via
+     * persistence.activity_model gets that subclass everywhere.
+     */
+    public static function model(): self
+    {
+        $class = config('postmaster.persistence.activity_model', static::class);
+
+        return new $class;
+    }
+
+    public function getTable(): string
     {
         return config('postmaster.persistence.activity_table', 'email_activity');
     }
@@ -70,10 +83,8 @@ class EmailActivity extends Model
     /**
      * The email this activity entry belongs to, if any. Address-only entries
      * (manual suppression, unsuppression, sync add/clear) have no message.
-     *
-     * @return BelongsTo
      */
-    public function emailMessage()
+    public function emailMessage(): BelongsTo
     {
         $model = config('postmaster.persistence.model', EmailMessage::class);
 
@@ -84,10 +95,8 @@ class EmailActivity extends Model
      * The recipient address this activity entry concerns, if any. Most
      * lifecycle entries carry one; the few that don't (entries for messages
      * with no usable recipient on the webhook payload) leave this null.
-     *
-     * @return BelongsTo
      */
-    public function emailAddress()
+    public function emailAddress(): BelongsTo
     {
         $model = config('postmaster.persistence.address_model', EmailAddress::class);
 
@@ -104,10 +113,8 @@ class EmailActivity extends Model
      * email_activity table lives on a different DB connection than the
      * consumer's users table, where this relation can't be hydrated across
      * the boundary. In both cases the `source` column carries the label.
-     *
-     * @return MorphTo
      */
-    public function causer()
+    public function causer(): MorphTo
     {
         return $this->morphTo('causer');
     }

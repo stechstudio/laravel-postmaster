@@ -133,10 +133,8 @@ class VerifySetup extends Command
     /**
      * Whether the cache store is per-process (array/null) and so cannot carry
      * a signal from the web process back to this command.
-     *
-     * @return bool
      */
-    protected function cacheIsPerProcess()
+    protected function cacheIsPerProcess(): bool
     {
         $store = config('cache.default');
 
@@ -146,10 +144,8 @@ class VerifySetup extends Command
     /**
      * Decide which provider to verify — detected from the mail config where
      * possible, confirmed with (or chosen by) the user.
-     *
-     * @return string|null
      */
-    protected function resolveProvider()
+    protected function resolveProvider(): ?string
     {
         $providers = array_keys(config('postmaster.providers', []));
 
@@ -178,7 +174,7 @@ class VerifySetup extends Command
      *
      * @return array{0: string|null, 1: string}
      */
-    protected function guessProvider()
+    protected function guessProvider(): array
     {
         $transport = $this->mailTransport();
 
@@ -205,10 +201,8 @@ class VerifySetup extends Command
 
     /**
      * The transport name of the default mailer, e.g. "postmark" or "smtp".
-     *
-     * @return string|null
      */
-    protected function mailTransport()
+    protected function mailTransport(): ?string
     {
         $mailer = config('mail.default');
 
@@ -217,12 +211,8 @@ class VerifySetup extends Command
 
     /**
      * The absolute webhook URL the provider should POST events to.
-     *
-     * @param string $provider
-     *
-     * @return string
      */
-    protected function webhookUrl( $provider )
+    protected function webhookUrl(string $provider): string
     {
         try {
             return route('webhook.postmaster', ['provider' => $provider]);
@@ -237,12 +227,8 @@ class VerifySetup extends Command
     /**
      * Whether a URL's host is a local/private address a provider's servers
      * could not POST a webhook to.
-     *
-     * @param string $url
-     *
-     * @return bool
      */
-    protected function looksLocal( $url )
+    protected function looksLocal(string $url): bool
     {
         $host = parse_url($url, PHP_URL_HOST);
 
@@ -271,10 +257,8 @@ class VerifySetup extends Command
 
     /**
      * Prompt for a real recipient address, re-asking until one is valid.
-     *
-     * @return string
      */
-    protected function askForAddress()
+    protected function askForAddress(): string
     {
         return text(
             label: 'Send the test email to which address?',
@@ -290,12 +274,8 @@ class VerifySetup extends Command
     /**
      * Send the test email. Returns the sent message id, null if it sent but
      * no id was available, or false if the send failed (already reported).
-     *
-     * @param string $address
-     *
-     * @return string|null|false
      */
-    protected function sendTestEmail( $address )
+    protected function sendTestEmail(string $address): string|null|false
     {
         try {
             $sent = Mail::raw($this->body(), function ($message) use ($address) {
@@ -318,13 +298,8 @@ class VerifySetup extends Command
      *
      * The webhook arrives in a separate process; RelayVerificationEvent mirrors
      * matching events into the cache, which this loop polls.
-     *
-     * @param string $messageId
-     * @param int    $timeout
-     *
-     * @return int
      */
-    protected function waitForWebhook( $messageId, $timeout )
+    protected function waitForWebhook(string $messageId, int $timeout): int
     {
         Cache::forget(RelayVerificationEvent::EVENTS_KEY);
         Cache::put(RelayVerificationEvent::WATCHING_KEY, $messageId, now()->addMinutes(10));
@@ -401,18 +376,13 @@ class VerifySetup extends Command
 
     /**
      * Erase the current spinner line.
-     *
-     * @return void
      */
-    protected function clearLine()
+    protected function clearLine(): void
     {
         $this->output->write("\r".str_repeat(' ', 60)."\r");
     }
 
-    /**
-     * @return string
-     */
-    protected function body()
+    protected function body(): string
     {
         return "This is a test email from the Postmaster setup verification command "
             ."(php artisan postmaster:verify).\n\n"

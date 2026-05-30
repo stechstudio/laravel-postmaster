@@ -16,20 +16,11 @@ use STS\Postmaster\Providers\AbstractAdapter;
  */
 class Adapter extends AbstractAdapter
 {
-    /**
-     * @var string
-     */
-    protected $provider = "SES";
+    protected string $provider = "SES";
 
-    /**
-     * @var string
-     */
-    protected static $userAgent = "Amazon Simple Notification Service Agent";
+    protected static ?string $userAgent = "Amazon Simple Notification Service Agent";
 
-    /**
-     * @var array
-     */
-    protected $eventMap = [
+    protected array $eventMap = [
         'Send'          => EmailEvent::STATUS_ACCEPTED,
         'Delivery'      => EmailEvent::STATUS_DELIVERED,
         'DeliveryDelay' => EmailEvent::STATUS_DEFERRED,
@@ -40,10 +31,7 @@ class Adapter extends AbstractAdapter
         'Click'         => EmailEvent::STATUS_CLICKED,
     ];
 
-    /**
-     * @param array $payload
-     */
-    public function __construct( $payload )
+    public function __construct(array $payload)
     {
         if (Arr::get($payload, 'Type') === 'Notification' && isset($payload['Message'])) {
             $message = json_decode($payload['Message'], true);
@@ -59,29 +47,23 @@ class Adapter extends AbstractAdapter
     /**
      * SES uses "eventType" (event publishing) or "notificationType" (the
      * older feedback notifications) for the same set of values.
-     *
-     * @return string|null
      */
-    protected function eventType()
+    protected function eventType(): ?string
     {
         return Arr::get($this->payload, 'eventType')
             ?? Arr::get($this->payload, 'notificationType');
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function status()
+    public function status(): ?string
     {
-        return Arr::get($this->eventMap, $this->eventType());
+        $type = $this->eventType();
+
+        return $type === null ? null : Arr::get($this->eventMap, $type);
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function toAddress()
+    public function toAddress(): ?string
     {
         return Arr::get($this->payload, 'bounce.bouncedRecipients.0.emailAddress')
             ?? Arr::get($this->payload, 'complaint.complainedRecipients.0.emailAddress')
@@ -89,77 +71,53 @@ class Adapter extends AbstractAdapter
             ?? Arr::get($this->payload, 'mail.destination.0');
     }
 
-    /**
-     * @return DateTimeImmutable|null
-     */
     #[\Override]
-    public function occurredAt()
+    public function occurredAt(): ?\DateTimeImmutable
     {
         $timestamp = Arr::get($this->payload, 'mail.timestamp');
 
         return static::dateFromUnix($timestamp ? strtotime($timestamp) : null);
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function providerMessageId()
+    public function providerMessageId(): ?string
     {
         return Arr::get($this->payload, 'mail.messageId');
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function tags()
+    public function tags(): \Illuminate\Support\Collection
     {
         return collect(array_keys((array) Arr::get($this->payload, 'mail.tags')));
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function data()
+    public function data(): \Illuminate\Support\Collection
     {
         return collect((array) Arr::get($this->payload, 'mail.tags'));
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function response()
+    public function response(): mixed
     {
         return Arr::get($this->payload, 'bounce.bouncedRecipients.0.diagnosticCode');
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function code()
+    public function code(): mixed
     {
         return Arr::get($this->payload, 'bounce.bouncedRecipients.0.status');
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function reason()
+    public function reason(): mixed
     {
         return Arr::get($this->payload, 'bounce.bounceSubType')
             ?? Arr::get($this->payload, 'complaint.complaintFeedbackType');
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function bounceType()
+    public function bounceType(): ?string
     {
         if ($this->status() !== EmailEvent::STATUS_BOUNCED) {
             return null;
@@ -170,22 +128,14 @@ class Adapter extends AbstractAdapter
             : EmailEvent::BOUNCE_SOFT;
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function clickedUrl()
+    public function clickedUrl(): ?string
     {
         return Arr::get($this->payload, 'click.link');
     }
 
-    /**
-     * @param array $payload
-     *
-     * @return bool
-     */
     #[\Override]
-    public static function supports( array $payload )
+    public static function supports(array $payload): bool
     {
         return array_key_exists('eventType', $payload)
             || array_key_exists('notificationType', $payload)
@@ -202,7 +152,7 @@ class Adapter extends AbstractAdapter
      * @return array<int, array>
      */
     #[\Override]
-    public static function expand( array $payload )
+    public static function expand(array $payload): array
     {
         $event = $payload;
 

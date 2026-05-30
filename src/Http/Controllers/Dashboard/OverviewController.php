@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
+use Illuminate\Http\Response;
 use STS\Postmaster\Models\EmailAddress;
 
 /**
@@ -15,14 +16,14 @@ class OverviewController extends Controller
      *
      * @var array<int, string>
      */
-    protected $ranges = [
+    protected array $ranges = [
         7   => '7 days',
         30  => '30 days',
         90  => '90 days',
         365 => '1 year',
     ];
 
-    public function __invoke()
+    public function __invoke(): Response
     {
         $days = (int) request()->query('days', 30);
 
@@ -62,11 +63,9 @@ class OverviewController extends Controller
      * weekly or monthly for longer ones so the bar count stays readable.
      * One conditional-aggregation query, portable across database engines.
      *
-     * @param int $days
-     *
      * @return array<int, array{date: \Illuminate\Support\Carbon, count: int, interval: int}>
      */
-    protected function messageBuckets( $days )
+    protected function messageBuckets(int $days): array
     {
         $interval = match (true) {
             $days <= 31  => 1,

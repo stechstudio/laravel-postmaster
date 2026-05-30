@@ -2,7 +2,9 @@
 
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use STS\Postmaster\Postmaster;
 
 /**
@@ -13,7 +15,7 @@ use STS\Postmaster\Postmaster;
  */
 class AddressController extends Controller
 {
-    public function index( Request $request )
+    public function index(Request $request): Response
     {
         $query = $this->addressQuery()->orderByDesc('updated_at');
 
@@ -34,12 +36,8 @@ class AddressController extends Controller
      * provider. The actual provider call goes through Postmaster::unsuppress(),
      * which iterates every provider's SuppressionSync and asks it to drop
      * the address from its list.
-     *
-     * @param Request $request
-     *
-     * @return \Illuminate\Http\RedirectResponse
      */
-    public function unsuppress( Request $request, Postmaster $postmaster )
+    public function unsuppress(Request $request, Postmaster $postmaster): RedirectResponse
     {
         $address = trim((string) $request->input('address'));
 
@@ -62,12 +60,9 @@ class AddressController extends Controller
      * Build a single-line flash message describing what got cleared and
      * what still needs manual cleanup at the provider's dashboard.
      *
-     * @param string $address
      * @param array{cleared: array<int, string>, manual: array<int, string>} $result
-     *
-     * @return string
      */
-    protected function flashFor( string $address, array $result ): string
+    protected function flashFor(string $address, array $result): string
     {
         $parts = ["Unsuppressed {$address}."];
 

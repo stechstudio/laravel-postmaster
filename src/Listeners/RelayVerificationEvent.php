@@ -26,12 +26,7 @@ class RelayVerificationEvent
      */
     public const EVENTS_KEY = 'postmaster:verify:events';
 
-    /**
-     * @param EmailEvent $event
-     *
-     * @return void
-     */
-    public function handle( EmailEvent $event )
+    public function handle(EmailEvent $event): void
     {
         $watching = Cache::get(self::WATCHING_KEY);
 

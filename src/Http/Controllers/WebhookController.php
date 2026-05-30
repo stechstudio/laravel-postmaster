@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use STS\Postmaster\Jobs\ProcessWebhook;
 use STS\Postmaster\Postmaster;
 use STS\Postmaster\Support\SnsSubscription;
@@ -14,17 +15,11 @@ use STS\Postmaster\Support\SnsSubscription;
  */
 class WebhookController
 {
-    public function __construct( protected Postmaster $events )
+    public function __construct(protected Postmaster $events)
     {
     }
 
-    /**
-     * @param Request $request
-     * @param string  $provider
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function __invoke( Request $request, string $provider )
+    public function __invoke(Request $request, string $provider): Response
     {
         // SES is delivered via SNS, which first performs a subscription
         // handshake. The signature was already verified by the middleware.
@@ -59,11 +54,9 @@ class WebhookController
      * Falls back to decoding the raw body for providers posting as text/plain
      * (e.g. Amazon SNS).
      *
-     * @param Request $request
-     *
-     * @return array
+     * @return array<string, mixed>
      */
-    protected function payload( Request $request )
+    protected function payload(Request $request): array
     {
         if ($request->isJson()) {
             return (array) $request->json()->all();

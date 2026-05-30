@@ -15,10 +15,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class AssetController
 {
-    /**
-     * @return BinaryFileResponse
-     */
-    public function css()
+    public function css(): BinaryFileResponse
     {
         return response()
             ->file(__DIR__.'/../../../../resources/dist/postmaster.css', [
@@ -28,10 +25,8 @@ class AssetController
 
     /**
      * The logo mark, served straight from the package.
-     *
-     * @return BinaryFileResponse
      */
-    public function logo()
+    public function logo(): BinaryFileResponse
     {
         return response()
             ->file(__DIR__.'/../../../../resources/images/postmaster-hat.png', [
@@ -43,10 +38,8 @@ class AssetController
      * Alpine.js, vendored and served from the package — the dashboard pulls
      * in no third-party JavaScript, so it works offline and behind strict
      * networks, with no CDN supply-chain surface on a sensitive admin page.
-     *
-     * @return BinaryFileResponse
      */
-    public function alpine()
+    public function alpine(): BinaryFileResponse
     {
         return response()
             ->file(__DIR__.'/../../../../resources/dist/alpine.js', [

@@ -19,7 +19,7 @@ class SignatureAuth
     /** @var string|null */
     protected $verificationKey;
 
-    public function __construct( $verificationKey )
+    public function __construct(?string $verificationKey)
     {
         $this->verificationKey = $verificationKey;
     }
@@ -29,7 +29,7 @@ class SignatureAuth
      *
      * @return bool
      */
-    public function __invoke( Request $request )
+    public function __invoke(Request $request): bool
     {
         if (empty($this->verificationKey)) {
             return false;
@@ -62,7 +62,7 @@ class SignatureAuth
      *
      * @return string
      */
-    protected function publicKeyPem()
+    protected function publicKeyPem(): string
     {
         return "-----BEGIN PUBLIC KEY-----\n"
             . chunk_split($this->verificationKey, 64, "\n")

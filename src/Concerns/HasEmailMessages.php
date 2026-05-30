@@ -20,10 +20,8 @@ trait HasEmailMessages
 {
     /**
      * The email delivery records associated with this model.
-     *
-     * @return MorphMany
      */
-    public function emailMessages()
+    public function emailMessages(): MorphMany
     {
         return $this->morphMany(
             config('postmaster.persistence.model', EmailMessage::class),
@@ -33,10 +31,8 @@ trait HasEmailMessages
 
     /**
      * The most recent recorded email for this model, if any.
-     *
-     * @return EmailMessage|null
      */
-    public function latestEmailMessage()
+    public function latestEmailMessage(): ?EmailMessage
     {
         return $this->emailMessages()->latest('id')->first();
     }
@@ -44,10 +40,8 @@ trait HasEmailMessages
     /**
      * Whether this model's most recent email failed to reach the recipient
      * (bounced, dropped, or complained). False when nothing is recorded yet.
-     *
-     * @return bool
      */
-    public function emailDeliveryFailed()
+    public function emailDeliveryFailed(): bool
     {
         return $this->latestEmailMessage()?->isFailed() ?? false;
     }

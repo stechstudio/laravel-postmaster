@@ -18,10 +18,8 @@ interface SuppressionSync
      * Whether this sync is ready to run — its provider SDK is installed and
      * its API key (or equivalent credential) is configured. Sync commands
      * skip providers that report false and log a hint.
-     *
-     * @return bool
      */
-    public function isAvailable();
+    public function isAvailable(): bool;
 
     /**
      * The provider's current suppression list — emitted as one entry per
@@ -35,7 +33,7 @@ interface SuppressionSync
      *
      * @return iterable<int, array{address: string, reason: string, suppressed_at: \DateTimeInterface|null}>
      */
-    public function pull();
+    public function pull(): iterable;
 
     /**
      * Remove an address from the provider's suppression list. Called when an
@@ -44,8 +42,6 @@ interface SuppressionSync
      * was already removed); throws on a real API error.
      *
      * @param string $address Lower-cased.
-     *
-     * @return bool
      */
-    public function unsuppress( $address );
+    public function unsuppress(string $address): bool;
 }

@@ -28,12 +28,7 @@ class StashOutboundMetadata
         OutboundMetadata::HEADER_RESENT_FROM    => 'resent_from',
     ];
 
-    /**
-     * @param MessageSending $event
-     *
-     * @return void
-     */
-    public function handle( MessageSending $event )
+    public function handle(MessageSending $event): void
     {
         $headers = $event->message->getHeaders();
         $stashed = [];

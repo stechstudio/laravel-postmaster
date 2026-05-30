@@ -36,12 +36,12 @@ class SuppressionSync implements Contract
     {
     }
 
-    public function isAvailable()
+    public function isAvailable(): bool
     {
         return class_exists(PostmarkClient::class) && ! empty($this->config['server_token']);
     }
 
-    public function pull()
+    public function pull(): iterable
     {
         $client = $this->client();
         $stream = $this->config['message_stream'] ?? 'outbound';
@@ -66,7 +66,7 @@ class SuppressionSync implements Contract
         }
     }
 
-    public function unsuppress( $address )
+    public function unsuppress(string $address): bool
     {
         $client = $this->client();
         $stream = $this->config['message_stream'] ?? 'outbound';

@@ -23,26 +23,19 @@ use STS\Postmaster\EmailEvent;
  */
 class EmailDeliveryFailed extends Notification
 {
-    public function __construct( public EmailEvent $event )
+    public function __construct(public EmailEvent $event)
     {
     }
 
     /**
-     * @param mixed $notifiable
-     *
      * @return array<int, string>
      */
-    public function via( $notifiable )
+    public function via(mixed $notifiable): array
     {
         return ['mail'];
     }
 
-    /**
-     * @param mixed $notifiable
-     *
-     * @return MailMessage
-     */
-    public function toMail( $notifiable )
+    public function toMail(mixed $notifiable): MailMessage
     {
         $event = $this->event;
         $address = $event->toAddress() ?? 'unknown address';

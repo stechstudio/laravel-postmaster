@@ -10,20 +10,11 @@ use STS\Postmaster\Providers\AbstractAdapter;
 
 class Adapter extends AbstractAdapter
 {
-    /**
-     * @var string
-     */
-    protected $provider = "SendGrid";
+    protected string $provider = "SendGrid";
 
-    /**
-     * @var string
-     */
-    protected static $userAgent = "SendGrid Event API";
+    protected static ?string $userAgent = "SendGrid Event API";
 
-    /**
-     * @var array
-     */
-    protected $eventMap = [
+    protected array $eventMap = [
         'processed'  => EmailEvent::STATUS_ACCEPTED,
         'deferred'   => EmailEvent::STATUS_DEFERRED,
         'delivered'  => EmailEvent::STATUS_DELIVERED,
@@ -47,38 +38,26 @@ class Adapter extends AbstractAdapter
         "marketing_campaign_id", "marketing_campaign_name", "post_type", "marketing_campaign_version", "marketing_campaign_split_id"
     ];
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function status()
+    public function status(): ?string
     {
         return Arr::get($this->eventMap, Arr::get($this->payload, 'event'));
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function toAddress()
+    public function toAddress(): ?string
     {
         return Arr::get($this->payload, 'email');
     }
 
-    /**
-     * @return DateTimeImmutable|null
-     */
     #[\Override]
-    public function occurredAt()
+    public function occurredAt(): ?\DateTimeImmutable
     {
         return static::dateFromUnix(Arr::get($this->payload, 'timestamp'));
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function providerMessageId()
+    public function providerMessageId(): ?string
     {
         // SendGrid sends two ids in every webhook payload. `sg_message_id`
         // is SendGrid's canonical id of the form `<queue-id>.<filter-tags>`;
@@ -100,20 +79,14 @@ class Adapter extends AbstractAdapter
         return null;
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function tags()
+    public function tags(): \Illuminate\Support\Collection
     {
         return collect((array)Arr::get($this->payload, 'category'));
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function data()
+    public function data(): \Illuminate\Support\Collection
     {
         return collect(
             array_diff_key(
@@ -122,29 +95,20 @@ class Adapter extends AbstractAdapter
         );
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function response()
+    public function response(): mixed
     {
         return Arr::get($this->payload, 'response', Arr::get($this->payload, 'useragent'));
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function code()
+    public function code(): mixed
     {
         return Arr::get($this->payload, 'status');
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function reason()
+    public function reason(): mixed
     {
         return Arr::get($this->payload, 'reason');
     }
@@ -157,7 +121,7 @@ class Adapter extends AbstractAdapter
      * @return string|null
      */
     #[\Override]
-    public function bounceType()
+    public function bounceType(): ?string
     {
         $event = Arr::get($this->payload, 'event');
 
@@ -174,22 +138,14 @@ class Adapter extends AbstractAdapter
             : EmailEvent::BOUNCE_HARD;
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function clickedUrl()
+    public function clickedUrl(): ?string
     {
         return Arr::get($this->payload, 'url');
     }
 
-    /**
-     * @param array $payload
-     *
-     * @return bool
-     */
     #[\Override]
-    public static function supports( array $payload )
+    public static function supports(array $payload): bool
     {
         return array_key_exists('sg_message_id', $payload);
     }

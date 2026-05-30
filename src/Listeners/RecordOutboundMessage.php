@@ -2,13 +2,13 @@
 
 namespace STS\Postmaster\Listeners;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Events\MessageSent;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Postmaster;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailAddresses;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailMessages;
 use STS\Postmaster\Models\EmailAddress;
+use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
 
@@ -23,16 +23,11 @@ class RecordOutboundMessage
     use InteractsWithEmailAddresses;
     use InteractsWithEmailMessages;
 
-    public function __construct( protected Postmaster $events )
+    public function __construct(protected Postmaster $events)
     {
     }
 
-    /**
-     * @param MessageSent $event
-     *
-     * @return void
-     */
-    public function handle( MessageSent $event )
+    public function handle(MessageSent $event): void
     {
         $this->record($event->message, $this->resolveProviderMessageId($event), $this->statusForCurrentTransport());
     }
@@ -54,7 +49,7 @@ class RecordOutboundMessage
         'X-SES-Message-ID',    // Laravel's SesTransport
     ];
 
-    protected function resolveProviderMessageId( MessageSent $event ): ?string
+    protected function resolveProviderMessageId(MessageSent $event): ?string
     {
         $headers = $event->message->getHeaders();
 
@@ -104,17 +99,11 @@ class RecordOutboundMessage
      * the sandbox / suppression interceptors, which record before suppressing
      * the actual send.
      *
-     * @param Email       $message
-     * @param string|null $messageId Provider message id, or a synthetic id
-     *                               for a message that was never sent.
-     * @param string      $status    The lifecycle status to record.
-     *
-     * @return \Illuminate\Database\Eloquent\Model|null  The first row written
-     *                                                  (the primary To row),
-     *                                                  for callers that want
-     *                                                  one to return.
+     * Returns the first row written (the primary To row), for callers that
+     * want one to return. $messageId may be a synthetic id for a message
+     * that was never sent.
      */
-    public function record( Email $message, $messageId, $status = EmailEvent::STATUS_SENT )
+    public function record(Email $message, ?string $messageId, string $status = EmailEvent::STATUS_SENT): ?EmailMessage
     {
         $metadata = OutboundMetadata::pull(spl_object_id($message));
         $shared   = $this->sharedAttributes($message, $messageId, $status, $metadata);
@@ -136,7 +125,7 @@ class RecordOutboundMessage
                 $row['recipient_id']   = $model['id'];
             }
 
-            $record = $this->messageModel()->newQuery()->create($row);
+            $record = EmailMessage::model()->newQuery()->create($row);
 
             // Seed the timeline with the send itself, so the history is
             // complete rather than starting at the first webhook event.
@@ -160,14 +149,10 @@ class RecordOutboundMessage
      * is on). Address-specific columns (to_address, recipient_role,
      * recipient_*) are added per row by record().
      *
-     * @param Email                $message
-     * @param string|null          $messageId
-     * @param string               $status
-     * @param array<string, mixed> $metadata
-     *
+     * @param  array<string, mixed> $metadata
      * @return array<string, mixed>
      */
-    protected function sharedAttributes( Email $message, $messageId, $status, array $metadata )
+    protected function sharedAttributes(Email $message, ?string $messageId, string $status, array $metadata): array
     {
         $attributes = [
             'provider_message_id' => $messageId,
@@ -197,7 +182,7 @@ class RecordOutboundMessage
         $tenant = $metadata['tenant'] ?? $this->events->resolveTenant();
 
         if ($tenant !== null) {
-            $attributes[$this->tenantColumn()] = $tenant;
+            $attributes[EmailMessage::tenantColumn()] = $tenant;
         }
 
         // Per-message storeContent() / dontStoreContent() wins; otherwise
@@ -218,11 +203,9 @@ class RecordOutboundMessage
      * with their roles tagged. Addresses are lowercased on the way in to
      * keep correlation case-insensitive.
      *
-     * @param Email $message
-     *
      * @return array<int, array{address: string, role: string}>
      */
-    protected function envelope( Email $message )
+    protected function envelope(Email $message): array
     {
         $entries = [];
 
@@ -253,13 +236,11 @@ class RecordOutboundMessage
      * declaration applies; then the app-registered resolver fills any
      * remaining gap.
      *
-     * @param array{address: string, role: string} $entry
-     * @param array<string, mixed>                 $metadata
-     * @param bool                                 $isPrimary
-     *
+     * @param  array{address: string, role: string} $entry
+     * @param  array<string, mixed>                 $metadata
      * @return array{type: string, id: int|string}|null
      */
-    protected function recipientFor( array $entry, array $metadata, bool $isPrimary )
+    protected function recipientFor(array $entry, array $metadata, bool $isPrimary): ?array
     {
         $map = $metadata['recipient_map'] ?? [];
 
@@ -282,11 +263,9 @@ class RecordOutboundMessage
      * A full representation of the message — sender, recipients, bodies, and
      * attachment filenames (never attachment contents).
      *
-     * @param Email $message
-     *
      * @return array<string, mixed>
      */
-    protected function content( Email $message )
+    protected function content(Email $message): array
     {
         $from = $message->getFrom();
 
@@ -304,11 +283,10 @@ class RecordOutboundMessage
     }
 
     /**
-     * @param array<\Symfony\Component\Mime\Address> $addresses
-     *
+     * @param  array<\Symfony\Component\Mime\Address> $addresses
      * @return array<int, array{address: string, name: string}>
      */
-    protected function addresses( array $addresses )
+    protected function addresses(array $addresses): array
     {
         return array_map(fn ($address) => [
             'address' => $address->getAddress(),
@@ -319,11 +297,9 @@ class RecordOutboundMessage
     /**
      * The attachment filenames on the message — contents are never stored.
      *
-     * @param Email $message
-     *
      * @return array<int, string>
      */
-    protected function attachments( Email $message )
+    protected function attachments(Email $message): array
     {
         $names = array_map(
             fn ($attachment) => $attachment->getFilename(),
@@ -337,10 +313,8 @@ class RecordOutboundMessage
      * Normalize a Symfony message body, which may be a string or a stream.
      *
      * @param resource|string|null $body
-     *
-     * @return string|null
      */
-    protected function body( $body )
+    protected function body($body): ?string
     {
         if (is_resource($body)) {
             rewind($body);

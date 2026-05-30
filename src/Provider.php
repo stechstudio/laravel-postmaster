@@ -3,35 +3,34 @@
 namespace STS\Postmaster;
 
 use Illuminate\Http\Request;
+use STS\Postmaster\Contracts\Adapter;
 use STS\Postmaster\Exceptions\InvalidEventException;
 
 /**
- *
+ * One configured email provider: an adapter class that turns a webhook payload
+ * into an EmailEvent, plus the authorizer that gates inbound requests for that
+ * provider. ProviderRegistry resolves these by name from config — there is no
+ * "default" provider; the {provider} route segment always picks the one.
  */
 class Provider
 {
-    /** @var string */
-    protected $name;
+    protected string $name;
 
-    /** @var string */
-    protected $adapterClass;
+    /** @var class-string<Adapter> */
+    protected string $adapterClass;
 
     /** @var callable */
     protected $authorizer;
 
-    /** @var string */
-    protected $onInvalid;
+    protected string $onInvalid;
 
-    /** @var array */
-    protected $events = [];
+    /** @var array<int, EmailEvent> */
+    protected array $events = [];
 
     /**
-     * @param               $name
-     * @param               $adapterClass
-     * @param callable      $authorizer
-     * @param string        $onInvalid
+     * @param class-string<Adapter> $adapterClass
      */
-    public function __construct( $name, $adapterClass, callable $authorizer, $onInvalid = 'log' )
+    public function __construct(string $name, string $adapterClass, callable $authorizer, string $onInvalid = 'log')
     {
         $this->name = $name;
         $this->adapterClass = $adapterClass;
@@ -41,22 +40,16 @@ class Provider
 
     /**
      * Whether the request passes this provider's configured authorizer.
-     *
-     * @param Request $request
-     *
-     * @return bool
      */
-    public function passesAuthorization( Request $request )
+    public function passesAuthorization(Request $request): bool
     {
         return (bool) call_user_func($this->authorizer, $request, $this->adapterClass);
     }
 
     /**
-     * @param array $payload
-     *
-     * @return $this
+     * @param array<int|string, mixed> $payload
      */
-    public function adapt( array $payload )
+    public function adapt(array $payload): static
     {
         $class = $this->adapterClass;
 
@@ -81,12 +74,8 @@ class Provider
 
     /**
      * Handle a payload that no adapter could turn into a valid event.
-     *
-     * @param Contracts\Adapter $adapter
-     *
-     * @return void
      */
-    protected function handleInvalid( $adapter )
+    protected function handleInvalid(Adapter $adapter): void
     {
         if ($this->onInvalid === 'ignore') {
             return;
@@ -107,11 +96,10 @@ class Provider
      * is NOT associative (numerically incrementally indexed) then it's already a multi-event
      * submission. Otherwise we'll wrap it, so we have a consistent array to loop through.
      *
-     * @param array $payload
-     *
-     * @return array
+     * @param  array<int|string, mixed> $payload
+     * @return array<int, array<string, mixed>>
      */
-    protected function wrapPayload( array $payload )
+    protected function wrapPayload(array $payload): array
     {
         return array_keys($payload) == range(0, count($payload) - 1)
             ? $payload
@@ -119,9 +107,9 @@ class Provider
     }
 
     /**
-     * @return EmailEvent[]
+     * @return array<int, EmailEvent>
      */
-    public function getEvents()
+    public function getEvents(): array
     {
         return $this->events;
     }
@@ -134,10 +122,8 @@ class Provider
      * rest — fires immediately after, carrying the same adapter and the
      * already-correlated EmailMessage so listeners on the specific class
      * see the same payload the umbrella listener does.
-     *
-     * @return $this
      */
-    public function dispatch()
+    public function dispatch(): static
     {
         foreach ($this->events as $event) {
             event($event);

@@ -28,10 +28,8 @@ class PostmasterServiceProvider extends ServiceProvider
 {
     /**
      * Perform post-registration booting of services.
-     *
-     * @return void
      */
-    public function boot()
+    public function boot(): void
     {
         // Publishing is only necessary when using the CLI.
         if ($this->app->runningInConsole()) {
@@ -48,9 +46,9 @@ class PostmasterServiceProvider extends ServiceProvider
             $this->app->make(Postmaster::class)->routes();
         }
 
-        // For local dev let's debug log all email events
-        if($this->app->environment(['local', 'development'])) {
-            $this->app['events']->listen(EmailEvent::class, function(EmailEvent $event) {
+        // For local dev let's debug log all email events.
+        if ($this->app->environment(['local', 'development'])) {
+            $this->app['events']->listen(EmailEvent::class, function (EmailEvent $event) {
                 logger("Received email event", $event->toArray());
             });
         }
@@ -102,10 +100,8 @@ class PostmasterServiceProvider extends ServiceProvider
 
     /**
      * Register the dashboard's gated route group.
-     *
-     * @return void
      */
-    protected function registerDashboard()
+    protected function registerDashboard(): void
     {
         if ($this->app->routesAreCached()) {
             return;
@@ -124,10 +120,8 @@ class PostmasterServiceProvider extends ServiceProvider
 
     /**
      * Register any package services.
-     *
-     * @return void
      */
-    public function register()
+    public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/postmaster.php', 'postmaster');
 
@@ -140,33 +134,33 @@ class PostmasterServiceProvider extends ServiceProvider
 
         $this->app->alias('postmaster', Postmaster::class);
 
-        $this->app->bind(TokenAuth::class, function($app) {
+        $this->app->bind(TokenAuth::class, function ($app) {
             return new TokenAuth(
                 $app['config']->get('postmaster.token'),
                 $app['config']->get('postmaster.token_parameter')
             );
         });
 
-        $this->app->bind(BasicHttpAuth::class, function($app) {
+        $this->app->bind(BasicHttpAuth::class, function ($app) {
             return new BasicHttpAuth(
                 $app['config']->get('postmaster.basic_username'),
                 $app['config']->get('postmaster.basic_password')
             );
         });
 
-        $this->app->bind(MailgunSignatureAuth::class, function($app) {
+        $this->app->bind(MailgunSignatureAuth::class, function ($app) {
             return new MailgunSignatureAuth(
                 $app['config']->get('postmaster.providers.mailgun.signing_key')
             );
         });
 
-        $this->app->bind(SendGridSignatureAuth::class, function($app) {
+        $this->app->bind(SendGridSignatureAuth::class, function ($app) {
             return new SendGridSignatureAuth(
                 $app['config']->get('postmaster.providers.sendgrid.verification_key')
             );
         });
 
-        $this->app->bind(ResendSignatureAuth::class, function($app) {
+        $this->app->bind(ResendSignatureAuth::class, function ($app) {
             return new ResendSignatureAuth(
                 $app['config']->get('postmaster.providers.resend.signing_secret')
             );
@@ -174,21 +168,9 @@ class PostmasterServiceProvider extends ServiceProvider
     }
 
     /**
-     * Get the services provided by the provider.
-     *
-     * @return array
-     */
-    public function provides()
-    {
-        return ['postmaster'];
-    }
-    
-    /**
      * Console-specific booting.
-     *
-     * @return void
      */
-    protected function bootForConsole()
+    protected function bootForConsole(): void
     {
         // Publishing the configuration file.
         $this->publishes([

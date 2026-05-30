@@ -21,10 +21,8 @@ trait IsEmailRecipient
 {
     /**
      * The email delivery records sent to this model.
-     *
-     * @return MorphMany
      */
-    public function emailMessages()
+    public function emailMessages(): MorphMany
     {
         return $this->morphMany(
             config('postmaster.persistence.model', EmailMessage::class),
@@ -34,10 +32,8 @@ trait IsEmailRecipient
 
     /**
      * The most recent recorded email sent to this model, if any.
-     *
-     * @return EmailMessage|null
      */
-    public function latestEmailMessage()
+    public function latestEmailMessage(): ?EmailMessage
     {
         return $this->emailMessages()->latest('id')->first();
     }
@@ -45,10 +41,8 @@ trait IsEmailRecipient
     /**
      * Whether the most recent email sent to this model failed to reach them
      * (bounced, dropped, or complained). False when nothing is recorded yet.
-     *
-     * @return bool
      */
-    public function emailDeliveryFailed()
+    public function emailDeliveryFailed(): bool
     {
         return $this->latestEmailMessage()?->isFailed() ?? false;
     }

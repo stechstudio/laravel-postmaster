@@ -24,7 +24,7 @@ trait HasEmailMessages
     public function emailMessages(): MorphMany
     {
         return $this->morphMany(
-            config('postmaster.persistence.model', EmailMessage::class),
+            config('postmaster.persistence.message_model', EmailMessage::class),
             'related'
         );
     }

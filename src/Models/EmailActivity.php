@@ -86,7 +86,7 @@ class EmailActivity extends Model
      */
     public function emailMessage(): BelongsTo
     {
-        $model = config('postmaster.persistence.model', EmailMessage::class);
+        $model = config('postmaster.persistence.message_model', EmailMessage::class);
 
         return $this->belongsTo($model, 'email_message_id');
     }

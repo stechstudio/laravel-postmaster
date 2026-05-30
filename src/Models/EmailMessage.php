@@ -17,7 +17,7 @@ use STS\Postmaster\Facades\Postmaster;
  * A record of an outbound email and its delivery lifecycle.
  *
  * Only used when persistence is enabled. The model is swappable via the
- * "postmaster.persistence.model" config key.
+ * "postmaster.persistence.message_model" config key.
  *
  * @property string|null $provider
  * @property string|null $provider_message_id
@@ -71,18 +71,18 @@ class EmailMessage extends Model
      * A fresh instance of the configured (swappable) email message model. Use
      * this anywhere a query starts from — `EmailMessage::model()->newQuery()…`
      * — instead of `new (static::class)`, so an app that swapped in a custom
-     * subclass via persistence.model gets that subclass everywhere.
+     * subclass via persistence.message_model gets that subclass everywhere.
      */
     public static function model(): self
     {
-        $class = config('postmaster.persistence.model', static::class);
+        $class = config('postmaster.persistence.message_model', static::class);
 
         return new $class;
     }
 
     public function getTable(): string
     {
-        return config('postmaster.persistence.table', 'email_messages');
+        return config('postmaster.persistence.messages_table', 'email_messages');
     }
 
     /**

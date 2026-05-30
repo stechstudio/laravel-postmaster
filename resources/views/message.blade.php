@@ -140,11 +140,10 @@
                 <div class="pm-card">
                     <h2 class="pm-section-title">Resend chain</h2>
                     <div class="pm-siblings">
-                        @foreach ($chain as $i => $link)
+                        @foreach ($chain as $link)
                             @php $isCurrent = $link->getKey() === $message->getKey(); @endphp
                             <a class="pm-siblings-row{{ $isCurrent ? ' pm-siblings-row--current' : '' }}"
                                href="{{ route('postmaster.messages.show', $link) }}">
-                                <span class="pm-dim pm-mono">{{ $i === 0 ? 'original' : 'resend #'.$i }}</span>
                                 <span class="pm-truncate pm-dim">@include('postmaster::partials.datetime', ['when' => $link->sent_at])</span>
                                 @include('postmaster::partials.badge', ['status' => $link->status])
                             </a>

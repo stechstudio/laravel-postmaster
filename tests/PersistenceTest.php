@@ -1262,29 +1262,61 @@ class PersistenceTest extends TestCase
         $this->assertSame(EmailAddress::STATUS_ACTIVE, $address->status);
     }
 
-    public function testSuppressionIsStickyAcrossLaterEvents()
+    public function testAutomaticSuppressionIsClearedByALaterDelivery()
     {
+        // An automatic suppression (bounced/dropped/complained) is the
+        // package's best guess that the address is bad. If a later
+        // delivery webhook proves otherwise — operator resent after
+        // confirming the address works, or the upstream issue resolved
+        // itself — flip back to active. Same rule postmaster:sync follows
+        // for the provider's side.
         config(['postmaster.persistence.track_addresses' => true]);
 
         event(EmailEvent::create(new Postmark([
             'RecordType' => 'Bounce',
             'Type'       => 'HardBounce',
             'MessageID'  => 'm-sticky-1',
-            'Email'      => 'sticky@example.com',
+            'Email'      => 'recovered@example.com',
             'BouncedAt'  => '2021-01-01T00:00:00Z',
         ])));
 
-        // A delivery webhook arriving afterward must not revive the address.
         event(EmailEvent::create(new Postmark([
             'RecordType'  => 'Delivery',
             'MessageID'   => 'm-sticky-2',
-            'Recipient'   => 'sticky@example.com',
+            'Recipient'   => 'recovered@example.com',
             'DeliveredAt' => '2021-02-01T00:00:00Z',
         ])));
 
-        $address = EmailAddress::where('address', 'sticky@example.com')->first();
+        $address = EmailAddress::where('address', 'recovered@example.com')->first();
+        $this->assertSame(EmailAddress::STATUS_ACTIVE, $address->status);
+        $this->assertNull($address->reason);
+        $this->assertNull($address->suppressed_at);
+
+        // Activity entry written for the auto-clear. The default activity()
+        // ordering is occurred_at ASC; reorder() to find the newest row.
+        $latest = $address->activity()->reorder('id', 'desc')->first();
+        $this->assertSame(EmailActivity::STATUS_UNSUPPRESSED, $latest->status);
+    }
+
+    public function testManualSuppressionIsNeverClearedByDelivery()
+    {
+        // Operator-asserted suppressions are intentional and not auto-
+        // cleared by any webhook event. Only Postmaster::unsuppress()
+        // lifts a manual one.
+        config(['postmaster.persistence.track_addresses' => true]);
+
+        Postmaster::suppress('manually-stuck@example.com');
+
+        event(EmailEvent::create(new Postmark([
+            'RecordType'  => 'Delivery',
+            'MessageID'   => 'm-manual-1',
+            'Recipient'   => 'manually-stuck@example.com',
+            'DeliveredAt' => '2021-02-01T00:00:00Z',
+        ])));
+
+        $address = EmailAddress::where('address', 'manually-stuck@example.com')->first();
         $this->assertSame(EmailAddress::STATUS_SUPPRESSED, $address->status);
-        $this->assertSame(EmailEvent::STATUS_BOUNCED, $address->reason);
+        $this->assertSame(EmailAddress::REASON_MANUAL, $address->reason);
     }
 
     public function testIsSuppressedReportsAddressStatus()

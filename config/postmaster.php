@@ -254,6 +254,13 @@ return [
         'enabled'    => env('POSTMASTER_DASHBOARD', false),
         'path'       => env('POSTMASTER_DASHBOARD_PATH', 'postmaster'),
         'middleware' => ['web'],
+
+        /*
+         * Cooldown between Resend button clicks for the same message,
+         * in seconds. Prevents double-click / rapid-fire mistakes from
+         * sending the same message multiple times. Set to 0 to disable.
+         */
+        'resend_throttle_seconds' => env('POSTMASTER_DASHBOARD_RESEND_THROTTLE_SECONDS', 60),
     ],
 
 ];

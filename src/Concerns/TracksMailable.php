@@ -92,5 +92,9 @@ trait TracksMailable
         if ($tracking->storeContent !== null) {
             $tracking->storeContent ? $this->storeContent() : $this->dontStoreContent();
         }
+
+        if ($tracking->resentFrom !== null) {
+            $this->resentFrom($tracking->resentFrom);
+        }
     }
 }

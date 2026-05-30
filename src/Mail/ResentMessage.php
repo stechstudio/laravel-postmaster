@@ -50,6 +50,16 @@ class ResentMessage extends Mailable
 
         if ($this->record->html_body) {
             $this->html($this->record->html_body);
+        } elseif ($this->record->text_body) {
+            // Plain-text-only original (e.g. sent via Mail::raw). Laravel's
+            // Mailable::text() takes a view name, not a raw string, so we
+            // satisfy its content-validation by wrapping the text as a
+            // <pre> HTML body. The actual plain-text part is set on the
+            // Symfony message below as the text alternative — so the
+            // recipient still gets a faithful multipart/alternative
+            // message with the original text intact.
+            $this->html('<pre style="font-family:monospace;white-space:pre-wrap;">'
+                .e($this->record->text_body).'</pre>');
         }
 
         $this->withSymfonyMessage($this->propagateContext());
@@ -75,6 +85,10 @@ class ResentMessage extends Mailable
         $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
 
         return function ($message) use ($record, $tenantColumn) {
+            // Text alternative. Always set when text_body is present — the
+            // multipart/alternative wrapper sends both the html and text
+            // parts to the recipient, and the text part is the authoritative
+            // version of a text-only original.
             if ($record->text_body) {
                 $message->text($record->text_body);
             }
@@ -94,6 +108,10 @@ class ResentMessage extends Mailable
             if ($record->{$tenantColumn} !== null) {
                 $headers->addTextHeader(OutboundMetadata::HEADER_TENANT, (string) $record->{$tenantColumn});
             }
+
+            // Link the new row back to the original for the dashboard's
+            // chain card and EmailMessage::resentFrom() / resends() relations.
+            $headers->addTextHeader(OutboundMetadata::HEADER_RESENT_FROM, (string) $record->getKey());
         };
     }
 }

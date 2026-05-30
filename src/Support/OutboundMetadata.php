@@ -30,6 +30,11 @@ class OutboundMetadata
     const HEADER_RECIPIENT_MAP  = 'X-Postmaster-Recipient-Map';
     const HEADER_TENANT         = 'X-Postmaster-Tenant';
     const HEADER_STORE_CONTENT  = 'X-Postmaster-Store-Content';
+    // Id of the EmailMessage this send is a resend of. Set by
+    // Postmaster::resend() and by Mailables declaring resent_from on
+    // their Tracking object. Written to the new row's resent_from_id
+    // column for the dashboard's chain card.
+    const HEADER_RESENT_FROM    = 'X-Postmaster-Resent-From';
 
     /**
      * @var array<int, array<string, mixed>>

@@ -386,6 +386,13 @@ a { color: inherit; text-decoration: none; }
 }
 .pm-siblings-row:hover { background: var(--pm-row-hover, rgba(0,0,0,0.04)); }
 .pm-siblings-row .pm-truncate { flex: 1; min-width: 0; }
+/* The "you are here" row in the resend chain card. */
+.pm-siblings-row--current {
+    background: var(--pm-row-hover, rgba(0,0,0,0.04));
+    font-weight: 600;
+    cursor: default;
+}
+.pm-siblings-row--current:hover { background: var(--pm-row-hover, rgba(0,0,0,0.04)); }
 
 /* The message detail's email-style header — subject over participants. */
 .pm-email-head { margin-bottom: 18px; }

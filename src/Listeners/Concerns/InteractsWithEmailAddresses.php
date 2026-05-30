@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Listeners\Concerns;
 
 use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailAddress;
 
 trait InteractsWithEmailAddresses
@@ -87,7 +88,47 @@ trait InteractsWithEmailAddresses
             $record->suppressed_at = $occurredAt;
         }
 
+        // The converse: a delivery proves the address works *now*, so an
+        // automatic suppression (bounced/dropped/complained) gets lifted.
+        // Manual suppressions are operator-asserted decisions and are
+        // never auto-cleared — same rule postmaster:sync follows.
+        $cleared = $this->maybeAutoClear($record, $event, $occurredAt);
+
         $record->save();
+
+        if ($cleared) {
+            $record->logActivity([
+                'status'      => EmailActivity::STATUS_UNSUPPRESSED,
+                'provider'    => $event->provider(),
+                'reason'      => null,
+                'response'    => 'Auto-cleared after a delivery proved the address works.',
+                'occurred_at' => $occurredAt,
+            ]);
+        }
+    }
+
+    /**
+     * If a delivered event lands on an automatically-suppressed address,
+     * flip it back to active. Returns true when the row transitioned —
+     * the caller logs the activity entry after save().
+     *
+     * @return bool
+     */
+    protected function maybeAutoClear( EmailAddress $record, EmailEvent $event, $occurredAt )
+    {
+        if (! $event->isDelivered() || ! $record->isSuppressed()) {
+            return false;
+        }
+
+        if ($record->reason === EmailAddress::REASON_MANUAL) {
+            return false;
+        }
+
+        $record->status = EmailAddress::STATUS_ACTIVE;
+        $record->reason = null;
+        $record->suppressed_at = null;
+
+        return true;
     }
 
     /**

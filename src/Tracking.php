@@ -3,6 +3,7 @@
 namespace STS\Postmaster;
 
 use Illuminate\Database\Eloquent\Model;
+use STS\Postmaster\Models\EmailMessage;
 
 /**
  * What a Mailable declares to Postmaster about itself: the model the email is
@@ -45,6 +46,16 @@ class Tracking
      *                                              content. null defers to the
      *                                              postmaster.persistence.store_content
      *                                              setting.
+     * @param EmailMessage|int|null   $resentFrom   The EmailMessage this send is a
+     *                                              resend of, or its id. Populates
+     *                                              resent_from_id on the new row
+     *                                              for the dashboard chain card.
+     *                                              Postmaster::resend() / the
+     *                                              dashboard Resend button set
+     *                                              this automatically; app code
+     *                                              that builds its own resend
+     *                                              outside those paths can declare
+     *                                              it here.
      */
     public function __construct(
         public readonly ?Model $related = null,
@@ -53,6 +64,7 @@ class Tracking
         public readonly Model|int|string|null $tenant = null,
         public readonly array $tags = [],
         public readonly ?bool $storeContent = null,
+        public readonly EmailMessage|int|null $resentFrom = null,
     ) {
     }
 }

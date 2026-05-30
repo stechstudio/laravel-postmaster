@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
+use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Postmaster;
 
 /**
@@ -108,5 +109,21 @@ trait WithTracking
     public function dontStoreContent()
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->storeContent(false));
+    }
+
+    /**
+     * Record this email as a resend of the given EmailMessage (or its id).
+     * The new row's resent_from_id points back; the dashboard's chain card
+     * walks the link. Postmaster::resend() and the dashboard Resend button
+     * apply this automatically — use it directly when app code does its own
+     * resend outside those paths.
+     *
+     * @param EmailMessage|int $message
+     *
+     * @return $this
+     */
+    public function resentFrom( EmailMessage|int $message )
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->resentFrom($message));
     }
 }

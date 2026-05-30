@@ -4,11 +4,13 @@ namespace STS\Postmaster;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use STS\Postmaster\Http\Controllers\WebhookController;
 use STS\Postmaster\Http\Middleware\VerifyWebhook;
 use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailAddress;
+use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
 use Throwable;
@@ -379,6 +381,74 @@ class Postmaster
                 OutboundMetadata::HEADER_STORE_CONTENT, $store ? '1' : '0'
             );
         };
+    }
+
+    /**
+     * Build a callback that records the given EmailMessage (or its id) as the
+     * original that the current send is a resend of. Postmaster::resend() and
+     * the dashboard's Resend button use this themselves; this builder is for
+     * app code that wants to declare a resend link from its own Mailable
+     * (typically via Tracking::resentFrom).
+     *
+     * @param \STS\Postmaster\Models\EmailMessage|int $message
+     *
+     * @return Closure
+     */
+    public function resentFrom( EmailMessage|int $message )
+    {
+        $id = $message instanceof EmailMessage ? $message->getKey() : $message;
+
+        return function (Email $email) use ($id) {
+            $email->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_RESENT_FROM, (string) $id
+            );
+        };
+    }
+
+    /**
+     * Replay a previously recorded EmailMessage through the configured
+     * mailer, preserving every aspect of the original we can reconstruct:
+     * sender, To/Cc/Bcc envelope, subject, html and text bodies, related /
+     * recipient / tenant context, and tags (plus a `resent` tag of its own).
+     * The new send is linked back to the original via resent_from_id, which
+     * the dashboard's chain card walks to show the full retry history.
+     *
+     * Requires the original to have stored content. Attachments are not
+     * restored — the package only persists their filenames, never their
+     * bytes.
+     *
+     * Throws \RuntimeException when there's no stored content to replay.
+     *
+     * @param \STS\Postmaster\Models\EmailMessage|int $message
+     *
+     * @return \Illuminate\Mail\SentMessage|null  Whatever Mail::send() returns.
+     */
+    public function resend( EmailMessage|int $message )
+    {
+        $record = $message instanceof EmailMessage
+            ? $message
+            : $this->emailMessageModel()->newQuery()->withoutGlobalScopes()->findOrFail($message);
+
+        if (! $record->html_body && ! $record->text_body) {
+            throw new \RuntimeException(
+                "Can't resend email message #{$record->getKey()}: no stored content. "
+                ."Enable POSTMASTER_STORE_CONTENT before the original send so its body is captured."
+            );
+        }
+
+        return Mail::send(new \STS\Postmaster\Mail\ResentMessage($record));
+    }
+
+    /**
+     * A fresh instance of the configured (swappable) email message model.
+     *
+     * @return EmailMessage
+     */
+    protected function emailMessageModel()
+    {
+        $class = config('postmaster.persistence.model', \STS\Postmaster\Models\EmailMessage::class);
+
+        return new $class;
     }
 
     /**

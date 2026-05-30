@@ -45,8 +45,12 @@ class UpdateMessageFromEvent
 
         $this->refreshSummary($record, $event);
 
-        $this->applyEventToAddress($event);
-
+        // Record the message-level activity before touching the address,
+        // so that the address-level activity entry for an auto-clear
+        // (written inside applyEventToAddress when a delivery flips a
+        // bounce-suppressed address back to active) lands *after* the
+        // delivered activity. Reads of the address's activity feed then
+        // tell the story in causal order: …bounced → delivered → unsuppressed.
         $this->recordActivity($record, [
             'provider'    => $event->provider(),
             'status'      => $event->status(),
@@ -57,6 +61,8 @@ class UpdateMessageFromEvent
             'url'         => $event->clickedUrl(),
             'occurred_at' => $event->occurredAt() ?? now(),
         ]);
+
+        $this->applyEventToAddress($event);
     }
 
     /**

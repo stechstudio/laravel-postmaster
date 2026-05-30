@@ -478,9 +478,15 @@ recipient with a current `status` of `active` or `suppressed`. This is on by
 default; set `POSTMASTER_TRACK_ADDRESSES=false` to disable it.
 
 An address is suppressed automatically on a hard bounce, a spam complaint, or a
-drop. Soft bounces don't count, since they're transient. Suppression is sticky:
-a later delivery or open never revives an address, only an explicit unsuppress
-does.
+drop. Soft bounces don't count, since they're transient.
+
+Suppression is sticky against opens and clicks. A later delivery is the one
+exception: if a `delivered` webhook arrives for an automatically-suppressed
+address, the package flips it back to active. The reasoning matches what
+`postmaster:sync` does for the provider side — a successful delivery is hard
+proof the address works now, so the local row should reflect that. Manual
+suppressions (operator-asserted via `Postmaster::suppress()`) are never auto-
+cleared by any webhook; only `Postmaster::unsuppress()` lifts a manual one.
 
 Check it before sending:
 
@@ -619,6 +625,55 @@ return new Tracking(related: $this->user, storeContent: false);
 // on a notification MailMessage
 return (new MailMessage)->subject('Your login code')->dontStoreContent();
 ```
+
+### Resending a recorded email
+
+Any recorded `EmailMessage` with stored content can be replayed through the
+configured mailer:
+
+```php
+$message->resend();
+
+// or equivalently
+Postmaster::resend($message);
+Postmaster::resend($messageId);
+```
+
+The new send carries over everything we can reconstruct from the recorded
+row — sender, To/Cc/Bcc envelope, subject, html and text bodies, related /
+recipient / tenant context, tags — and gets a `resent` tag of its own. The
+new row's `resent_from_id` points back to the original so the chain is
+queryable:
+
+```php
+$message->resentFrom;                  // BelongsTo — the original, or null
+$message->resends;                     // HasMany — direct resends of this row
+$message->resendChain();               // the whole lineage, ordered by sent_at
+
+// Did any retry of this bounced message eventually deliver?
+$message->resends()->delivered()->exists();
+```
+
+Attachments are not restored — the package only persists their filenames,
+never their bytes. Resend throws `RuntimeException` when there's no stored
+content to replay; enable `POSTMASTER_STORE_CONTENT` ahead of the original
+send.
+
+App code that builds its own resend outside `Postmaster::resend()` (e.g. a
+custom Mailable for a specific retry workflow) can declare the link via
+`Tracking`:
+
+```php
+return new Tracking(
+    related:     $this->order,
+    recipient:   $this->customer,
+    resent_from: $originalMessage,
+);
+```
+
+That populates the FK on the new row so the dashboard's chain card and the
+relationship helpers see the resend the same way they see one from
+`Postmaster::resend()`.
 
 ### Relating emails to your models
 
@@ -930,8 +985,16 @@ environment**, so the dashboard is never unguarded in production by accident.
   "all the email a user has received" view.
 - **Resend.** A button on the message detail page replays the stored email
   through the configured mailer, keeping the original's related model,
-  recipient, tenant, and tags, plus a `resent` tag of its own. Requires
-  stored content; attachments are not restored.
+  recipient, tenant, and tags, plus a `resent` tag of its own. The new row
+  links back to the original via `resent_from_id`, and the message detail
+  shows a **Resend chain** sidebar card walking the lineage so a support
+  reviewer can see at a glance whether a retry-after-unsuppress ever
+  delivered. Requires stored content; attachments are not restored.
+
+  The button is hidden when the recipient is currently suppressed — clear
+  the suppression first (the Addresses screen has the unsuppress action).
+  Rapid duplicate clicks are throttled per-message
+  (`POSTMASTER_DASHBOARD_RESEND_THROTTLE_SECONDS=60` by default).
 - **Activity.** A filterable, paginated stream of every recorded event, drawn
   from the timeline (on by default with persistence).
 - **Addresses.** The suppression list.

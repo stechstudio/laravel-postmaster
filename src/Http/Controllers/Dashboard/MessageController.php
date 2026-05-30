@@ -4,8 +4,9 @@ namespace STS\Postmaster\Http\Controllers\Dashboard;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
-use STS\Postmaster\Mail\ResentMessage;
+use Illuminate\Support\Facades\Cache;
+use STS\Postmaster\Facades\Postmaster;
+use STS\Postmaster\Models\EmailAddress;
 
 /**
  * The inbox: a filterable, cross-tenant list of recorded messages, and the
@@ -66,19 +67,59 @@ class MessageController extends Controller
                 ->get()
             : collect();
 
+        // The resend chain: every message that's part of this row's
+        // resend lineage (the original, any resends of it, resends of
+        // those, ordered by sent_at). Empty collection — not even a
+        // self-row — when this message is neither a resend nor has
+        // resends, so the view can simply check isNotEmpty() to render.
+        $chain = ($record->resent_from_id || $record->resends()->exists())
+            ? $record->resendChain()
+            : collect();
+
         return response()->view('postmaster::message', [
-            'message'    => $record,
-            'activity'   => $record->activity()->get(),
-            'siblings'   => $siblings,
-            'tenants'    => $this->tenantLabels([$record->{$this->tenantColumn()}]),
-            'tenantTerm' => $this->tenantTerm(),
+            'message'        => $record,
+            'activity'       => $record->activity()->get(),
+            'siblings'       => $siblings,
+            'chain'          => $chain,
+            'tenants'        => $this->tenantLabels([$record->{$this->tenantColumn()}]),
+            'tenantTerm'     => $this->tenantTerm(),
             'recipientLabel' => $this->labelForRecipientOnRecord($record),
+            'canResend'      => $this->canResend($record),
             // Remote images are blocked by the preview CSP. The viewer can
             // opt in per view with ?images=1; the bar is offered only when
             // the message actually has a remote image to unblock.
             'showImages'      => request()->boolean('images'),
             'hasRemoteImages' => $this->hasRemoteImages($record->html_body),
         ]);
+    }
+
+    /**
+     * Whether the Resend button should render on this row. False when:
+     *   - there's no stored content to replay, or
+     *   - the recipient is currently suppressed locally (the dashboard
+     *     wants the operator to clear the suppression intentionally before
+     *     re-sending). Operator can still resend via the EmailMessage::resend()
+     *     API from their own code — this is just the dashboard's UX choice.
+     *
+     * @return bool
+     */
+    protected function canResend( $record )
+    {
+        if (! $record->html_body && ! $record->text_body) {
+            return false;
+        }
+
+        if (! $record->to_address) {
+            return false;
+        }
+
+        $addressClass = config('postmaster.persistence.address_model', EmailAddress::class);
+
+        $address = (new $addressClass)->newQuery()
+            ->where('address', $addressClass::normalize($record->to_address))
+            ->first();
+
+        return ! $address || ! $address->isSuppressed();
     }
 
     /**
@@ -97,13 +138,33 @@ class MessageController extends Controller
     {
         $record = $this->messageQuery()->findOrFail($message);
 
-        if (! $record->html_body && ! $record->text_body) {
+        if (! $this->canResend($record)) {
             return redirect()
                 ->route('postmaster.messages.show', $record)
-                ->with('postmasterError', "Can't resend — no stored content. Enable POSTMASTER_STORE_CONTENT for future messages.");
+                ->with(
+                    'postmasterError',
+                    (! $record->html_body && ! $record->text_body)
+                        ? "Can't resend — no stored content. Enable POSTMASTER_STORE_CONTENT for future messages."
+                        : "Can't resend — {$record->to_address} is suppressed. Unsuppress the address first."
+                );
         }
 
-        Mail::send(new ResentMessage($record));
+        // Rate-limit duplicate resends of the same message — guards against
+        // double-clicks and rapid-fire "oops" scenarios.
+        $throttleSeconds = (int) config('postmaster.dashboard.resend_throttle_seconds', 60);
+        $cacheKey = "postmaster.resend.{$record->getKey()}";
+
+        if ($throttleSeconds > 0 && Cache::has($cacheKey)) {
+            return redirect()
+                ->route('postmaster.messages.show', $record)
+                ->with('postmasterError', "Already resent in the last {$throttleSeconds}s. Try again shortly.");
+        }
+
+        if ($throttleSeconds > 0) {
+            Cache::put($cacheKey, true, now()->addSeconds($throttleSeconds));
+        }
+
+        Postmaster::resend($record);
 
         return redirect()
             ->route('postmaster.messages.show', $record)

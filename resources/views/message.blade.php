@@ -19,7 +19,7 @@
 
     <div class="pm-detail-bar">
         <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">← Back to messages</a>
-        @if ($message->html_body || $message->text_body)
+        @if ($canResend)
             <form method="POST" action="{{ route('postmaster.messages.resend', $message) }}"
                   onsubmit="return confirm('Resend this email to {{ $message->to_address }}?')">
                 @csrf
@@ -130,6 +130,23 @@
                                 <span class="pm-role-tag pm-role-tag--{{ $sibling->recipient_role }}">{{ $sibling->recipient_role }}</span>
                                 <span class="pm-truncate">{{ $sibling->to_address }}</span>
                                 @include('postmaster::partials.badge', ['status' => $sibling->status])
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            @if ($chain->isNotEmpty())
+                <div class="pm-card">
+                    <h2 class="pm-section-title">Resend chain</h2>
+                    <div class="pm-siblings">
+                        @foreach ($chain as $i => $link)
+                            @php $isCurrent = $link->getKey() === $message->getKey(); @endphp
+                            <a class="pm-siblings-row{{ $isCurrent ? ' pm-siblings-row--current' : '' }}"
+                               href="{{ route('postmaster.messages.show', $link) }}">
+                                <span class="pm-dim pm-mono">{{ $i === 0 ? 'original' : 'resend #'.$i }}</span>
+                                <span class="pm-truncate pm-dim">@include('postmaster::partials.datetime', ['when' => $link->sent_at])</span>
+                                @include('postmaster::partials.badge', ['status' => $link->status])
                             </a>
                         @endforeach
                     </div>

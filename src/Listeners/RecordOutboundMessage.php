@@ -185,6 +185,13 @@ class RecordOutboundMessage
             $attributes['tags'] = $metadata['tags'];
         }
 
+        // Link this row back to the original when the send is a resend —
+        // populates the FK that EmailMessage::resentFrom() / resends() /
+        // resendChain() use, and what the dashboard's chain card walks.
+        if (isset($metadata['resent_from'])) {
+            $attributes['resent_from_id'] = (int) $metadata['resent_from'];
+        }
+
         // An explicit Mailable forTenant() wins; otherwise fall back to the
         // app-registered tenant resolver.
         $tenant = $metadata['tenant'] ?? $this->events->resolveTenant();

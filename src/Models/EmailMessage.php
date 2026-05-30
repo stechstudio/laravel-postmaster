@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use RuntimeException;
 use STS\Postmaster\Concerns\HasStatusPredicates;
 use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Facades\Postmaster;
 
 /**
  * A record of an outbound email and its delivery lifecycle.
@@ -23,6 +25,7 @@ use STS\Postmaster\EmailEvent;
  * @property string|null $recipient_role  'to' | 'cc' | 'bcc'
  * @property string|null $recipient_type
  * @property int|string|null $recipient_id
+ * @property int|null $resent_from_id
  * @property string|null $subject
  * @property string|null $from_address
  * @property array|null $recipients
@@ -267,5 +270,90 @@ class EmailMessage extends Model
     public function scopeTaggedWith( Builder $query, $tag )
     {
         return $query->whereJsonContains('tags', $tag);
+    }
+
+    /**
+     * The original message this row is a resend of, or null if this row
+     * was a fresh send (or pre-dates the resend tracking feature).
+     *
+     * @return BelongsTo
+     */
+    public function resentFrom()
+    {
+        return $this->belongsTo(static::class, 'resent_from_id');
+    }
+
+    /**
+     * Every message that was sent as a resend of this row. Direct children
+     * only — a resend of a resend is in *that* row's resends(), not here.
+     * Walk the full tree with resendChain().
+     *
+     * @return HasMany
+     */
+    public function resends()
+    {
+        return $this->hasMany(static::class, 'resent_from_id');
+    }
+
+    /**
+     * Replay this message through the configured mailer, preserving its
+     * sender, recipients, subject, bodies, and tracking context (plus a
+     * `resent` tag of its own). The new row links back to this one via
+     * resent_from_id. Requires stored content; attachments are not restored.
+     *
+     * Throws \RuntimeException when there is no stored content to replay.
+     *
+     * @return \Illuminate\Mail\SentMessage|null
+     */
+    public function resend()
+    {
+        return Postmaster::resend($this);
+    }
+
+    /**
+     * Every message in this row's resend chain — the original at the root,
+     * each subsequent resend below it, ordered by send time. Useful for
+     * the dashboard's chain card and for answering "did any retry of this
+     * eventually deliver?" without recursing in app code.
+     *
+     * Walks the FK in both directions: ancestors via resent_from_id all
+     * the way up to the root, then descendants of the root down through
+     * resends() — so the result is always the same regardless of which
+     * link in the chain it was called on.
+     *
+     * @return Collection<int, EmailMessage>
+     */
+    public function resendChain()
+    {
+        $root = $this;
+
+        while ($root->resentFrom) {
+            $root = $root->resentFrom;
+        }
+
+        return static::descendantsOf($root);
+    }
+
+    /**
+     * Internal: collect $root and every descendant of it via the
+     * resent_from_id FK, ordered by send time. Recursive in PHP rather
+     * than a CTE so we stay portable across the database engines the
+     * package supports.
+     *
+     * @param EmailMessage $root
+     *
+     * @return Collection<int, EmailMessage>
+     */
+    protected static function descendantsOf(EmailMessage $root): Collection
+    {
+        /** @var Collection<int, EmailMessage> $chain */
+        $chain = new Collection([$root]);
+
+        /** @var EmailMessage $child */
+        foreach ($root->resends()->withoutGlobalScopes()->orderBy('sent_at')->get() as $child) {
+            $chain = $chain->merge(static::descendantsOf($child));
+        }
+
+        return $chain;
     }
 }

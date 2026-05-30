@@ -25,6 +25,7 @@ class StashOutboundMetadata
         OutboundMetadata::HEADER_RECIPIENT_ID   => 'recipient_id',
         OutboundMetadata::HEADER_TENANT         => 'tenant',
         OutboundMetadata::HEADER_STORE_CONTENT  => 'store_content',
+        OutboundMetadata::HEADER_RESENT_FROM    => 'resent_from',
     ];
 
     /**

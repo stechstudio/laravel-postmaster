@@ -3,6 +3,9 @@
 namespace STS\Postmaster\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
+use STS\Postmaster\Contracts\SuppressionSync;
+use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Postmaster;
 use Throwable;
@@ -26,7 +29,7 @@ class Sync extends Command
 
     protected $description = 'Mirror each provider\'s suppression list into the local table';
 
-    public function handle( Postmaster $postmaster ): int
+    public function handle(Postmaster $postmaster): int
     {
         $providers = $this->resolveProviders();
 
@@ -64,7 +67,7 @@ class Sync extends Command
         return array_keys(config('postmaster.providers', []));
     }
 
-    protected function syncProvider( Postmaster $postmaster, string $provider, bool $dryRun ): void
+    protected function syncProvider(Postmaster $postmaster, string $provider, bool $dryRun): void
     {
         $sync = $postmaster->sync($provider);
 
@@ -104,11 +107,9 @@ class Sync extends Command
      * Pull the provider's full suppression list into memory, keyed by
      * lowercased address.
      *
-     * @param \STS\Postmaster\Contracts\SuppressionSync $sync
-     *
      * @return array<string, array{address: string, reason: string, suppressed_at: \DateTimeInterface|null}>
      */
-    protected function fetchRemote( $sync ): array
+    protected function fetchRemote(SuppressionSync $sync): array
     {
         $remote = [];
 
@@ -122,13 +123,11 @@ class Sync extends Command
     /**
      * Existing suppression rows in the local table, keyed by address.
      *
-     * @return \Illuminate\Database\Eloquent\Collection<int, EmailAddress>
+     * @return Collection<int, EmailAddress>
      */
-    protected function fetchLocal()
+    protected function fetchLocal(): Collection
     {
-        $class = config('postmaster.persistence.address_model', EmailAddress::class);
-
-        return (new $class)->newQuery()
+        return EmailAddress::model()->newQuery()
             ->where('status', EmailAddress::STATUS_SUPPRESSED)
             ->get()
             ->keyBy('address');
@@ -138,15 +137,12 @@ class Sync extends Command
      * Apply the diff between provider and local. Returns counts for the
      * summary line.
      *
-     * @param array<string, array{address: string, reason: string, suppressed_at: \DateTimeInterface|null}>             $remote
-     * @param \Illuminate\Database\Eloquent\Collection<int, EmailAddress>|\Illuminate\Support\Collection<string, EmailAddress> $local
-     * @param bool                                                                                                            $dryRun
-     *
+     * @param  array<string, array{address: string, reason: string, suppressed_at: \DateTimeInterface|null}>                       $remote
+     * @param  Collection<int, EmailAddress>|\Illuminate\Support\Collection<string, EmailAddress> $local
      * @return array{added: int, cleared: int, unchanged: int}
      */
-    protected function reconcile( array $remote, $local, bool $dryRun ): array
+    protected function reconcile(array $remote, $local, bool $dryRun): array
     {
-        $class = config('postmaster.persistence.address_model', EmailAddress::class);
         $stats = ['added' => 0, 'cleared' => 0, 'unchanged' => 0];
 
         // Provider → local: suppress any addresses the provider holds that
@@ -158,9 +154,15 @@ class Sync extends Command
             }
 
             if (! $dryRun) {
-                $row = (new $class)->newQuery()->firstOrNew(['address' => $address]);
+                $row = EmailAddress::model()->newQuery()->firstOrNew(['address' => $address]);
                 $row->reason        = $entry['reason'];
-                $row->suppressed_at = $entry['suppressed_at'] ?? now();
+                // Cast the provider's DateTimeInterface to a Carbon so it
+                // matches the model's typed property. Eloquent's datetime
+                // cast handles either at write time, but the typed property
+                // narrows the in-memory value.
+                $row->suppressed_at = $entry['suppressed_at']
+                    ? \Illuminate\Support\Carbon::instance(\DateTimeImmutable::createFromInterface($entry['suppressed_at']))
+                    : now();
                 $row->status        = EmailAddress::STATUS_SUPPRESSED;
                 $row->recordProvider($this->currentProvider);
                 $row->save();
@@ -171,7 +173,7 @@ class Sync extends Command
                 // suppress() (which would stamp it with now()). Source =
                 // 'sync' attributes the entry to the reconciliation job.
                 $row->logActivity([
-                    'status'   => \STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED,
+                    'status'   => EmailActivity::STATUS_SUPPRESSED,
                     'reason'   => $entry['reason'],
                     'provider' => $this->currentProvider,
                     'source'   => 'sync',

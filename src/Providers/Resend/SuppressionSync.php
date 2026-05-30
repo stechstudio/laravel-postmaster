@@ -27,7 +27,7 @@ class SuppressionSync implements Contract
     {
     }
 
-    public function isAvailable()
+    public function isAvailable(): bool
     {
         // The SDK is required; the API key check is here too so that when
         // Resend does ship a suppression list endpoint the only file that
@@ -42,12 +42,12 @@ class SuppressionSync implements Contract
         return false;
     }
 
-    public function pull()
+    public function pull(): iterable
     {
         return [];
     }
 
-    public function unsuppress( $address )
+    public function unsuppress(string $address): bool
     {
         return false;
     }

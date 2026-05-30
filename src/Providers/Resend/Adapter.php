@@ -10,15 +10,9 @@ use STS\Postmaster\Providers\AbstractAdapter;
 
 class Adapter extends AbstractAdapter
 {
-    /**
-     * @var string
-     */
-    protected $provider = "Resend";
+    protected string $provider = "Resend";
 
-    /**
-     * @var array
-     */
-    protected $eventMap = [
+    protected array $eventMap = [
         'email.sent'             => EmailEvent::STATUS_ACCEPTED,
         'email.delivered'        => EmailEvent::STATUS_DELIVERED,
         'email.delivery_delayed' => EmailEvent::STATUS_DEFERRED,
@@ -29,97 +23,67 @@ class Adapter extends AbstractAdapter
         'email.clicked'          => EmailEvent::STATUS_CLICKED,
     ];
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function status()
+    public function status(): ?string
     {
         return Arr::get($this->eventMap, Arr::get($this->payload, 'type'));
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function toAddress()
+    public function toAddress(): ?string
     {
         $to = Arr::get($this->payload, 'data.to');
 
         return is_array($to) ? Arr::first($to) : $to;
     }
 
-    /**
-     * @return DateTimeImmutable|null
-     */
     #[\Override]
-    public function occurredAt()
+    public function occurredAt(): ?\DateTimeImmutable
     {
         $createdAt = Arr::get($this->payload, 'created_at');
 
         return static::dateFromUnix($createdAt ? strtotime($createdAt) : null);
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function providerMessageId()
+    public function providerMessageId(): ?string
     {
         return Arr::get($this->payload, 'data.email_id');
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function tags()
+    public function tags(): \Illuminate\Support\Collection
     {
         return collect((array) Arr::get($this->payload, 'data.tags'));
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function data()
+    public function data(): \Illuminate\Support\Collection
     {
         return collect((array) Arr::get($this->payload, 'data.headers'));
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function response()
+    public function response(): mixed
     {
         return Arr::get($this->payload, 'data.bounce.message');
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function code()
+    public function code(): mixed
     {
         return null;
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function reason()
+    public function reason(): mixed
     {
         return Arr::get($this->payload, 'data.bounce.subType')
             ?? Arr::get($this->payload, 'data.bounce.type');
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function bounceType()
+    public function bounceType(): ?string
     {
         if ($this->status() !== EmailEvent::STATUS_BOUNCED) {
             return null;
@@ -130,22 +94,14 @@ class Adapter extends AbstractAdapter
             : EmailEvent::BOUNCE_SOFT;
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function clickedUrl()
+    public function clickedUrl(): ?string
     {
         return Arr::get($this->payload, 'data.click.link');
     }
 
-    /**
-     * @param array $payload
-     *
-     * @return bool
-     */
     #[\Override]
-    public static function supports( array $payload )
+    public static function supports(array $payload): bool
     {
         return array_key_exists('type', $payload)
             && array_key_exists('data', $payload)

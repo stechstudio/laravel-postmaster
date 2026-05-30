@@ -24,16 +24,14 @@ class InterceptSandboxMail
 {
     use MakesSyntheticMessageId;
 
-    public function __construct( protected RecordOutboundMessage $recorder )
+    public function __construct(protected RecordOutboundMessage $recorder)
     {
     }
 
     /**
-     * @param MessageSending $event
-     *
-     * @return bool|null False to cancel the send; null to let it proceed.
+     * Returns false to cancel the send; null to let it proceed.
      */
-    public function handle( MessageSending $event )
+    public function handle(MessageSending $event): ?bool
     {
         if (config('postmaster.delivery') !== 'sandbox') {
             return null;

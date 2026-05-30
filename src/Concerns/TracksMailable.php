@@ -40,10 +40,8 @@ trait TracksMailable
      * registered without a closure ever being serialized onto the queue.
      *
      * @param \Illuminate\Contracts\Mail\Mailer|\Illuminate\Contracts\Mail\Factory $mailer
-     *
-     * @return mixed
      */
-    public function send( $mailer )
+    public function send($mailer): mixed
     {
         $this->applyDeclaredTracking();
 
@@ -52,10 +50,8 @@ trait TracksMailable
 
     /**
      * Read the optional postmaster() declaration and apply each field.
-     *
-     * @return void
      */
-    protected function applyDeclaredTracking()
+    protected function applyDeclaredTracking(): void
     {
         if (! method_exists($this, 'postmaster')) {
             return;

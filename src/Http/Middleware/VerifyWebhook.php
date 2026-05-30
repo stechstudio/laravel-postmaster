@@ -14,17 +14,11 @@ use STS\Postmaster\Exceptions\UnauthorizedException;
  */
 class VerifyWebhook
 {
-    public function __construct( protected Postmaster $events )
+    public function __construct(protected Postmaster $events)
     {
     }
 
-    /**
-     * @param Request $request
-     * @param Closure $next
-     *
-     * @return mixed
-     */
-    public function handle( Request $request, Closure $next )
+    public function handle(Request $request, Closure $next): mixed
     {
         $providerName = $request->route('provider');
         $provider = $this->events->provider($providerName);

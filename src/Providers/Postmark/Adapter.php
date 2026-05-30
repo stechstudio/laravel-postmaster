@@ -10,20 +10,11 @@ use STS\Postmaster\Providers\AbstractAdapter;
 
 class Adapter extends AbstractAdapter
 {
-    /**
-     * @var string
-     */
-    protected $provider = "Postmark";
+    protected string $provider = "Postmark";
 
-    /**
-     * @var string
-     */
-    protected static $userAgent = "Postmark";
+    protected static ?string $userAgent = "Postmark";
 
-    /**
-     * @var array
-     */
-    protected $eventMap = [
+    protected array $eventMap = [
         'Transient'     => EmailEvent::STATUS_DEFERRED,
         'Delivery'      => EmailEvent::STATUS_DELIVERED,
         'Bounce'        => EmailEvent::STATUS_BOUNCED,
@@ -32,11 +23,8 @@ class Adapter extends AbstractAdapter
         'Click'         => EmailEvent::STATUS_CLICKED
     ];
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function status()
+    public function status(): ?string
     {
         if (Arr::get($this->payload, 'RecordType') == "Bounce" && array_key_exists(Arr::get($this->payload,'Type'), $this->eventMap)) {
             return $this->eventMap[ Arr::get($this->payload, 'Type') ];
@@ -45,11 +33,8 @@ class Adapter extends AbstractAdapter
         return Arr::get($this->eventMap, Arr::get($this->payload, 'RecordType'));
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function toAddress()
+    public function toAddress(): ?string
     {
         return Arr::get($this->payload, 'Recipient')
             ?? Arr::get($this->payload, 'Email');
@@ -62,7 +47,7 @@ class Adapter extends AbstractAdapter
      * @return DateTimeImmutable|null
      */
     #[\Override]
-    public function occurredAt()
+    public function occurredAt(): ?\DateTimeImmutable
     {
         foreach (["DeliveredAt", "ReceivedAt", "BouncedAt"] as $dateField) {
             if (Arr::has($this->payload, $dateField)) {
@@ -75,51 +60,38 @@ class Adapter extends AbstractAdapter
         return null;
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function providerMessageId()
+    public function providerMessageId(): ?string
     {
         return Arr::get($this->payload, "MessageID");
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function tags()
+    public function tags(): \Illuminate\Support\Collection
     {
         return collect((array)Arr::get($this->payload, 'Tag'));
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function data()
+    public function data(): \Illuminate\Support\Collection
     {
         return collect((array)Arr::get($this->payload, 'Metadata'));
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function response()
+    public function response(): mixed
     {
         return Arr::get($this->payload, 'Details');
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function code()
+    public function code(): mixed
     {
         if ($this->status() == EmailEvent::STATUS_BOUNCED) {
             return Arr::get($this->payload, 'TypeCode');
         }
+
+        return null;
     }
 
     /**
@@ -139,20 +111,14 @@ class Adapter extends AbstractAdapter
         'VirusNotification'   => EmailEvent::BOUNCE_BLOCK,
     ];
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function reason()
+    public function reason(): mixed
     {
         return Arr::get($this->payload, 'Type');
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function bounceType()
+    public function bounceType(): ?string
     {
         if ($this->status() !== EmailEvent::STATUS_BOUNCED) {
             return null;
@@ -165,22 +131,14 @@ class Adapter extends AbstractAdapter
         );
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function clickedUrl()
+    public function clickedUrl(): ?string
     {
         return Arr::get($this->payload, 'OriginalLink');
     }
 
-    /**
-     * @param array $payload
-     *
-     * @return bool
-     */
     #[\Override]
-    public static function supports( array $payload )
+    public static function supports(array $payload): bool
     {
         return array_key_exists('MessageID', $payload) && array_key_exists('RecordType', $payload);
     }

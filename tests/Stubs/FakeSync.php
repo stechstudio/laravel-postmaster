@@ -21,12 +21,12 @@ class FakeSync implements SuppressionSync
     {
     }
 
-    public function isAvailable()
+    public function isAvailable(): bool
     {
         return static::$available;
     }
 
-    public function pull()
+    public function pull(): iterable
     {
         foreach (static::$remote as $address => $reason) {
             yield [
@@ -37,7 +37,7 @@ class FakeSync implements SuppressionSync
         }
     }
 
-    public function unsuppress( $address )
+    public function unsuppress(string $address): bool
     {
         static::$unsuppressed[] = strtolower($address);
 

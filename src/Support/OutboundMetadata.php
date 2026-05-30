@@ -36,18 +36,13 @@ class OutboundMetadata
     // column for the dashboard's chain card.
     const HEADER_RESENT_FROM    = 'X-Postmaster-Resent-From';
 
-    /**
-     * @var array<int, array<string, mixed>>
-     */
-    protected static $pending = [];
+    /** @var array<int, array<string, mixed>> */
+    protected static array $pending = [];
 
     /**
-     * @param int                  $objectId
      * @param array<string, mixed> $attributes
-     *
-     * @return void
      */
-    public static function remember( $objectId, array $attributes )
+    public static function remember(int $objectId, array $attributes): void
     {
         static::$pending[$objectId] = $attributes;
     }
@@ -55,11 +50,9 @@ class OutboundMetadata
     /**
      * Retrieve and forget the metadata stashed for the given message.
      *
-     * @param int $objectId
-     *
      * @return array<string, mixed>
      */
-    public static function pull( $objectId )
+    public static function pull(int $objectId): array
     {
         $attributes = static::$pending[$objectId] ?? [];
 

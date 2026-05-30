@@ -2,11 +2,13 @@
 
 namespace STS\Postmaster;
 
+use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Support\Collection;
 use STS\Postmaster\Concerns\HasStatusPredicates;
 use STS\Postmaster\Contracts\Adapter;
+use STS\Postmaster\Models\EmailMessage;
 
 /**
  * A normalized inbound email event. Every webhook becomes one of these
@@ -44,44 +46,28 @@ class EmailEvent
     const string BOUNCE_SOFT  = "soft";  // transient — retry later
     const string BOUNCE_BLOCK = "block"; // blocked by reputation/policy
 
-    /**
-     * @var Adapter
-     */
-    protected $adapter;
+    protected Adapter $adapter;
 
     /**
      * The persisted email record this event was correlated to, by provider
      * message id. Set by UpdateMessageFromEvent; read by app listeners via
      * the emailMessage() accessor below.
-     *
-     * @var \STS\Postmaster\Models\EmailMessage|null
      */
-    protected $emailMessage;
+    protected ?EmailMessage $emailMessage = null;
 
-    /**
-     * @param Adapter $adapter
-     */
-    public function __construct( Adapter $adapter )
+    public function __construct(Adapter $adapter)
     {
         $this->adapter = $adapter;
     }
 
-    /**
-     * @param Adapter $adapter
-     *
-     * @return EmailEvent|null
-     */
-    public static function create( Adapter $adapter )
+    public static function create(Adapter $adapter): ?self
     {
         return $adapter->isValid()
             ? new self($adapter)
             : null;
     }
 
-    /**
-     * @return Adapter
-     */
-    public function adapter()
+    public function adapter(): Adapter
     {
         return $this->adapter;
     }
@@ -99,10 +85,8 @@ class EmailEvent
      * id, or for a listener that runs before the package's
      * UpdateMessageFromEvent (which is registered first, so an app listener
      * runs after it by default).
-     *
-     * @return \STS\Postmaster\Models\EmailMessage|null
      */
-    public function emailMessage()
+    public function emailMessage(): ?EmailMessage
     {
         return $this->emailMessage;
     }
@@ -110,30 +94,21 @@ class EmailEvent
     /**
      * Associate the event with its persisted record. Called by
      * UpdateMessageFromEvent after the correlation lookup.
-     *
-     * @param \STS\Postmaster\Models\EmailMessage $message
-     *
-     * @return void
      */
-    public function setEmailMessage( $message )
+    public function setEmailMessage(EmailMessage $message): void
     {
         $this->emailMessage = $message;
     }
 
-    /**
-     * @return string
-     */
-    public function provider()
+    public function provider(): string
     {
         return $this->adapter->provider();
     }
 
     /**
      * The normalized lifecycle status — one of the STATUS_* constants.
-     *
-     * @return string|null
      */
-    public function status()
+    public function status(): ?string
     {
         return $this->adapter->status();
     }
@@ -167,20 +142,15 @@ class EmailEvent
         };
     }
 
-    /**
-     * @return string|null
-     */
-    public function providerMessageId()
+    public function providerMessageId(): ?string
     {
         return $this->adapter->providerMessageId();
     }
 
     /**
      * The address this event is about.
-     *
-     * @return string|null
      */
-    public function toAddress()
+    public function toAddress(): ?string
     {
         return $this->adapter->toAddress();
     }
@@ -188,66 +158,43 @@ class EmailEvent
     /**
      * When the event happened, per the provider — or null if no usable
      * timestamp was supplied.
-     *
-     * @return \DateTimeImmutable|null
      */
-    public function occurredAt()
+    public function occurredAt(): ?DateTimeImmutable
     {
         return $this->adapter->occurredAt();
     }
 
-    /**
-     * @return mixed
-     */
-    public function response()
+    public function response(): mixed
     {
         return $this->adapter->response();
     }
 
-    /**
-     * @return mixed
-     */
-    public function reason()
+    public function reason(): mixed
     {
         return $this->adapter->reason();
     }
 
-    /**
-     * @return mixed
-     */
-    public function code()
+    public function code(): mixed
     {
         return $this->adapter->code();
     }
 
-    /**
-     * @return Collection
-     */
-    public function tags()
+    public function tags(): Collection
     {
         return $this->adapter->tags();
     }
 
-    /**
-     * @return Collection
-     */
-    public function data()
+    public function data(): Collection
     {
         return $this->adapter->data();
     }
 
-    /**
-     * @return string|null
-     */
-    public function bounceType()
+    public function bounceType(): ?string
     {
         return $this->adapter->bounceType();
     }
 
-    /**
-     * @return bool
-     */
-    public function isPermanent()
+    public function isPermanent(): bool
     {
         return $this->adapter->isPermanent();
     }
@@ -255,26 +202,24 @@ class EmailEvent
     /**
      * The URL clicked on a click event (null for other events, or providers
      * that don't expose one).
-     *
-     * @return string|null
      */
-    public function clickedUrl()
+    public function clickedUrl(): ?string
     {
         return $this->adapter->clickedUrl();
     }
 
     /**
-     * @return array
+     * @return array<string, mixed>
      */
-    public function payload()
+    public function payload(): array
     {
         return $this->adapter->payload();
     }
 
     /**
-     * @return array
+     * @return array<string, mixed>
      */
-    public function toArray()
+    public function toArray(): array
     {
         return [
             'provider'            => $this->adapter->provider(),

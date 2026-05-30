@@ -4,32 +4,20 @@ namespace STS\Postmaster\Auth;
 
 use Illuminate\Http\Request;
 
+/**
+ * Webhook authorizer that verifies a URL token against the configured
+ * POSTMASTER_AUTH_TOKEN. The token is read from the request input field
+ * named by $parameter (defaults to "auth").
+ */
 class TokenAuth
 {
-    /** @var string */
-    protected $token;
-
-    /** @var string  */
-    protected $parameter;
-
-    /**
-     * TokenAuth constructor.
-     *
-     * @param        $token
-     * @param string $parameter
-     */
-    public function __construct( $token, $parameter = 'auth' )
-    {
-        $this->token = $token;
-        $this->parameter = $parameter;
+    public function __construct(
+        protected ?string $token,
+        protected string $parameter = 'auth',
+    ) {
     }
 
-    /**
-     * @param Request $request
-     *
-     * @return bool
-     */
-    public function __invoke(Request $request)
+    public function __invoke(Request $request): bool
     {
         // Refuse an unconfigured token. Without this guard, the loose
         // comparison `null == null` below would accept any unauthenticated
@@ -38,6 +26,6 @@ class TokenAuth
             return false;
         }
 
-        return hash_equals((string) $this->token, (string) $request->input($this->parameter));
+        return hash_equals($this->token, (string) $request->input($this->parameter));
     }
 }

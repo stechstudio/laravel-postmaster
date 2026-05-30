@@ -69,12 +69,8 @@ class EmailAddress extends Model
     /**
      * Append a provider name to this row's providers list (deduped),
      * persisting the change. A no-op when the name is empty.
-     *
-     * @param string|null $provider
-     *
-     * @return void
      */
-    public function recordProvider( $provider )
+    public function recordProvider(?string $provider): void
     {
         if (! is_string($provider) || $provider === '') {
             return;
@@ -96,10 +92,8 @@ class EmailAddress extends Model
      * could actually clear *something* upstream, not just lift the local
      * row. Manual suppressions and legacy rows (no providers recorded)
      * always report true; for them the local lift is the whole point.
-     *
-     * @return bool
      */
-    public function canApiUnsuppress()
+    public function canApiUnsuppress(): bool
     {
         if ($this->reason === self::REASON_MANUAL) {
             return true;
@@ -132,7 +126,7 @@ class EmailAddress extends Model
      *
      * @return array<int, string>
      */
-    public function providersWithoutApiUnsuppress()
+    public function providersWithoutApiUnsuppress(): array
     {
         $providers = $this->providers ?? [];
 
@@ -149,7 +143,20 @@ class EmailAddress extends Model
         }));
     }
 
-    public function getTable()
+    /**
+     * A fresh instance of the configured (swappable) email address model. Use
+     * this anywhere a query starts from — `EmailAddress::model()->newQuery()…`
+     * — so an app that swapped in a custom subclass via
+     * persistence.address_model gets that subclass everywhere.
+     */
+    public static function model(): self
+    {
+        $class = config('postmaster.persistence.address_model', static::class);
+
+        return new $class;
+    }
+
+    public function getTable(): string
     {
         return config('postmaster.persistence.addresses_table', 'email_addresses');
     }
@@ -162,22 +169,16 @@ class EmailAddress extends Model
     /**
      * Normalize an address for storage and lookup. Addresses are matched
      * case-insensitively, the same way every provider treats them.
-     *
-     * @param string $address
-     *
-     * @return string
      */
-    public static function normalize( $address )
+    public static function normalize(string $address): string
     {
         return strtolower(trim($address));
     }
 
     /**
      * Whether this address is currently suppressed.
-     *
-     * @return bool
      */
-    public function isSuppressed()
+    public function isSuppressed(): bool
     {
         return $this->status === self::STATUS_SUPPRESSED;
     }
@@ -187,10 +188,8 @@ class EmailAddress extends Model
      * sent to it, plus any address-level entries (manual suppression,
      * unsuppression, sync add/clear) that target the address directly with
      * no specific message.
-     *
-     * @return HasMany
      */
-    public function activity()
+    public function activity(): HasMany
     {
         $model = config('postmaster.persistence.activity_model', EmailActivity::class);
 
@@ -208,10 +207,8 @@ class EmailAddress extends Model
      * A no-op when persistence.record_events is off.
      *
      * @param array<string, mixed> $attributes
-     *
-     * @return EmailActivity|null
      */
-    public function logActivity( array $attributes )
+    public function logActivity(array $attributes): ?EmailActivity
     {
         if (! config('postmaster.persistence.record_events', true) || ! $this->exists) {
             return null;
@@ -234,30 +231,33 @@ class EmailAddress extends Model
      * called it (the entry is gated by persistence.record_events the way
      * logActivity() already is).
      *
-     * @param string                                       $reason
-     *  Why the address is being suppressed — defaults to REASON_MANUAL.
-     *  Stored on the row AND on the activity entry.
-     * @param \Illuminate\Database\Eloquent\Model|null     $causer
-     *  Who acted — usually a user model. Stored via the morph map (so
-     *  causer_type is the consumer's morph alias, not its FQCN). Null when
-     *  there's no model actor.
-     * @param string|null                                  $source
-     *  Free-form label for the actor (e.g. 'dashboard', 'sync', 'webhook')
-     *  — used both for non-model actors and as a fallback the consumer can
-     *  always render when the morph relation can't be hydrated across DB
-     *  connections.
-     * @param array<string, mixed>                         $activity
-     *  Extra attributes merged into the activity entry — e.g. a provider
-     *  name for sync-driven entries, or a `response` blurb.
-     *
-     * @return $this
+     * @param string               $reason   Why the address is being
+     *                                       suppressed — defaults to
+     *                                       REASON_MANUAL. Stored on the row
+     *                                       AND on the activity entry.
+     * @param Model|null           $causer   Who acted — usually a user model.
+     *                                       Stored via the morph map (so
+     *                                       causer_type is the consumer's
+     *                                       morph alias, not its FQCN). Null
+     *                                       when there's no model actor.
+     * @param string|null          $source   Free-form label for the actor
+     *                                       (e.g. 'dashboard', 'sync',
+     *                                       'webhook') — used both for
+     *                                       non-model actors and as a
+     *                                       fallback when the morph relation
+     *                                       can't be hydrated across DB
+     *                                       connections.
+     * @param array<string, mixed> $activity Extra attributes merged into the
+     *                                       activity entry — e.g. a provider
+     *                                       name for sync-driven entries, or
+     *                                       a `response` blurb.
      */
     public function suppress(
-        $reason = self::REASON_MANUAL,
-        $causer = null,
-        $source = null,
+        string $reason = self::REASON_MANUAL,
+        ?Model $causer = null,
+        ?string $source = null,
         array $activity = []
-    ) {
+    ): static {
         $this->status = self::STATUS_SUPPRESSED;
         $this->reason = $reason;
         $this->suppressed_at = now();
@@ -278,24 +278,18 @@ class EmailAddress extends Model
      *
      * Also writes an address-level activity entry attributing the action.
      * Same attribution arguments as suppress(); see that method for the
-     * causer/source/activity semantics.
+     * causer/source/activity semantics. $reason here is a human note recorded
+     * on the entry ("customer confirmed the mailbox was fixed") — distinct
+     * from the address-row reason, which is always cleared.
      *
-     * @param \Illuminate\Database\Eloquent\Model|null     $causer
-     * @param string|null                                  $source
-     * @param string|null                                  $reason
-     *  A human note recorded on the entry (e.g. "customer confirmed the
-     *  mailbox was fixed"). Distinct from the address-row reason, which is
-     *  always cleared.
-     * @param array<string, mixed>                         $activity
-     *
-     * @return $this
+     * @param array<string, mixed> $activity
      */
     public function unsuppress(
-        $causer = null,
-        $source = null,
-        $reason = null,
+        ?Model $causer = null,
+        ?string $source = null,
+        ?string $reason = null,
         array $activity = []
-    ) {
+    ): static {
         $this->status = self::STATUS_ACTIVE;
         $this->reason = null;
         $this->suppressed_at = null;
@@ -314,11 +308,9 @@ class EmailAddress extends Model
      * Translate a causer model into the morph columns logActivity() writes.
      * Empty when no causer was provided — leaves causer_type/causer_id null.
      *
-     * @param \Illuminate\Database\Eloquent\Model|null $causer
-     *
      * @return array{causer_type?: string, causer_id?: mixed}
      */
-    protected function causerAttributes( $causer )
+    protected function causerAttributes(?Model $causer): array
     {
         if ($causer === null) {
             return [];
@@ -330,14 +322,12 @@ class EmailAddress extends Model
         ];
     }
 
-    /** @return Builder */
-    public function scopeActive( Builder $query )
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ACTIVE);
     }
 
-    /** @return Builder */
-    public function scopeSuppressed( Builder $query )
+    public function scopeSuppressed(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_SUPPRESSED);
     }

@@ -3,11 +3,13 @@
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
-use STS\Postmaster\Models\EmailActivity;
 
 /**
  * Base for the dashboard controllers. Every query is built without global
@@ -19,44 +21,36 @@ abstract class Controller
     /**
      * @return Builder<EmailMessage>
      */
-    protected function messageQuery()
+    protected function messageQuery(): Builder
     {
-        $class = config('postmaster.persistence.model', EmailMessage::class);
-
-        return (new $class)->newQuery()->withoutGlobalScopes();
+        return EmailMessage::model()->newQuery()->withoutGlobalScopes();
     }
 
     /**
      * @return Builder<EmailActivity>
      */
-    protected function activityQuery()
+    protected function activityQuery(): Builder
     {
-        $class = config('postmaster.persistence.activity_model', EmailActivity::class);
-
-        return (new $class)->newQuery()->withoutGlobalScopes();
+        return EmailActivity::model()->newQuery()->withoutGlobalScopes();
     }
 
     /**
      * @return Builder<EmailAddress>
      */
-    protected function addressQuery()
+    protected function addressQuery(): Builder
     {
-        $class = config('postmaster.persistence.address_model', EmailAddress::class);
-
-        return (new $class)->newQuery()->withoutGlobalScopes();
+        return EmailAddress::model()->newQuery()->withoutGlobalScopes();
     }
 
     /**
      * The most recent timeline activity, newest first, each entry with its
      * message eager-loaded across tenants. Shared by the activity stream and
-     * the overview's recent-activity card.
+     * the overview's recent-activity card. $after limits to entries with a
+     * higher id (for the live feed).
      *
-     * @param int $after Only entries with a higher id (for the live feed).
-     * @param int $limit
-     *
-     * @return \Illuminate\Database\Eloquent\Collection<int, EmailActivity>
+     * @return Collection<int, EmailActivity>
      */
-    protected function recentActivity( $after = 0, $limit = 100 )
+    protected function recentActivity(int $after = 0, int $limit = 100): Collection
     {
         $query = $this->activityQuery()
             ->with([
@@ -74,21 +68,9 @@ abstract class Controller
     }
 
     /**
-     * The configured tenant column name.
-     *
-     * @return string
-     */
-    protected function tenantColumn()
-    {
-        return config('postmaster.persistence.tenant_column', 'tenant_id');
-    }
-
-    /**
      * The configured tenant model class, or null when tenancy is not in use.
-     *
-     * @return string|null
      */
-    protected function tenantModel()
+    protected function tenantModel(): ?string
     {
         return config('postmaster.persistence.tenant_model');
     }
@@ -98,10 +80,8 @@ abstract class Controller
      * label, and the message-detail field. Derived from the configured
      * tenant model's class name (App\Models\Account => "Account"), so the
      * dashboard speaks the app's language; defaults to "Tenant".
-     *
-     * @return string
      */
-    protected function tenantTerm()
+    protected function tenantTerm(): string
     {
         $model = $this->tenantModel();
 
@@ -111,14 +91,14 @@ abstract class Controller
     /**
      * Distinct tenant keys that appear in the messages table.
      *
-     * @return array
+     * @return array<int, mixed>
      */
-    protected function tenantKeysInUse()
+    protected function tenantKeysInUse(): array
     {
         return $this->messageQuery()
-            ->whereNotNull($this->tenantColumn())
+            ->whereNotNull(EmailMessage::tenantColumn())
             ->distinct()
-            ->pluck($this->tenantColumn())
+            ->pluck(EmailMessage::tenantColumn())
             ->all();
     }
 
@@ -127,11 +107,10 @@ abstract class Controller
      * from the tenant model — its "name", then "label", then its key — when
      * one is configured; otherwise the keys stand in for themselves.
      *
-     * @param array $keys
-     *
+     * @param  array<int, mixed>            $keys
      * @return array<int|string, string>
      */
-    protected function tenantLabels( array $keys )
+    protected function tenantLabels(array $keys): array
     {
         $keys = array_values(array_unique(array_filter(
             array_map(fn ($key) => $key === null ? null : (string) $key, $keys),
@@ -156,12 +135,8 @@ abstract class Controller
 
     /**
      * A human label for a tenant model: "name", then "label", then its key.
-     *
-     * @param Model $tenant
-     *
-     * @return string
      */
-    protected function tenantLabel( Model $tenant )
+    protected function tenantLabel(Model $tenant): string
     {
         return (string) ($tenant->getAttribute('name')
             ?? $tenant->getAttribute('label')
@@ -172,12 +147,8 @@ abstract class Controller
      * A human label for the recipient model (the User). Tries "name", then
      * "email", then "label", then the class basename plus the key. Pulled
      * from already-loaded attributes only — no extra queries.
-     *
-     * @param Model $recipient
-     *
-     * @return string
      */
-    protected function recipientLabel( Model $recipient )
+    protected function recipientLabel(Model $recipient): string
     {
         $name = $recipient->getAttribute('name')
             ?? $recipient->getAttribute('email')
@@ -192,16 +163,12 @@ abstract class Controller
 
     /**
      * Resolve a morph type to its class — applying any Relation::morphMap()
-     * the app has registered.
-     *
-     * @param string $type
-     *
-     * @return string|null  The fully-qualified class name, or null if the
-     *                      type does not resolve to a known class.
+     * the app has registered. Returns null if the type does not resolve to
+     * a known class.
      */
-    protected function resolveMorphClass( $type )
+    protected function resolveMorphClass(string $type): ?string
     {
-        $mapped = \Illuminate\Database\Eloquent\Relations\Relation::getMorphedModel($type);
+        $mapped = Relation::getMorphedModel($type);
 
         if ($mapped !== null) {
             return $mapped;
@@ -215,14 +182,8 @@ abstract class Controller
      * portable across the database engines the package supports. A no-op for
      * a term under three characters. The column name is supplied by the
      * controller, never by the request.
-     *
-     * @param Builder $query
-     * @param string  $column
-     * @param mixed   $term
-     *
-     * @return void
      */
-    protected function applyContains( Builder $query, $column, $term )
+    protected function applyContains(Builder $query, string $column, mixed $term): void
     {
         $term = trim((string) ($term ?? ''));
 
@@ -239,15 +200,8 @@ abstract class Controller
     /**
      * Add an inclusive date-range filter on a column. Either bound may be
      * empty, in which case that side is left open.
-     *
-     * @param Builder $query
-     * @param string  $column
-     * @param mixed   $from
-     * @param mixed   $to
-     *
-     * @return void
      */
-    protected function applyDateRange( Builder $query, $column, $from, $to )
+    protected function applyDateRange(Builder $query, string $column, mixed $from, mixed $to): void
     {
         if ($from !== null && $from !== '') {
             $query->where($column, '>=', $from);
@@ -263,7 +217,7 @@ abstract class Controller
      *
      * @return array<int, string>
      */
-    protected function statuses()
+    protected function statuses(): array
     {
         return [
             EmailEvent::STATUS_SENT,
@@ -286,11 +240,9 @@ abstract class Controller
      * Flatten a timeline activity entry for the JSON feed and the Alpine
      * live-feed table.
      *
-     * @param EmailActivity $entry
-     *
      * @return array<string, mixed>
      */
-    protected function presentActivity( $entry )
+    protected function presentActivity(EmailActivity $entry): array
     {
         // Lifecycle entries (those tied to a message) read their headline
         // from the message. Address-only entries — manual suppress, sync

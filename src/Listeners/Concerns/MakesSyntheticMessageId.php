@@ -15,10 +15,8 @@ trait MakesSyntheticMessageId
 {
     /**
      * @param string $prefix Trailing dash supplied automatically.
-     *
-     * @return string
      */
-    protected function syntheticMessageId( string $prefix )
+    protected function syntheticMessageId(string $prefix): string
     {
         return $prefix.'-'.Str::uuid()->toString();
     }

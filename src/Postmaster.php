@@ -4,11 +4,14 @@ namespace STS\Postmaster;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Mail\SentMessage;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use STS\Postmaster\Contracts\SuppressionSync;
 use STS\Postmaster\Http\Controllers\WebhookController;
 use STS\Postmaster\Http\Middleware\VerifyWebhook;
-use STS\Postmaster\Models\EmailActivity;
+use STS\Postmaster\Mail\ResentMessage;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Support\OutboundMetadata;
@@ -17,66 +20,45 @@ use Throwable;
 
 class Postmaster
 {
-    /**
-     * @var array
-     */
-    protected $config;
+    /** @var array<string, mixed> */
+    protected array $config;
 
-    /**
-     * @var ProviderRegistry
-     */
-    protected $registry;
+    protected ProviderRegistry $registry;
 
     /**
      * Resolves the current tenant when recording outbound mail. Registered
      * by the consuming app, typically in a service provider.
-     *
-     * @var Closure|null
      */
-    protected $tenantResolver;
+    protected ?Closure $tenantResolver = null;
 
     /**
      * Resolves the recipient model (e.g. the User) when an outbound email is
      * recorded and the Mailable didn't declare one. Receives the to-address
      * and must return a Model or null. Registered by the consuming app.
-     *
-     * @var Closure|null
      */
-    protected $recipientResolver;
+    protected ?Closure $recipientResolver = null;
 
     /**
      * Authorizes access to the dashboard. Registered by the consuming app,
      * typically in a service provider.
-     *
-     * @var Closure|null
      */
-    protected $authCallback;
+    protected ?Closure $authCallback = null;
 
     /**
-     * Postmaster constructor.
-     *
-     * @param $config
+     * @param array<string, mixed> $config
      */
-    public function __construct( $config )
+    public function __construct(array $config)
     {
         $this->config = $config;
         $this->registry = new ProviderRegistry($config);
     }
 
-    /**
-     * @return ProviderRegistry
-     */
-    public function registry()
+    public function registry(): ProviderRegistry
     {
         return $this->registry;
     }
 
-    /**
-     * @param string $name
-     *
-     * @return Provider
-     */
-    public function provider( $name )
+    public function provider(string $name): Provider
     {
         return $this->registry->get($name);
     }
@@ -84,13 +66,8 @@ class Postmaster
     /**
      * Register a custom provider. The resolver receives the package config
      * array and must return a Provider instance.
-     *
-     * @param string  $name
-     * @param Closure $resolver
-     *
-     * @return $this
      */
-    public function extend( $name, Closure $resolver )
+    public function extend(string $name, Closure $resolver): static
     {
         $this->registry->extend($name, $resolver);
 
@@ -104,12 +81,8 @@ class Postmaster
      * for the active tenant resolves correctly per request or queued job.
      *
      * An explicit Mailable forTenant() call takes precedence over this.
-     *
-     * @param Closure $resolver
-     *
-     * @return $this
      */
-    public function resolveTenantUsing( Closure $resolver )
+    public function resolveTenantUsing(Closure $resolver): static
     {
         $this->tenantResolver = $resolver;
 
@@ -119,10 +92,8 @@ class Postmaster
     /**
      * Resolve the current tenant key via the registered resolver, or null
      * if none is registered or it yields nothing.
-     *
-     * @return int|string|null
      */
-    public function resolveTenant()
+    public function resolveTenant(): int|string|null
     {
         if ($this->tenantResolver === null) {
             return null;
@@ -145,12 +116,8 @@ class Postmaster
      *
      * Resolves once per email, lazily, so a closure that hits the database
      * (e.g. User::firstWhere('email', $address)) is fine.
-     *
-     * @param Closure $resolver
-     *
-     * @return $this
      */
-    public function resolveRecipientUsing( Closure $resolver )
+    public function resolveRecipientUsing(Closure $resolver): static
     {
         $this->recipientResolver = $resolver;
 
@@ -172,10 +139,8 @@ class Postmaster
      * @param class-string<Model> $class  The recipient model class.
      * @param string              $column The column on that model to match
      *                                    the address against.
-     *
-     * @return $this
      */
-    public function resolveRecipientByEmail( string $class, string $column = 'email' )
+    public function resolveRecipientByEmail(string $class, string $column = 'email'): static
     {
         return $this->resolveRecipientUsing(
             fn ($address) => $class::query()
@@ -187,12 +152,8 @@ class Postmaster
     /**
      * Resolve the recipient model for the given address via the registered
      * resolver, or null if none is registered or the resolver yields nothing.
-     *
-     * @param string|null $address
-     *
-     * @return Model|null
      */
-    public function resolveRecipient( $address )
+    public function resolveRecipient(?string $address): ?Model
     {
         if ($this->recipientResolver === null || empty($address)) {
             return null;
@@ -207,12 +168,8 @@ class Postmaster
      * Set the application's tenant model class at runtime, so the tenant()
      * relationship on EmailMessage and the dashboard's tenant labels work
      * without having to publish the config file just for this one value.
-     *
-     * @param string $class
-     *
-     * @return $this
      */
-    public function useTenantModel( string $class )
+    public function useTenantModel(string $class): static
     {
         config(['postmaster.persistence.tenant_model' => $class]);
 
@@ -224,12 +181,8 @@ class Postmaster
      * postmaster.persistence.model in the config; useful when an app keeps
      * the config un-published and configures everything from a service
      * provider.
-     *
-     * @param string $class
-     *
-     * @return $this
      */
-    public function useEmailMessageModel( string $class )
+    public function useEmailMessageModel(string $class): static
     {
         config(['postmaster.persistence.model' => $class]);
 
@@ -238,12 +191,8 @@ class Postmaster
 
     /**
      * Swap in a custom EmailActivity model at runtime.
-     *
-     * @param string $class
-     *
-     * @return $this
      */
-    public function useEmailActivityModel( string $class )
+    public function useEmailActivityModel(string $class): static
     {
         config(['postmaster.persistence.activity_model' => $class]);
 
@@ -252,12 +201,8 @@ class Postmaster
 
     /**
      * Swap in a custom EmailAddress model at runtime.
-     *
-     * @param string $class
-     *
-     * @return $this
      */
-    public function useEmailAddressModel( string $class )
+    public function useEmailAddressModel(string $class): static
     {
         config(['postmaster.persistence.address_model' => $class]);
 
@@ -270,12 +215,8 @@ class Postmaster
      * Pass it to any message exposing withSymfonyMessage() — a Mailable or a
      * notification's MailMessage. The relatedTo() trait methods use this
      * under the hood.
-     *
-     * @param Model $model
-     *
-     * @return Closure
      */
-    public function relatedTo( Model $model )
+    public function relatedTo(Model $model): Closure
     {
         return function (Email $message) use ($model) {
             $message->getHeaders()->addTextHeader(
@@ -293,12 +234,8 @@ class Postmaster
      * email is for — separate from relatedTo(). Applies to the primary
      * To recipient on a multi-recipient send. Takes precedence over the
      * resolveRecipientUsing() resolver for that row.
-     *
-     * @param Model $model
-     *
-     * @return Closure
      */
-    public function forRecipient( Model $model )
+    public function forRecipient(Model $model): Closure
     {
         return function (Email $message) use ($model) {
             $message->getHeaders()->addTextHeader(
@@ -318,10 +255,8 @@ class Postmaster
      * map fall through to the resolveRecipientUsing() resolver.
      *
      * @param array<string, Model> $map
-     *
-     * @return Closure
      */
-    public function forRecipients( array $map )
+    public function forRecipients(array $map): Closure
     {
         $encoded = [];
 
@@ -352,10 +287,8 @@ class Postmaster
      * Build a callback that associates a message with the given tenant.
      *
      * @param Model|int|string $tenant A tenant model or its key.
-     *
-     * @return Closure
      */
-    public function forTenant( $tenant )
+    public function forTenant(Model|int|string $tenant): Closure
     {
         $key = $tenant instanceof Model ? $tenant->getKey() : $tenant;
 
@@ -369,12 +302,8 @@ class Postmaster
     /**
      * Build a callback that overrides content storage for a single message,
      * regardless of the postmaster.persistence.store_content setting.
-     *
-     * @param bool $store
-     *
-     * @return Closure
      */
-    public function storeContent( bool $store )
+    public function storeContent(bool $store): Closure
     {
         return function (Email $message) use ($store) {
             $message->getHeaders()->addTextHeader(
@@ -389,12 +318,8 @@ class Postmaster
      * the dashboard's Resend button use this themselves; this builder is for
      * app code that wants to declare a resend link from its own Mailable
      * (typically via Tracking::resentFrom).
-     *
-     * @param \STS\Postmaster\Models\EmailMessage|int $message
-     *
-     * @return Closure
      */
-    public function resentFrom( EmailMessage|int $message )
+    public function resentFrom(EmailMessage|int $message): Closure
     {
         $id = $message instanceof EmailMessage ? $message->getKey() : $message;
 
@@ -418,16 +343,12 @@ class Postmaster
      * bytes.
      *
      * Throws \RuntimeException when there's no stored content to replay.
-     *
-     * @param \STS\Postmaster\Models\EmailMessage|int $message
-     *
-     * @return \Illuminate\Mail\SentMessage|null  Whatever Mail::send() returns.
      */
-    public function resend( EmailMessage|int $message )
+    public function resend(EmailMessage|int $message): ?SentMessage
     {
         $record = $message instanceof EmailMessage
             ? $message
-            : $this->emailMessageModel()->newQuery()->withoutGlobalScopes()->findOrFail($message);
+            : EmailMessage::model()->newQuery()->withoutGlobalScopes()->findOrFail($message);
 
         if (! $record->html_body && ! $record->text_body) {
             throw new \RuntimeException(
@@ -436,26 +357,14 @@ class Postmaster
             );
         }
 
-        return Mail::send(new \STS\Postmaster\Mail\ResentMessage($record));
-    }
-
-    /**
-     * A fresh instance of the configured (swappable) email message model.
-     *
-     * @return EmailMessage
-     */
-    protected function emailMessageModel()
-    {
-        $class = config('postmaster.persistence.model', \STS\Postmaster\Models\EmailMessage::class);
-
-        return new $class;
+        return Mail::send(new ResentMessage($record));
     }
 
     /**
      * Register the webhook route. Call this from the consuming app's route
      * file. Authorization runs as middleware ahead of the controller.
      */
-    public function routes()
+    public function routes(): void
     {
         Route::post($this->config['url'] . '/{provider}', WebhookController::class)
             ->middleware(VerifyWebhook::class)
@@ -467,17 +376,11 @@ class Postmaster
      * as a pre-send check. An address never seen is treated as sendable.
      *
      * Requires the optional persistence layer.
-     *
-     * @param string $address
-     *
-     * @return bool
      */
-    public function isSuppressed( string $address )
+    public function isSuppressed(string $address): bool
     {
-        $model = $this->addressModel();
-
-        $record = $model->newQuery()
-            ->where('address', $model::normalize($address))
+        $record = EmailAddress::model()->newQuery()
+            ->where('address', EmailAddress::normalize($address))
             ->first();
 
         return $record !== null && $record->isSuppressed();
@@ -491,28 +394,24 @@ class Postmaster
      * causer / source attribution, so a consumer can answer "who suppressed
      * this address, when, and why" from the ledger alone.
      *
-     * @param string                                   $address
-     * @param string                                   $reason
-     *  Why the address is being suppressed — defaults to REASON_MANUAL.
-     * @param \Illuminate\Database\Eloquent\Model|null $causer
-     *  The acting user, when there is one. Stored via the morph map.
-     * @param string|null                              $source
-     *  Free-form label for the actor (e.g. 'dashboard', 'console'); also
-     *  used as a fallback when the morph relation can't be hydrated across
-     *  DB connections.
-     *
-     * @return EmailAddress
+     * @param string      $address
+     * @param string      $reason  Why the address is being suppressed —
+     *                             defaults to REASON_MANUAL.
+     * @param Model|null  $causer  The acting user, when there is one.
+     *                             Stored via the morph map.
+     * @param string|null $source  Free-form label for the actor (e.g.
+     *                             'dashboard', 'console'); also used as a
+     *                             fallback when the morph relation can't be
+     *                             hydrated across DB connections.
      */
     public function suppress(
         string $address,
         string $reason = EmailAddress::REASON_MANUAL,
         ?Model $causer = null,
         ?string $source = null,
-    ) {
-        $model = $this->addressModel();
-
-        $record = $model->newQuery()->firstOrNew([
-            'address' => $model::normalize($address),
+    ): EmailAddress {
+        $record = EmailAddress::model()->newQuery()->firstOrNew([
+            'address' => EmailAddress::normalize($address),
         ]);
 
         $record->suppress($reason, $causer, $source);
@@ -531,14 +430,15 @@ class Postmaster
      * causer / source attribution plus the "Cleared at: ..." response blurb
      * for any providers whose API was called.
      *
-     * @param string                                   $address
-     * @param \Illuminate\Database\Eloquent\Model|null $causer
-     *  The acting user, when there is one. Stored via the morph map.
-     * @param string|null                              $source
-     *  Free-form label for the actor (e.g. 'dashboard', 'console').
-     * @param string|null                              $reason
-     *  A human note for the ledger ("customer confirmed the mailbox was
-     *  fixed"). Distinct from the address-row reason, which is cleared.
+     * @param string      $address
+     * @param Model|null  $causer  The acting user, when there is one.
+     *                             Stored via the morph map.
+     * @param string|null $source  Free-form label for the actor (e.g.
+     *                             'dashboard', 'console').
+     * @param string|null $reason  A human note for the ledger ("customer
+     *                             confirmed the mailbox was fixed").
+     *                             Distinct from the address-row reason,
+     *                             which is cleared.
      *
      * @return array{address: EmailAddress, cleared: array<int, string>, manual: array<int, string>}
      *
@@ -554,11 +454,10 @@ class Postmaster
         ?Model $causer = null,
         ?string $source = null,
         ?string $reason = null,
-    ) {
-        $model      = $this->addressModel();
-        $normalized = $model::normalize($address);
+    ): array {
+        $normalized = EmailAddress::normalize($address);
 
-        $record = $model->newQuery()->firstOrNew(['address' => $normalized]);
+        $record = EmailAddress::model()->newQuery()->firstOrNew(['address' => $normalized]);
 
         $cleared = [];
         $manual  = [];
@@ -598,18 +497,14 @@ class Postmaster
      * Resolve the suppression sync for the given provider — or null if the
      * provider isn't registered, has no sync class configured, or the
      * configured class isn't loadable.
-     *
-     * @param string $provider
-     *
-     * @return \STS\Postmaster\Contracts\SuppressionSync|null
      */
-    public function sync( $provider )
+    public function sync(string $provider): ?SuppressionSync
     {
         // The providers JSON column on email_addresses stores canonical-case
         // names ("Postmark", "SendGrid", …); the config keys are lower-case
         // identifiers ("postmark", "sendgrid", …). Accept either by
         // normalizing the lookup.
-        $key    = strtolower((string) $provider);
+        $key    = strtolower($provider);
         $config = $this->config['providers'][$key] ?? null;
         $class  = $config['sync'] ?? null;
 
@@ -621,26 +516,10 @@ class Postmaster
     }
 
     /**
-     * A fresh instance of the configured (swappable) email address model.
-     *
-     * @return EmailAddress
-     */
-    protected function addressModel()
-    {
-        $class = config('postmaster.persistence.address_model', EmailAddress::class);
-
-        return new $class;
-    }
-
-    /**
      * Register the gate that decides who may view the dashboard. The callback
      * receives the request and must return true to allow access.
-     *
-     * @param Closure $callback
-     *
-     * @return $this
      */
-    public function auth( Closure $callback )
+    public function auth(Closure $callback): static
     {
         $this->authCallback = $callback;
 
@@ -651,12 +530,8 @@ class Postmaster
      * Whether the given request may access the dashboard. With no gate
      * registered, access is allowed only in the local environment — so the
      * dashboard is never unguarded in production by accident.
-     *
-     * @param \Illuminate\Http\Request $request
-     *
-     * @return bool
      */
-    public function authorize( $request )
+    public function authorize(Request $request): bool
     {
         return $this->authCallback === null
             ? app()->environment('local')

@@ -3,10 +3,13 @@
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
+use STS\Postmaster\Models\EmailMessage;
 
 /**
  * The inbox: a filterable, cross-tenant list of recorded messages, and the
@@ -14,7 +17,7 @@ use STS\Postmaster\Models\EmailAddress;
  */
 class MessageController extends Controller
 {
-    public function index( Request $request )
+    public function index(Request $request): Response
     {
         $query = $this->messageQuery()->latest();
 
@@ -29,7 +32,7 @@ class MessageController extends Controller
         $tenant = $request->query('tenant');
 
         if ($tenant !== null && $tenant !== '') {
-            $query->where($this->tenantColumn(), $tenant);
+            $query->where(EmailMessage::tenantColumn(), $tenant);
         }
 
         if ($tag = $request->query('tag')) {
@@ -51,7 +54,7 @@ class MessageController extends Controller
         ]);
     }
 
-    public function show( $message )
+    public function show(int|string $message): Response
     {
         $record = $this->messageQuery()->findOrFail($message);
 
@@ -81,7 +84,7 @@ class MessageController extends Controller
             'activity'       => $record->activity()->get(),
             'siblings'       => $siblings,
             'chain'          => $chain,
-            'tenants'        => $this->tenantLabels([$record->{$this->tenantColumn()}]),
+            'tenants'        => $this->tenantLabels([$record->{EmailMessage::tenantColumn()}]),
             'tenantTerm'     => $this->tenantTerm(),
             'recipientLabel' => $this->labelForRecipientOnRecord($record),
             'canResend'      => $this->canResend($record),
@@ -100,10 +103,8 @@ class MessageController extends Controller
      *     wants the operator to clear the suppression intentionally before
      *     re-sending). Operator can still resend via the EmailMessage::resend()
      *     API from their own code — this is just the dashboard's UX choice.
-     *
-     * @return bool
      */
-    protected function canResend( $record )
+    protected function canResend(EmailMessage $record): bool
     {
         if (! $record->html_body && ! $record->text_body) {
             return false;
@@ -113,10 +114,8 @@ class MessageController extends Controller
             return false;
         }
 
-        $addressClass = config('postmaster.persistence.address_model', EmailAddress::class);
-
-        $address = (new $addressClass)->newQuery()
-            ->where('address', $addressClass::normalize($record->to_address))
+        $address = EmailAddress::model()->newQuery()
+            ->where('address', EmailAddress::normalize($record->to_address))
             ->first();
 
         return ! $address || ! $address->isSuppressed();
@@ -128,13 +127,8 @@ class MessageController extends Controller
      * subject, sender, recipients, bodies, and the tracking context, plus
      * a "resent" tag of its own. Requires stored content; attachments are
      * not restored (we never keep their bytes).
-     *
-     * @param Request    $request
-     * @param int|string $message
-     *
-     * @return \Illuminate\Http\RedirectResponse
      */
-    public function resend( Request $request, $message )
+    public function resend(Request $request, int|string $message): RedirectResponse
     {
         $record = $this->messageQuery()->findOrFail($message);
 
@@ -176,13 +170,8 @@ class MessageController extends Controller
      * view." The morph type is taken straight from the URL (any morph map
      * the app registered applies), so existing morph aliases work without
      * extra wiring.
-     *
-     * @param string     $type
-     * @param int|string $id
-     *
-     * @return \Illuminate\Http\Response
      */
-    public function forRecipient( $type, $id )
+    public function forRecipient(string $type, int|string $id): Response
     {
         $messages = $this->messageQuery()
             ->where('recipient_type', $type)
@@ -198,7 +187,7 @@ class MessageController extends Controller
             'label'      => $recipient ? $this->recipientLabel($recipient) : class_basename($type).' #'.$id,
             'type'       => $type,
             'id'         => $id,
-            'tenants'    => $this->tenantLabels($messages->pluck($this->tenantColumn())->all()),
+            'tenants'    => $this->tenantLabels($messages->pluck(EmailMessage::tenantColumn())->all()),
             'tenantTerm' => $this->tenantTerm(),
         ]);
     }
@@ -208,13 +197,8 @@ class MessageController extends Controller
      * label it. Returns null when the type does not resolve, the row no
      * longer exists, or persistence is using a different connection — the
      * person view still works in any of those cases, just without a name.
-     *
-     * @param string     $type
-     * @param int|string $id
-     *
-     * @return Model|null
      */
-    protected function loadRecipient( $type, $id )
+    protected function loadRecipient(string $type, int|string $id): ?Model
     {
         $class = $this->resolveMorphClass($type);
 
@@ -228,12 +212,8 @@ class MessageController extends Controller
     /**
      * The recipient-model label for the message detail page, or null when
      * the message has no recipient model on file.
-     *
-     * @param \STS\Postmaster\Models\EmailMessage $record
-     *
-     * @return string|null
      */
-    protected function labelForRecipientOnRecord( $record )
+    protected function labelForRecipientOnRecord(EmailMessage $record): ?string
     {
         if (empty($record->recipient_type) || empty($record->recipient_id)) {
             return null;
@@ -249,12 +229,8 @@ class MessageController extends Controller
     /**
      * Whether the HTML contains an <img> with a remote (non-data:) source —
      * i.e. an image the preview CSP would block.
-     *
-     * @param mixed $html
-     *
-     * @return bool
      */
-    protected function hasRemoteImages( $html )
+    protected function hasRemoteImages(mixed $html): bool
     {
         return is_string($html)
             && preg_match('/<img\b[^>]*\bsrc\s*=\s*["\']?\s*(?:https?:)?\/\//i', $html) === 1;
@@ -265,9 +241,9 @@ class MessageController extends Controller
      * stored under their display name ("SendGrid"), so the filter options
      * must come from the data — not the lower-case config keys.
      *
-     * @return array
+     * @return array<int, string>
      */
-    protected function providersInUse()
+    protected function providersInUse(): array
     {
         return $this->messageQuery()
             ->whereNotNull('provider')
@@ -282,9 +258,9 @@ class MessageController extends Controller
      * Tags live in a JSON array column, so they are flattened in PHP rather
      * than with a database-specific distinct.
      *
-     * @return array
+     * @return array<int, string>
      */
-    protected function tagsInUse()
+    protected function tagsInUse(): array
     {
         return $this->messageQuery()
             ->whereNotNull('tags')

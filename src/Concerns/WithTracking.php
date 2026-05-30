@@ -33,12 +33,8 @@ trait WithTracking
 {
     /**
      * Associate this email with the given model.
-     *
-     * @param Model $model
-     *
-     * @return $this
      */
-    public function relatedTo( Model $model )
+    public function relatedTo(Model $model): static
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->relatedTo($model));
     }
@@ -49,12 +45,8 @@ trait WithTracking
      * is what the email is *about* (an Order); the recipient is *who* the
      * email is for. Applies to the primary To recipient on a multi-recipient
      * send. Takes precedence over the resolveRecipientUsing() resolver.
-     *
-     * @param Model $model
-     *
-     * @return $this
      */
-    public function forRecipient( Model $model )
+    public function forRecipient(Model $model): static
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->forRecipient($model));
     }
@@ -67,10 +59,8 @@ trait WithTracking
      * resolver.
      *
      * @param array<string, Model> $map
-     *
-     * @return $this
      */
-    public function forRecipients( array $map )
+    public function forRecipients(array $map): static
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->forRecipients($map));
     }
@@ -81,20 +71,16 @@ trait WithTracking
      * takes precedence over the Postmaster::resolveTenantUsing() resolver.
      *
      * @param Model|int|string $tenant A tenant model or its key.
-     *
-     * @return $this
      */
-    public function forTenant( $tenant )
+    public function forTenant(Model|int|string $tenant): static
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->forTenant($tenant));
     }
 
     /**
      * Store this email's content, overriding the store_content setting.
-     *
-     * @return $this
      */
-    public function storeContent()
+    public function storeContent(): static
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->storeContent(true));
     }
@@ -103,10 +89,8 @@ trait WithTracking
      * Skip storing this email's content, overriding the store_content
      * setting. Use it for messages that carry secrets a database shouldn't
      * keep — password resets, magic-login links, MFA codes.
-     *
-     * @return $this
      */
-    public function dontStoreContent()
+    public function dontStoreContent(): static
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->storeContent(false));
     }
@@ -117,12 +101,8 @@ trait WithTracking
      * walks the link. Postmaster::resend() and the dashboard Resend button
      * apply this automatically — use it directly when app code does its own
      * resend outside those paths.
-     *
-     * @param EmailMessage|int $message
-     *
-     * @return $this
      */
-    public function resentFrom( EmailMessage|int $message )
+    public function resentFrom(EmailMessage|int $message): static
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->resentFrom($message));
     }

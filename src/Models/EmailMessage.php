@@ -67,7 +67,20 @@ class EmailMessage extends Model
         'last_event_at' => 'datetime',
     ];
 
-    public function getTable()
+    /**
+     * A fresh instance of the configured (swappable) email message model. Use
+     * this anywhere a query starts from — `EmailMessage::model()->newQuery()…`
+     * — instead of `new (static::class)`, so an app that swapped in a custom
+     * subclass via persistence.model gets that subclass everywhere.
+     */
+    public static function model(): self
+    {
+        $class = config('postmaster.persistence.model', static::class);
+
+        return new $class;
+    }
+
+    public function getTable(): string
     {
         return config('postmaster.persistence.table', 'email_messages');
     }
@@ -87,21 +100,20 @@ class EmailMessage extends Model
     }
 
     /**
-     * The configured tenant column name.
-     *
-     * @return string
+     * The configured tenant column name on the email messages table. Single
+     * source of truth — every other layer (listeners, controllers, the
+     * ResentMessage builder) delegates here so the config key is read in one
+     * place.
      */
-    public function tenantColumn()
+    public static function tenantColumn(): string
     {
         return config('postmaster.persistence.tenant_column', 'tenant_id');
     }
 
     /**
      * The application model this email was sent for, if any.
-     *
-     * @return MorphTo
      */
-    public function related()
+    public function related(): MorphTo
     {
         return $this->morphTo();
     }
@@ -110,10 +122,8 @@ class EmailMessage extends Model
      * The application model the email was sent *to* — usually a User. Set
      * via a Mailable's Tracking(recipient: ...) or by an app-registered
      * Postmaster::resolveRecipientUsing() resolver. Independent of related().
-     *
-     * @return MorphTo
      */
-    public function recipient()
+    public function recipient(): MorphTo
     {
         return $this->morphTo();
     }
@@ -122,10 +132,8 @@ class EmailMessage extends Model
      * The full delivery timeline — the send and every webhook event, oldest
      * first. Only populated when "postmaster.persistence.record_events" is
      * on. Each row is an EmailActivity entry.
-     *
-     * @return HasMany
      */
-    public function activity()
+    public function activity(): HasMany
     {
         $model = config('postmaster.persistence.activity_model', EmailActivity::class);
 
@@ -137,10 +145,8 @@ class EmailMessage extends Model
     /**
      * The tenant this email belongs to. Requires the tenant model class to
      * be set via the "postmaster.persistence.tenant_model" config key.
-     *
-     * @return BelongsTo
      */
-    public function tenant()
+    public function tenant(): BelongsTo
     {
         $model = config('postmaster.persistence.tenant_model');
 
@@ -150,39 +156,32 @@ class EmailMessage extends Model
             );
         }
 
-        return $this->belongsTo($model, $this->tenantColumn());
+        return $this->belongsTo($model, static::tenantColumn());
     }
 
     /**
      * Scope to the email activity of a single tenant.
      *
-     * @param Builder          $query
      * @param Model|int|string $tenant A tenant model or its key.
-     *
-     * @return Builder
      */
-    public function scopeForTenant( Builder $query, $tenant )
+    public function scopeForTenant(Builder $query, Model|int|string $tenant): Builder
     {
         $key = $tenant instanceof Model ? $tenant->getKey() : $tenant;
 
-        return $query->where($this->tenantColumn(), $key);
+        return $query->where(static::tenantColumn(), $key);
     }
 
     /**
      * Scope to messages at a given lifecycle status.
      *
-     * @param Builder $query
-     * @param string  $status One of the EmailEvent::STATUS_* constants.
-     *
-     * @return Builder
+     * @param string $status One of the EmailEvent::STATUS_* constants.
      */
-    public function scopeWithStatus( Builder $query, $status )
+    public function scopeWithStatus(Builder $query, string $status): Builder
     {
         return $query->where('status', $status);
     }
 
-    /** @return Builder */
-    public function scopeSent( Builder $query )
+    public function scopeSent(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_SENT);
     }
@@ -190,46 +189,38 @@ class EmailMessage extends Model
     /**
      * Scope to messages intercepted by sandbox delivery — recorded but never
      * actually sent.
-     *
-     * @return Builder
      */
-    public function scopeSandbox( Builder $query )
+    public function scopeSandbox(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_SANDBOXED);
     }
 
-    /** @return Builder */
-    public function scopeAccepted( Builder $query )
+    public function scopeAccepted(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_ACCEPTED);
     }
 
-    /** @return Builder */
-    public function scopeDeferred( Builder $query )
+    public function scopeDeferred(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_DEFERRED);
     }
 
-    /** @return Builder */
-    public function scopeDelivered( Builder $query )
+    public function scopeDelivered(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_DELIVERED);
     }
 
-    /** @return Builder */
-    public function scopeBounced( Builder $query )
+    public function scopeBounced(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_BOUNCED);
     }
 
-    /** @return Builder */
-    public function scopeDropped( Builder $query )
+    public function scopeDropped(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_DROPPED);
     }
 
-    /** @return Builder */
-    public function scopeComplained( Builder $query )
+    public function scopeComplained(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_COMPLAINED);
     }
@@ -237,37 +228,26 @@ class EmailMessage extends Model
     /**
      * Scope to messages that did not reach the recipient — bounced, dropped,
      * or complained. The complement of delivered().
-     *
-     * @param Builder $query
-     *
-     * @return Builder
      */
-    public function scopeFailed( Builder $query )
+    public function scopeFailed(Builder $query): Builder
     {
         return $query->whereIn('status', self::FAILED_STATUSES);
     }
 
-    /** @return Builder */
-    public function scopeOpened( Builder $query )
+    public function scopeOpened(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_OPENED);
     }
 
-    /** @return Builder */
-    public function scopeClicked( Builder $query )
+    public function scopeClicked(Builder $query): Builder
     {
         return $query->where('status', EmailEvent::STATUS_CLICKED);
     }
 
     /**
      * Scope to messages carrying the given tag.
-     *
-     * @param Builder $query
-     * @param string  $tag
-     *
-     * @return Builder
      */
-    public function scopeTaggedWith( Builder $query, $tag )
+    public function scopeTaggedWith(Builder $query, string $tag): Builder
     {
         return $query->whereJsonContains('tags', $tag);
     }
@@ -275,10 +255,8 @@ class EmailMessage extends Model
     /**
      * The original message this row is a resend of, or null if this row
      * was a fresh send (or pre-dates the resend tracking feature).
-     *
-     * @return BelongsTo
      */
-    public function resentFrom()
+    public function resentFrom(): BelongsTo
     {
         return $this->belongsTo(static::class, 'resent_from_id');
     }
@@ -287,10 +265,8 @@ class EmailMessage extends Model
      * Every message that was sent as a resend of this row. Direct children
      * only — a resend of a resend is in *that* row's resends(), not here.
      * Walk the full tree with resendChain().
-     *
-     * @return HasMany
      */
-    public function resends()
+    public function resends(): HasMany
     {
         return $this->hasMany(static::class, 'resent_from_id');
     }
@@ -302,10 +278,8 @@ class EmailMessage extends Model
      * resent_from_id. Requires stored content; attachments are not restored.
      *
      * Throws \RuntimeException when there is no stored content to replay.
-     *
-     * @return \Illuminate\Mail\SentMessage|null
      */
-    public function resend()
+    public function resend(): ?\Illuminate\Mail\SentMessage
     {
         return Postmaster::resend($this);
     }
@@ -323,7 +297,7 @@ class EmailMessage extends Model
      *
      * @return Collection<int, EmailMessage>
      */
-    public function resendChain()
+    public function resendChain(): Collection
     {
         $root = $this;
 
@@ -339,8 +313,6 @@ class EmailMessage extends Model
      * resent_from_id FK, ordered by send time. Recursive in PHP rather
      * than a CTE so we stay portable across the database engines the
      * package supports.
-     *
-     * @param EmailMessage $root
      *
      * @return Collection<int, EmailMessage>
      */

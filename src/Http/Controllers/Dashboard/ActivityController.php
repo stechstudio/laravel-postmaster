@@ -2,7 +2,10 @@
 
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use STS\Postmaster\Models\EmailMessage;
 
 /**
  * The activity stream — a filterable, paginated view of every recorded
@@ -11,7 +14,7 @@ use Illuminate\Http\Request;
  */
 class ActivityController extends Controller
 {
-    public function index( Request $request )
+    public function index(Request $request): Response
     {
         $query = $this->activityQuery()
             ->with([
@@ -39,7 +42,7 @@ class ActivityController extends Controller
         $tenant = $request->query('tenant');
 
         if ($tenant !== null && $tenant !== '') {
-            $query->whereHas('emailMessage', fn ($q) => $q->withoutGlobalScopes()->where($this->tenantColumn(), $tenant));
+            $query->whereHas('emailMessage', fn ($q) => $q->withoutGlobalScopes()->where(EmailMessage::tenantColumn(), $tenant));
         }
 
         $this->applyDateRange($query, 'occurred_at', $request->query('from'), $request->query('to'));
@@ -54,7 +57,7 @@ class ActivityController extends Controller
         ]);
     }
 
-    public function feed( Request $request )
+    public function feed(Request $request): JsonResponse
     {
         $after   = (int) $request->query('after', 0);
         $entries = $this->recentActivity($after);

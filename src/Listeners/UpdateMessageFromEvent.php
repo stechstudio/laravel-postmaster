@@ -22,12 +22,7 @@ class UpdateMessageFromEvent
     use InteractsWithEmailAddresses;
     use InteractsWithEmailMessages;
 
-    /**
-     * @param EmailEvent $event
-     *
-     * @return void
-     */
-    public function handle( EmailEvent $event )
+    public function handle(EmailEvent $event): void
     {
         $messageId = $event->providerMessageId();
 
@@ -78,15 +73,11 @@ class UpdateMessageFromEvent
      * context, so a tenant (or other) global scope on a swapped-in model
      * would otherwise hide every row.
      *
-     * @param EmailEvent  $event
-     * @param string      $messageId
-     * @param string|null $address    Lowercased recipient address from the event.
-     *
-     * @return EmailMessage
+     * @param string|null $address Lowercased recipient address from the event.
      */
-    protected function findOrCreateMessage( EmailEvent $event, $messageId, $address )
+    protected function findOrCreateMessage(EmailEvent $event, string $messageId, ?string $address): EmailMessage
     {
-        $query = $this->messageModel()->newQuery()
+        $query = EmailMessage::model()->newQuery()
             ->withoutGlobalScopes()
             ->where('provider_message_id', $messageId);
 
@@ -98,7 +89,7 @@ class UpdateMessageFromEvent
             return $record;
         }
 
-        return $this->messageModel()->newQuery()->create([
+        return EmailMessage::model()->newQuery()->create([
             'provider_message_id' => $messageId,
             'provider'            => $event->provider(),
             'to_address'          => $address,
@@ -109,13 +100,8 @@ class UpdateMessageFromEvent
      * Update the summary row's latest status. The status only advances when
      * this event is the newest one seen — webhooks can arrive out of order,
      * and a late delivery webhook must not overwrite a later bounce.
-     *
-     * @param EmailMessage $record
-     * @param EmailEvent   $event
-     *
-     * @return void
      */
-    protected function refreshSummary( EmailMessage $record, EmailEvent $event )
+    protected function refreshSummary(EmailMessage $record, EmailEvent $event): void
     {
         if (empty($record->provider)) {
             $record->provider = $event->provider();
@@ -144,12 +130,8 @@ class UpdateMessageFromEvent
     /**
      * Reduce a provider's diagnostic value to something storable in a text
      * column — most are already strings; arrays are JSON-encoded.
-     *
-     * @param mixed $value
-     *
-     * @return string|null
      */
-    protected function flatten( $value )
+    protected function flatten(mixed $value): ?string
     {
         if ($value === null || $value === '') {
             return null;

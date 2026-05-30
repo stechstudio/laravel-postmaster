@@ -19,7 +19,7 @@ class SignatureAuth
     /**
      * @param $signatureKey
      */
-    public function __construct( $signatureKey )
+    public function __construct(?string $signatureKey)
     {
         $this->signatureKey = $signatureKey;
     }
@@ -29,7 +29,7 @@ class SignatureAuth
      *
      * @return bool
      */
-    public function __invoke( Request $request )
+    public function __invoke(Request $request): bool
     {
         if (empty($this->signatureKey)) {
             return false;
@@ -55,7 +55,7 @@ class SignatureAuth
      *
      * @return string
      */
-    protected function buildSignature( Request $request )
+    protected function buildSignature(Request $request): string
     {
         return hash_hmac(
             'sha256',

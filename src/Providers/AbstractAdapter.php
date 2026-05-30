@@ -10,101 +10,62 @@ use STS\Postmaster\EmailEvent;
 
 abstract class AbstractAdapter implements Adapter
 {
-    /**
-     * @var string
-     */
-    protected static $userAgent;
+    protected static ?string $userAgent = null;
+
+    /** @var array<string, mixed> */
+    protected array $payload;
+
+    /** @var array<string, mixed> */
+    protected array $eventMap = [];
+
+    protected string $provider;
 
     /**
-     * @var array
+     * @param array<string, mixed> $payload
      */
-    protected $payload;
-
-    /**
-     * @var array
-     */
-    protected $eventMap = [];
-
-    /**
-     * @var string
-     */
-    protected $provider;
-
-    /**
-     * AbstractAdapter constructor.
-     *
-     * @param $payload
-     */
-    public function __construct( $payload )
+    public function __construct(array $payload)
     {
         $this->payload = $payload;
     }
 
     /**
-     * If known, provide the user-agent pattern we expect to be used by the email provider
+     * If known, provide the user-agent pattern we expect to be used by the email provider.
      */
-    public static function getUserAgent()
+    public static function getUserAgent(): ?string
     {
         return static::$userAgent;
     }
 
-    /**
-     * @return bool
-     */
-    public function isValid()
+    public function isValid(): bool
     {
         return is_string($this->status()) && is_string($this->toAddress());
     }
 
-    /**
-     * @return string|null
-     */
-    abstract public function status();
+    abstract public function status(): ?string;
+
+    abstract public function providerMessageId(): ?string;
+
+    abstract public function toAddress(): ?string;
+
+    abstract public function occurredAt(): ?DateTimeImmutable;
+
+    abstract public function response(): mixed;
+
+    abstract public function reason(): mixed;
+
+    abstract public function code(): mixed;
 
     /**
-     * @return string|null
+     * Normalized bounce severity, or null when this is not a bounce. One of
+     * EmailEvent::BOUNCE_HARD | BOUNCE_SOFT | BOUNCE_BLOCK.
      */
-    abstract public function providerMessageId();
-
-    /**
-     * @return string|null
-     */
-    abstract public function toAddress();
-
-    /**
-     * @return DateTimeImmutable|null
-     */
-    abstract public function occurredAt();
-
-    /**
-     * @return mixed
-     */
-    abstract public function response();
-
-    /**
-     * @return mixed
-     */
-    abstract public function reason();
-
-    /**
-     * @return mixed
-     */
-    abstract public function code();
-
-    /**
-     * Normalized bounce severity, or null when this is not a bounce.
-     *
-     * @return string|null one of EmailEvent::BOUNCE_HARD|BOUNCE_SOFT|BOUNCE_BLOCK
-     */
-    abstract public function bounceType();
+    abstract public function bounceType(): ?string;
 
     /**
      * The clicked URL for a click event. The default returns null — adapters
      * for providers that expose a click URL override this.
-     *
-     * @return string|null
      */
-    public function clickedUrl()
+    public function clickedUrl(): ?string
     {
         return null;
     }
@@ -112,10 +73,8 @@ abstract class AbstractAdapter implements Adapter
     /**
      * Whether this event represents a permanent failure — a hard bounce or a
      * block. These are safe to suppress; soft bounces are not.
-     *
-     * @return bool
      */
-    public function isPermanent()
+    public function isPermanent(): bool
     {
         return in_array($this->bounceType(), [
             EmailEvent::BOUNCE_HARD,
@@ -123,59 +82,42 @@ abstract class AbstractAdapter implements Adapter
         ], true);
     }
 
-    /**
-     * @return Collection
-     */
-    abstract public function tags();
+    abstract public function tags(): Collection;
+
+    abstract public function data(): Collection;
 
     /**
-     * @return Collection
+     * @param array<string, mixed> $payload
      */
-    abstract public function data();
-
-    /**
-     * @param array $payload
-     *
-     * @return bool
-     */
-    abstract public static function supports( array $payload );
+    abstract public static function supports(array $payload): bool;
 
     /**
      * Default expansion: the payload is one event for one recipient. Adapters
      * for providers that pack per-recipient data into a single event override
      * this to fan it out (see Ses\Adapter::expand()).
      *
-     * @param array $payload
-     *
-     * @return array<int, array>
+     * @param  array<string, mixed>             $payload
+     * @return array<int, array<string, mixed>>
      */
-    public static function expand( array $payload )
+    public static function expand(array $payload): array
     {
         return [$payload];
     }
 
-    /**
-     * @return string
-     */
-    public function provider()
+    public function provider(): string
     {
         return $this->provider;
     }
 
     /**
-     * @return array
+     * @return array<string, mixed>
      */
-    public function payload()
+    public function payload(): array
     {
         return $this->payload;
     }
 
-    /**
-     * @param $attribute
-     *
-     * @return mixed
-     */
-    public function get($attribute)
+    public function get(string $attribute): mixed
     {
         return Arr::get($this->payload, $attribute);
     }
@@ -184,12 +126,8 @@ abstract class AbstractAdapter implements Adapter
      * Convert a unix-seconds timestamp into a UTC DateTimeImmutable. A shared
      * helper for adapters whose payload exposes the time as an int (or a
      * string they've already parsed to one).
-     *
-     * @param int|null $unix
-     *
-     * @return DateTimeImmutable|null
      */
-    protected static function dateFromUnix( $unix )
+    protected static function dateFromUnix(?int $unix): ?DateTimeImmutable
     {
         return is_int($unix) ? new DateTimeImmutable('@'.$unix) : null;
     }

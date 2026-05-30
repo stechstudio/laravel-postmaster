@@ -11,96 +11,60 @@ use Illuminate\Support\Collection;
  */
 interface Adapter
 {
-    /**
-     * @return bool
-     */
-    public function isValid();
+    public function isValid(): bool;
 
-    /**
-     * @return string
-     */
-    public function provider();
+    public function provider(): string;
 
     /**
      * The normalized lifecycle status this webhook represents — one of the
      * EmailEvent::STATUS_* constants, or null if the provider's event type
      * does not map to anything we recognise.
-     *
-     * @return string|null
      */
-    public function status();
+    public function status(): ?string;
 
     /**
      * The id the provider assigned to the original message.
-     *
-     * @return string|null
      */
-    public function providerMessageId();
+    public function providerMessageId(): ?string;
 
     /**
      * The email address this event is about.
-     *
-     * @return string|null
      */
-    public function toAddress();
+    public function toAddress(): ?string;
 
     /**
      * When the event happened, per the provider. Null when the provider did
      * not supply a usable timestamp.
-     *
-     * @return DateTimeImmutable|null
      */
-    public function occurredAt();
+    public function occurredAt(): ?DateTimeImmutable;
 
-    /**
-     * @return mixed
-     */
-    public function response();
+    public function response(): mixed;
 
-    /**
-     * @return mixed
-     */
-    public function reason();
+    public function reason(): mixed;
 
-    /**
-     * @return mixed
-     */
-    public function code();
+    public function code(): mixed;
 
     /**
      * Normalized bounce severity, or null when this is not a bounce.
-     *
-     * @return string|null
      */
-    public function bounceType();
+    public function bounceType(): ?string;
 
     /**
      * The clicked URL for a click event, or null for any other event type
      * (or providers that don't expose one).
-     *
-     * @return string|null
      */
-    public function clickedUrl();
+    public function clickedUrl(): ?string;
+
+    public function isPermanent(): bool;
+
+    public function tags(): Collection;
+
+    public function data(): Collection;
 
     /**
-     * @return bool
+     * @return array<string, mixed>
      */
-    public function isPermanent();
-
-    /**
-     * @return Collection
-     */
-    public function tags();
-
-    /**
-     * @return Collection
-     */
-    public function data();
-
-    /**
-     * @return array
-     */
-    public function payload();
+    public function payload(): array;
 
     /**
      * Expand a single inbound payload into one payload per recipient, for
@@ -108,9 +72,15 @@ interface Adapter
      * delivery.recipients array, for one). The default returns the payload
      * unchanged in a one-element list.
      *
-     * @param array $payload
-     *
-     * @return array<int, array>
+     * @param  array<string, mixed>             $payload
+     * @return array<int, array<string, mixed>>
      */
-    public static function expand( array $payload );
+    public static function expand(array $payload): array;
+
+    /**
+     * The user-agent pattern this adapter expects, used by UserAgentAuth
+     * to gate webhooks by provider UA. Null when the adapter doesn't
+     * advertise one.
+     */
+    public static function getUserAgent(): ?string;
 }

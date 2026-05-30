@@ -30,14 +30,14 @@ class SuppressionSync implements Contract
     {
     }
 
-    public function isAvailable()
+    public function isAvailable(): bool
     {
         // The SES v2 client is what carries the suppression API. The older
         // SesClient still exists but doesn't expose ListSuppressedDestinations.
         return class_exists(SesV2Client::class);
     }
 
-    public function pull()
+    public function pull(): iterable
     {
         $client = $this->client();
         $token  = null;
@@ -71,7 +71,7 @@ class SuppressionSync implements Contract
         } while ($token !== null);
     }
 
-    public function unsuppress( $address )
+    public function unsuppress(string $address): bool
     {
         $client = $this->client();
 

@@ -17,16 +17,19 @@ use InvalidArgumentException;
  */
 class ProviderRegistry
 {
-    /** @var array */
-    protected $config;
+    /** @var array<string, mixed> */
+    protected array $config;
 
-    /** @var array<string,Closure> */
-    protected $customResolvers = [];
+    /** @var array<string, Closure> */
+    protected array $customResolvers = [];
 
-    /** @var array<string,Provider> */
-    protected $resolved = [];
+    /** @var array<string, Provider> */
+    protected array $resolved = [];
 
-    public function __construct( array $config )
+    /**
+     * @param array<string, mixed> $config
+     */
+    public function __construct(array $config)
     {
         $this->config = $config;
     }
@@ -34,13 +37,8 @@ class ProviderRegistry
     /**
      * Register a custom provider. The resolver receives the package config
      * array and must return a Provider instance.
-     *
-     * @param string  $name
-     * @param Closure $resolver
-     *
-     * @return $this
      */
-    public function extend( $name, Closure $resolver )
+    public function extend(string $name, Closure $resolver): static
     {
         $this->customResolvers[$name] = $resolver;
 
@@ -52,9 +50,9 @@ class ProviderRegistry
     /**
      * All registered provider names — configured and custom.
      *
-     * @return string[]
+     * @return array<int, string>
      */
-    public function names()
+    public function names(): array
     {
         return array_values(array_unique(array_merge(
             array_keys(Arr::get($this->config, 'providers', [])),
@@ -62,24 +60,15 @@ class ProviderRegistry
         )));
     }
 
-    /**
-     * @param string $name
-     *
-     * @return bool
-     */
-    public function has( $name )
+    public function has(string $name): bool
     {
         return in_array($name, $this->names(), true);
     }
 
     /**
      * Resolve (and cache) the Provider for the given name.
-     *
-     * @param string $name
-     *
-     * @return Provider
      */
-    public function get( $name )
+    public function get(string $name): Provider
     {
         if (isset($this->resolved[$name])) {
             return $this->resolved[$name];
@@ -88,12 +77,7 @@ class ProviderRegistry
         return $this->resolved[$name] = $this->resolve($name);
     }
 
-    /**
-     * @param string $name
-     *
-     * @return Provider
-     */
-    protected function resolve( $name )
+    protected function resolve(string $name): Provider
     {
         if (isset($this->customResolvers[$name])) {
             return ($this->customResolvers[$name])($this->config);
@@ -118,10 +102,8 @@ class ProviderRegistry
      * fully-qualified authorizer class, or the name of a registered authorizer.
      *
      * @param callable|string $auth
-     *
-     * @return callable
      */
-    protected function resolveAuthorizer( $auth )
+    protected function resolveAuthorizer($auth): callable
     {
         if (is_callable($auth)) {
             return $auth;

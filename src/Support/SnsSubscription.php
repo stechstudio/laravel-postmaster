@@ -18,12 +18,8 @@ class SnsSubscription
      * If the request is an SNS subscription confirmation, return its
      * SubscribeURL — but only when that URL is a genuine amazonaws.com host,
      * so a forged confirmation cannot turn this into an SSRF.
-     *
-     * @param Request $request
-     *
-     * @return string|null
      */
-    public static function confirmationUrl( Request $request )
+    public static function confirmationUrl(Request $request): ?string
     {
         $message = json_decode($request->getContent(), true);
 
@@ -36,12 +32,7 @@ class SnsSubscription
         return SignatureAuth::isAmazonUrl($url) ? $url : null;
     }
 
-    /**
-     * @param string $url
-     *
-     * @return void
-     */
-    public static function confirm( $url )
+    public static function confirm(string $url): void
     {
         Http::get($url);
     }

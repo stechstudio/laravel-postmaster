@@ -7,10 +7,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class UnauthorizedException extends HttpException
 {
-    /**
-     * @var Request
-     */
-    protected $request;
+    protected Request $request;
 
     public function __construct(Request $request)
     {
@@ -19,7 +16,7 @@ class UnauthorizedException extends HttpException
         parent::__construct(403, "Unauthorized email event webhook submission");
     }
 
-    public function getRequest()
+    public function getRequest(): Request
     {
         return $this->request;
     }

@@ -10,22 +10,13 @@ use STS\Postmaster\Providers\AbstractAdapter;
 
 class Adapter extends AbstractAdapter
 {
-    /**
-     * @var string
-     */
-    protected $provider = "Mailgun";
+    protected string $provider = "Mailgun";
 
-    /**
-     * @var string
-     */
-    protected static $userAgent = "mailgun/*";
+    protected static ?string $userAgent = "mailgun/*";
 
     protected $signature;
 
-    /**
-     * @var array
-     */
-    protected $eventMap = [
+    protected array $eventMap = [
         'delivered'  => EmailEvent::STATUS_DELIVERED,
         'failed'     => EmailEvent::STATUS_BOUNCED,
         'complained' => EmailEvent::STATUS_COMPLAINED,
@@ -33,27 +24,21 @@ class Adapter extends AbstractAdapter
         'clicked'    => EmailEvent::STATUS_CLICKED
     ];
 
-    public function __construct( $payload )
+    public function __construct(array $payload)
     {
         parent::__construct($payload['event-data']);
 
         $this->signature = $payload['signature'];
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function status()
+    public function status(): ?string
     {
         return Arr::get($this->eventMap, Arr::get($this->payload, 'event'));
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function toAddress()
+    public function toAddress(): ?string
     {
         return Arr::get($this->payload, 'recipient');
     }
@@ -65,18 +50,15 @@ class Adapter extends AbstractAdapter
      * @return DateTimeImmutable|null
      */
     #[\Override]
-    public function occurredAt()
+    public function occurredAt(): ?\DateTimeImmutable
     {
         $ts = Arr::get($this->payload, 'timestamp');
 
         return static::dateFromUnix(is_numeric($ts) ? (int) $ts : null);
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function providerMessageId()
+    public function providerMessageId(): ?string
     {
         // Mailgun's payload carries two ids: top-level `id` is the *event*
         // id (a short base64 token like Nz5rUz2sT6OY5t7hJt2WsA), separate
@@ -89,49 +71,34 @@ class Adapter extends AbstractAdapter
         return Arr::get($this->payload, 'message.headers.message-id');
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function tags()
+    public function tags(): \Illuminate\Support\Collection
     {
         return collect((array)Arr::get($this->payload, 'tags'));
     }
 
-    /**
-     * @return Collection
-     */
     #[\Override]
-    public function data()
+    public function data(): \Illuminate\Support\Collection
     {
         return collect((array)Arr::get($this->payload, 'user-variables'));
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function response()
+    public function response(): mixed
     {
         return Arr::has($this->payload, 'delivery-status.description')
             ? Arr::get($this->payload, 'delivery-status.description')
             : Arr::get($this->payload, 'delivery-status.message');
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function code()
+    public function code(): mixed
     {
         return Arr::get($this->payload, 'delivery-status.code');
     }
 
-    /**
-     * @return mixed
-     */
     #[\Override]
-    public function reason()
+    public function reason(): mixed
     {
         return Arr::get($this->payload, 'reason');
     }
@@ -142,7 +109,7 @@ class Adapter extends AbstractAdapter
      * @return string|null
      */
     #[\Override]
-    public function bounceType()
+    public function bounceType(): ?string
     {
         if ($this->status() !== EmailEvent::STATUS_BOUNCED) {
             return null;
@@ -153,22 +120,14 @@ class Adapter extends AbstractAdapter
             : EmailEvent::BOUNCE_SOFT;
     }
 
-    /**
-     * @return string|null
-     */
     #[\Override]
-    public function clickedUrl()
+    public function clickedUrl(): ?string
     {
         return Arr::get($this->payload, 'url');
     }
 
-    /**
-     * @param array $payload
-     *
-     * @return bool
-     */
     #[\Override]
-    public static function supports( array $payload )
+    public static function supports(array $payload): bool
     {
         return array_key_exists('signature', $payload) && array_key_exists('event-data', $payload);
     }

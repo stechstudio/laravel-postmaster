@@ -154,9 +154,9 @@ return [
      * as a pure event dispatcher with no database writes.
      */
     'persistence' => [
-        'enabled' => env('POSTMASTER_PERSISTENCE', true),
-        'model'   => \STS\Postmaster\Models\EmailMessage::class,
-        'table'   => 'email_messages',
+        'enabled'        => env('POSTMASTER_PERSISTENCE', true),
+        'message_model'  => \STS\Postmaster\Models\EmailMessage::class,
+        'messages_table' => 'email_messages',
 
         /*
          * Connection for the email messages table. Leave null for the default
@@ -203,9 +203,9 @@ return [
          * On by default whenever persistence is enabled. Set
          * POSTMASTER_RECORD_EVENTS=false to keep only the summary record.
          */
-        'record_events' => env('POSTMASTER_RECORD_EVENTS', true),
-        'activity_table'  => 'email_activity',
-        'activity_model'   => \STS\Postmaster\Models\EmailActivity::class,
+        'record_events'  => env('POSTMASTER_RECORD_EVENTS', true),
+        'activity_model' => \STS\Postmaster\Models\EmailActivity::class,
+        'activity_table' => 'email_activity',
 
         /*
          * Days to retain *routine* timeline events (sent, accepted, deferred,
@@ -240,8 +240,8 @@ return [
          * POSTMASTER_TRACK_ADDRESSES=false to disable it.
          */
         'track_addresses' => env('POSTMASTER_TRACK_ADDRESSES', true),
-        'addresses_table' => 'email_addresses',
         'address_model'   => \STS\Postmaster\Models\EmailAddress::class,
+        'addresses_table' => 'email_addresses',
     ],
 
     /*

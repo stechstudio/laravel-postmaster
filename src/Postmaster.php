@@ -178,13 +178,13 @@ class Postmaster
 
     /**
      * Swap in a custom EmailMessage model at runtime. Equivalent to setting
-     * postmaster.persistence.model in the config; useful when an app keeps
+     * postmaster.persistence.message_model in the config; useful when an app keeps
      * the config un-published and configures everything from a service
      * provider.
      */
     public function useEmailMessageModel(string $class): static
     {
-        config(['postmaster.persistence.model' => $class]);
+        config(['postmaster.persistence.message_model' => $class]);
 
         return $this;
     }

@@ -750,7 +750,7 @@ class PersistenceTest extends TestCase
         Postmaster::useEmailActivityModel('App\\Models\\MyEvent');
         Postmaster::useEmailAddressModel('App\\Models\\MyAddress');
 
-        $this->assertSame('App\\Models\\MyEmail',   config('postmaster.persistence.model'));
+        $this->assertSame('App\\Models\\MyEmail',   config('postmaster.persistence.message_model'));
         $this->assertSame('App\\Models\\MyEvent',   config('postmaster.persistence.activity_model'));
         $this->assertSame('App\\Models\\MyAddress', config('postmaster.persistence.address_model'));
     }
@@ -868,7 +868,7 @@ class PersistenceTest extends TestCase
 
     public function testWebhookCorrelationIgnoresGlobalScopes()
     {
-        config(['postmaster.persistence.model' => ScopedEmailMessage::class]);
+        config(['postmaster.persistence.message_model' => ScopedEmailMessage::class]);
 
         EmailMessage::create([
             'provider_message_id' => 'scoped-message-1',

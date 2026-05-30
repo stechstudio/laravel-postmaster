@@ -376,7 +376,7 @@ POSTMASTER_PERSISTENCE=false
 This creates an `email_messages` table. Each row tracks a message's
 `status`, `bounce_type`, `sent_at`, and `last_event_at`. The model
 (`STS\Postmaster\Models\EmailMessage`) is swappable via the
-`postmaster.persistence.model` config key.
+`postmaster.persistence.message_model` config key.
 
 It ships query scopes for the common lookups: `delivered()`, `bounced()`,
 `complained()`, `opened()`, `clicked()`, `sent()`, `accepted()`, `deferred()`,

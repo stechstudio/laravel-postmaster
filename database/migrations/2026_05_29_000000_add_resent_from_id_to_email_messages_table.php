@@ -18,7 +18,7 @@ return new class extends Migration
 {
     protected function table(): string
     {
-        return config('postmaster.persistence.table', 'email_messages');
+        return config('postmaster.persistence.messages_table', 'email_messages');
     }
 
     public function up(): void

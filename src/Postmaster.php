@@ -39,6 +39,13 @@ class Postmaster
     protected ?Closure $recipientResolver = null;
 
     /**
+     * Decides, per message, whether to store an outbound email's content when
+     * the message didn't declare a per-message override. Receives the Symfony
+     * Email and must return a bool. Registered by the consuming app.
+     */
+    protected ?Closure $storeContentResolver = null;
+
+    /**
      * Authorizes access to the dashboard. Registered by the consuming app,
      * typically in a service provider.
      */
@@ -310,6 +317,44 @@ class Postmaster
                 OutboundMetadata::HEADER_STORE_CONTENT, $store ? '1' : '0'
             );
         };
+    }
+
+    /**
+     * Register a resolver that decides, per message, whether to store its
+     * content — the global equivalent of the per-message storeContent() /
+     * dontStoreContent() builders. Use it to keep secrets out of the database
+     * for whole categories of mail you don't construct yourself: password
+     * resets, magic links, and MFA codes sent by Fortify and friends.
+     *
+     * The closure receives the Symfony Email — inspect its subject, headers,
+     * or recipients — and must return true to store content, false to skip it.
+     * It runs once per message (not per envelope recipient), so decisions key
+     * off message-level signals, not a single recipient.
+     *
+     * Precedence: a per-message storeContent() / dontStoreContent() override
+     * wins; then this resolver; then the postmaster.persistence.store_content
+     * config flag.
+     */
+    public function storeContentWhen(Closure $resolver): static
+    {
+        $this->storeContentResolver = $resolver;
+
+        return $this;
+    }
+
+    /**
+     * Decide whether to store the given message's content via the registered
+     * resolver. Returns null when no resolver is registered, so the caller
+     * falls back to the config flag; otherwise the resolver's return cast to
+     * bool.
+     */
+    public function resolveStoreContent(Email $message): ?bool
+    {
+        if ($this->storeContentResolver === null) {
+            return null;
+        }
+
+        return (bool) call_user_func($this->storeContentResolver, $message);
     }
 
     /**

@@ -210,6 +210,49 @@ class PersistenceTest extends TestCase
         $this->assertSame('<p>declared</p>', EmailMessage::where('to_address', 'in@example.com')->first()->html_body);
     }
 
+    public function testGlobalStoreContentResolverControlsContentStorage()
+    {
+        // Global flag off; the resolver decides per message, keying off the
+        // subject — the Fortify-style "don't store secrets" case.
+        config(['postmaster.persistence.store_content' => false]);
+
+        Postmaster::storeContentWhen(
+            fn ($message) => ! str_contains((string) $message->getSubject(), 'Reset Password')
+        );
+
+        Mail::to('keep@example.com')->send(new FullMail);
+
+        Mail::raw('secret reset link', function ($message) {
+            $message->to('secret@example.com')->subject('Reset Password');
+        });
+
+        $this->assertSame('<p>Body</p>', EmailMessage::where('to_address', 'keep@example.com')->first()->html_body);
+        $this->assertNull(EmailMessage::where('to_address', 'secret@example.com')->first()->text_body);
+    }
+
+    public function testPerMessageOverrideBeatsStoreContentResolver()
+    {
+        // Resolver says store everything, but a per-message dontStoreContent()
+        // (here via Tracking) still wins.
+        config(['postmaster.persistence.store_content' => false]);
+        Postmaster::storeContentWhen(fn () => true);
+
+        Mail::to('out@example.com')->send(new DeclaredMail(store: false));
+
+        $this->assertNull(EmailMessage::where('to_address', 'out@example.com')->first()->html_body);
+    }
+
+    public function testStoreContentResolverOverridesConfigFlag()
+    {
+        // Global flag on, but the resolver opts this message out.
+        config(['postmaster.persistence.store_content' => true]);
+        Postmaster::storeContentWhen(fn () => false);
+
+        Mail::to('out@example.com')->send(new FullMail);
+
+        $this->assertNull(EmailMessage::where('to_address', 'out@example.com')->first()->html_body);
+    }
+
     public function testDeclaredTagsAreRecordedAndQueryable()
     {
         Mail::to('recipient@example.com')->send(new DeclaredMail(labels: ['billing', 'invoice']));

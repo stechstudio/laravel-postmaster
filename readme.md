@@ -626,6 +626,28 @@ return new Tracking(related: $this->user, storeContent: false);
 return (new MailMessage)->subject('Your login code')->dontStoreContent();
 ```
 
+Some sensitive mail you never construct yourself — Fortify and similar
+packages send password-reset, verification, and MFA emails for you, so there's
+no Mailable or `MailMessage` to call `dontStoreContent()` on. Register a global
+resolver to make the decision per message instead. It's the global equivalent
+of the per-message methods: it receives the Symfony message (subject, headers,
+recipients) and returns whether to store content.
+
+```php
+Postmaster::storeContentWhen(
+    fn ($message) => ! str_contains($message->getSubject(), 'Reset Password')
+);
+```
+
+The resolver runs once per message — so it keys off message-level signals, not
+a single recipient. Precedence is: a per-message `storeContent()` /
+`dontStoreContent()` override wins, then this resolver, then the
+`POSTMASTER_STORE_CONTENT` flag. Note that the originating Mailable/Notification
+class isn't available at this point (only the compiled message is), so match on
+the subject or a header rather than the class; where you need class-level
+precision, Laravel's own `ResetPassword::toMailUsing()` hook runs early enough
+to call `dontStoreContent()` directly.
+
 ### Resending a recorded email
 
 Any recorded `EmailMessage` with stored content can be replayed through the

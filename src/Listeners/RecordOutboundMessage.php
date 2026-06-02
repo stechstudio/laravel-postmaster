@@ -185,11 +185,14 @@ class RecordOutboundMessage
             $attributes[EmailMessage::tenantColumn()] = $tenant;
         }
 
-        // Per-message storeContent() / dontStoreContent() wins; otherwise
-        // fall back to the store_content setting.
+        // Per-message storeContent() / dontStoreContent() wins; then the
+        // app-registered storeContentWhen() resolver; then the store_content
+        // setting. (resolveStoreContent() returns null when no resolver is
+        // registered, so the config flag is the final fallback.)
         $storeContent = isset($metadata['store_content'])
             ? $metadata['store_content'] === '1'
-            : (bool) config('postmaster.persistence.store_content', false);
+            : ($this->events->resolveStoreContent($message)
+                ?? (bool) config('postmaster.persistence.store_content', false));
 
         if ($storeContent) {
             $attributes += $this->content($message);

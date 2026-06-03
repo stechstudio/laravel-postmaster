@@ -28,7 +28,8 @@ class Prune extends Command
 {
     protected $signature = 'postmaster:prune
                             {--content  : Only purge stored content}
-                            {--activity : Only delete old timeline activity}';
+                            {--activity : Only delete old timeline activity}
+                            {--dry-run  : Report what would be pruned without writing anything}';
 
     protected $description = 'Prune stored email content and timeline events past their retention windows';
 
@@ -37,9 +38,10 @@ class Prune extends Command
         $only = ($this->option('content') xor $this->option('activity'));
         $runContent  = ! $only || $this->option('content');
         $runActivity = ! $only || $this->option('activity');
+        $dryRun      = (bool) $this->option('dry-run');
 
         if ($runContent) {
-            $this->pruneContent();
+            $this->pruneContent($dryRun);
         }
 
         if ($runActivity) {
@@ -48,12 +50,14 @@ class Prune extends Command
                 'prune_routine_activity_after_days',
                 fn ($q) => $q->whereNotIn('status', EmailMessage::FAILED_STATUSES)
                              ->orWhereNull('status'),
+                $dryRun,
             );
 
             $this->pruneActivity(
                 'failure',
                 'prune_failed_activity_after_days',
                 fn ($q) => $q->whereIn('status', EmailMessage::FAILED_STATUSES),
+                $dryRun,
             );
         }
 
@@ -62,19 +66,20 @@ class Prune extends Command
 
     /**
      * Clear the heavy content columns from records older than the
-     * configured retention window. Row is preserved.
+     * configured retention window. Row is preserved. Under --dry-run the
+     * matching rows are counted but left untouched.
      */
-    protected function pruneContent(): void
+    protected function pruneContent(bool $dryRun): void
     {
         $days = (int) config('postmaster.persistence.prune_content_after_days');
 
         if ($days <= 0) {
-            $this->line('Content pruning is disabled (persistence.prune_content_after_days).');
+            $this->components->twoColumnDetail('Stored content', '<fg=gray>pruning disabled</>');
 
             return;
         }
 
-        $pruned = EmailMessage::model()->newQuery()
+        $query = EmailMessage::model()->newQuery()
             ->where('created_at', '<', now()->subDays($days))
             ->where(function ($query) {
                 $query->whereNotNull('html_body')
@@ -82,8 +87,11 @@ class Prune extends Command
                     ->orWhereNotNull('from_address')
                     ->orWhereNotNull('recipients')
                     ->orWhereNotNull('attachments');
-            })
-            ->update([
+            });
+
+        $count = $dryRun
+            ? $query->count()
+            : $query->update([
                 'from_address' => null,
                 'recipients'   => null,
                 'html_body'    => null,
@@ -91,7 +99,11 @@ class Prune extends Command
                 'attachments'  => null,
             ]);
 
-        $this->info("Pruned stored content from {$pruned} ".Str::plural('email message', $pruned).'.');
+        $this->components->twoColumnDetail(
+            'Stored content',
+            ($dryRun ? 'would purge' : 'purged')." from {$count} ".Str::plural('message', $count)
+                .($dryRun ? ' <fg=gray>(dry run)</>' : '')
+        );
     }
 
     /**
@@ -100,22 +112,28 @@ class Prune extends Command
      * @param string   $label     Bucket name, for the output line.
      * @param string   $configKey The retention-days config key on persistence.
      * @param \Closure $scope     Applies the bucket's status filter to a query.
+     * @param bool     $dryRun    Count the matching rows instead of deleting.
      */
-    protected function pruneActivity( string $label, string $configKey, \Closure $scope ): void
+    protected function pruneActivity(string $label, string $configKey, \Closure $scope, bool $dryRun): void
     {
         $days = (int) config("postmaster.persistence.{$configKey}");
 
         if ($days <= 0) {
-            $this->line("Pruning of {$label} activity is disabled (persistence.{$configKey}).");
+            $this->components->twoColumnDetail(ucfirst($label).' activity', '<fg=gray>pruning disabled</>');
 
             return;
         }
 
-        $pruned = EmailActivity::model()->newQuery()
+        $query = EmailActivity::model()->newQuery()
             ->where('occurred_at', '<', now()->subDays($days))
-            ->where(fn ($query) => $scope($query))
-            ->delete();
+            ->where(fn ($query) => $scope($query));
 
-        $this->info("Pruned {$pruned} {$label} ".Str::plural('activity entry', $pruned).'.');
+        $count = $dryRun ? $query->count() : $query->delete();
+
+        $this->components->twoColumnDetail(
+            ucfirst($label).' activity',
+            ($dryRun ? 'would delete' : 'deleted')." {$count} ".Str::plural('entry', $count)
+                .($dryRun ? ' <fg=gray>(dry run)</>' : '')
+        );
     }
 }

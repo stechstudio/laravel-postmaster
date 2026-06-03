@@ -859,6 +859,27 @@ class PersistenceTest extends TestCase
         $this->assertSame('<p>recent</p>', $recent->refresh()->html_body);
     }
 
+    public function testPruneContentDryRunLeavesContentInPlace()
+    {
+        config(['postmaster.persistence.prune_content_after_days' => 30]);
+
+        $old = EmailMessage::create([
+            'provider_message_id' => 'old',
+            'status'              => EmailEvent::STATUS_SENT,
+            'html_body'           => '<p>old</p>',
+            'from_address'        => 'sender@example.com',
+        ]);
+        $old->created_at = now()->subDays(60);
+        $old->save();
+
+        $this->artisan('postmaster:prune', ['--content' => true, '--dry-run' => true])->assertSuccessful();
+
+        // Past the retention window, but a dry run must not touch the row.
+        $old->refresh();
+        $this->assertSame('<p>old</p>', $old->html_body);
+        $this->assertSame('sender@example.com', $old->from_address);
+    }
+
     public function testStatusScopesFilterRecords()
     {
         EmailMessage::create(['provider_message_id' => 'a', 'status' => EmailEvent::STATUS_DELIVERED]);

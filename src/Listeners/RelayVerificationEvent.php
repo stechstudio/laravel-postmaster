@@ -26,6 +26,14 @@ class RelayVerificationEvent
      */
     public const EVENTS_KEY = 'postmaster:verify:events';
 
+    /**
+     * Cache key set when a webhook arrives during a verify but fails
+     * authorization — so the command can point at the auth config instead of
+     * timing out as if nothing arrived. Written by VerifyWebhook, read by the
+     * verify command.
+     */
+    public const AUTH_FAILED_KEY = 'postmaster:verify:auth-failed';
+
     public function handle(EmailEvent $event): void
     {
         $watching = Cache::get(self::WATCHING_KEY);

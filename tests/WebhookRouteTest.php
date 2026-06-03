@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Listeners\RelayVerificationEvent;
 
 class WebhookRouteTest extends TestCase
 {
@@ -89,6 +90,26 @@ class WebhookRouteTest extends TestCase
     {
         $this->postJson('/webhooks/postmaster/sendgrid', $this->sendgridPayload())
             ->assertForbidden();
+    }
+
+    public function testRejectedWebhookSignalsAuthFailureToAWatchingVerify()
+    {
+        \Illuminate\Support\Facades\Cache::put(RelayVerificationEvent::WATCHING_KEY, 'watched-message', now()->addMinutes(5));
+
+        $this->postJson('/webhooks/postmaster/sendgrid?auth=wrong-token', $this->sendgridPayload())
+            ->assertForbidden();
+
+        $signal = \Illuminate\Support\Facades\Cache::get(RelayVerificationEvent::AUTH_FAILED_KEY);
+        $this->assertIsArray($signal);
+        $this->assertSame('sendgrid', $signal['provider']);
+    }
+
+    public function testRejectedWebhookDoesNotSignalWhenNoVerifyIsRunning()
+    {
+        $this->postJson('/webhooks/postmaster/sendgrid?auth=wrong-token', $this->sendgridPayload())
+            ->assertForbidden();
+
+        $this->assertNull(\Illuminate\Support\Facades\Cache::get(RelayVerificationEvent::AUTH_FAILED_KEY));
     }
 
     public function testSnsNotificationDispatchesEmailEvent()

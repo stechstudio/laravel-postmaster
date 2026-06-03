@@ -8,12 +8,14 @@ use Illuminate\Http\Request;
 use Illuminate\Mail\SentMessage;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use STS\Postmaster\Contracts\ProviderSetup;
 use STS\Postmaster\Contracts\SuppressionSync;
 use STS\Postmaster\Http\Controllers\WebhookController;
 use STS\Postmaster\Http\Middleware\VerifyWebhook;
 use STS\Postmaster\Mail\ResentMessage;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
+use STS\Postmaster\Providers\GenericSetup;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
 use Throwable;
@@ -68,6 +70,23 @@ class Postmaster
     public function provider(string $name): Provider
     {
         return $this->registry->get($name);
+    }
+
+    /**
+     * The setup profile for a provider — the human-facing language, env vars,
+     * and interactive prompts the CLI commands use. Resolved from the provider's
+     * `setup` config entry, falling back to a generic profile for providers
+     * registered at runtime that declare none.
+     */
+    public function setup(string $name): ProviderSetup
+    {
+        $class = $this->config['providers'][$name]['setup'] ?? null;
+
+        if (is_string($class) && class_exists($class)) {
+            return new $class();
+        }
+
+        return new GenericSetup($name);
     }
 
     /**

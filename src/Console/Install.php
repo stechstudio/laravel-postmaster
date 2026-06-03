@@ -4,15 +4,14 @@ namespace STS\Postmaster\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use STS\Postmaster\Console\Concerns\ResolvesProvider;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\intro;
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\outro;
-use function Laravel\Prompts\password;
 use function Laravel\Prompts\select;
-use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
 /**
@@ -25,31 +24,35 @@ use function Laravel\Prompts\warning;
  */
 class Install extends Command
 {
+    use ResolvesProvider;
+
     protected $signature = 'postmaster:install';
 
     protected $description = 'Walk through Postmaster setup interactively';
 
     /**
-     * Which webhook auth schemes each provider supports, with the default
-     * first. SES is excluded — it verifies via AWS's SNS certs and needs
-     * no operator-supplied credential.
-     *
-     * @var array<string, array<int, string>>
+     * Whether the operator opted into suppression sync — drives the "schedule
+     * postmaster:sync" line in the closing next-steps summary.
      */
-    protected $authSchemes = [
-        'sendgrid' => ['signature'],
-        'mailgun'  => ['signature'],
-        'resend'   => ['signature'],
-        'postmark' => ['basic', 'token'],
-        'ses'      => [],
-    ];
+    protected bool $syncConfigured = false;
 
     public function handle(): int
     {
         intro('Postmaster setup');
 
-        $provider     = $this->askProvider();
-        $envVars      = $this->askProviderAuth($provider);
+        $provider = $this->askProvider();
+        $setup    = $this->setupFor($provider);
+        $url      = $this->webhookUrl($provider);
+
+        // Surface the webhook URL up front so it's on screen while the operator
+        // sets up auth in the provider dashboard — and so a run that skips the
+        // verify step at the end still leaves them knowing where to point it.
+        note(
+            $setup->webhookVerb().":\n  ".$url
+            ."\n\nDerived from APP_URL — set that to your public URL if it looks wrong."
+        );
+
+        $envVars      = $setup->askWebhookAuth();
         $envVars      = array_merge($envVars, $this->askSuppressionSync($provider));
         $persistence  = confirm('Enable the persistence layer? (records every outbound, suppression list, dashboard)', default: true);
         $storeContent = $persistence
@@ -80,14 +83,43 @@ class Install extends Command
             $this->call('migrate');
         }
 
-        if (confirm('Run postmaster:verify to test the round trip end to end?', default: true)) {
+        $ranVerify = confirm('Run postmaster:verify to test the round trip end to end?', default: true);
+
+        if ($ranVerify) {
             $this->newLine();
             $this->call('postmaster:verify');
         }
 
+        $this->showNextSteps($provider, $url, $persistence, $storeContent, $ranVerify);
+
         outro('Postmaster is set up.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * A short, tailored checklist of what's left to do — the webhook URL to
+     * register, the commands worth scheduling, and the verify run if it was
+     * skipped. Only lines that apply to this install are shown.
+     */
+    protected function showNextSteps(string $provider, string $url, bool $persistence, bool $storeContent, bool $ranVerify): void
+    {
+        $steps = [$this->setupFor($provider)->webhookVerb().':  '.$url];
+
+        if ($this->syncConfigured) {
+            $steps[] = "Schedule `postmaster:sync` (e.g. daily) to keep the suppression list in step with {$provider}.";
+        }
+
+        if ($persistence) {
+            $steps[] = 'Schedule `postmaster:prune` (e.g. daily) to age out old activity'
+                .($storeContent ? ' and stored content' : '').'.';
+        }
+
+        if (! $ranVerify) {
+            $steps[] = 'Run `postmaster:verify` to test the round trip once your webhook URL is reachable.';
+        }
+
+        note("Next steps:\n  · ".implode("\n  · ", $steps));
     }
 
     /**
@@ -98,134 +130,34 @@ class Install extends Command
     {
         $detected = $this->detectProvider();
 
+        $options = [];
+
+        foreach ($this->providerSetups() as $name => $setup) {
+            $options[$name] = $setup->label();
+        }
+
         return select(
             label: 'Which mail provider will you use?',
-            options: [
-                'sendgrid' => 'SendGrid',
-                'postmark' => 'Postmark',
-                'mailgun'  => 'Mailgun',
-                'ses'      => 'Amazon SES',
-                'resend'   => 'Resend',
-            ],
+            options: $options,
             default: $detected,
             hint: $detected ? "Detected {$detected} from your mail config." : '',
         );
     }
 
     /**
-     * Per-provider webhook auth setup. Returns the env vars to write.
-     *
-     * @return array<string, string>
-     */
-    protected function askProviderAuth(string $provider): array
-    {
-        return match ($provider) {
-            'sendgrid' => $this->askSendGridAuth(),
-            'mailgun'  => $this->askMailgunAuth(),
-            'resend'   => $this->askResendAuth(),
-            'postmark' => $this->askPostmarkAuth(),
-            'ses'      => $this->askSesAuth(),
-            default    => [],
-        };
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function askSendGridAuth(): array
-    {
-        note('SendGrid signs each webhook with ECDSA. Enable "Signed Event Webhook" in your SendGrid Mail Settings, then paste the Verification Key.');
-
-        $key = password(
-            label: 'SendGrid Verification Key',
-            placeholder: 'MIIBC...',
-            required: true,
-        );
-
-        return ['POSTMASTER_SENDGRID_VERIFICATION_KEY' => $key];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function askMailgunAuth(): array
-    {
-        note('Mailgun signs webhooks with HMAC-SHA256. The signing key is at Sending → Webhooks → HTTP webhook signing key.');
-
-        $key = password(
-            label: 'Mailgun HTTP webhook signing key',
-            required: true,
-        );
-
-        return ['POSTMASTER_MAILGUN_SIGNING_KEY' => $key];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function askResendAuth(): array
-    {
-        note('Resend signs webhooks via Svix. Find the signing secret in your Resend Webhooks dashboard — it starts with "whsec_".');
-
-        $secret = password(
-            label: 'Resend webhook signing secret',
-            placeholder: 'whsec_...',
-            required: true,
-            validate: fn ($v) => str_starts_with($v, 'whsec_') ? null : 'Resend signing secrets start with "whsec_".',
-        );
-
-        return ['POSTMASTER_RESEND_SIGNING_SECRET' => $secret];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function askPostmarkAuth(): array
-    {
-        note("Postmark doesn't sign webhook payloads. Postmaster authenticates them with HTTP basic auth (default) or a URL token instead. Whatever you choose, configure the same on Postmark's webhook URL.");
-
-        $scheme = select(
-            label: 'Which Postmark webhook auth would you like to use?',
-            options: ['basic' => 'HTTP basic auth (recommended)', 'token' => 'URL token'],
-            default: 'basic',
-        );
-
-        if ($scheme === 'basic') {
-            return [
-                'POSTMASTER_AUTH_USERNAME' => text(label: 'Username for HTTP basic auth', required: true),
-                'POSTMASTER_AUTH_PASSWORD' => password(label: 'Password for HTTP basic auth', required: true),
-            ];
-        }
-
-        return [
-            'POSTMASTER_POSTMARK_AUTH' => 'token',
-            'POSTMASTER_AUTH_TOKEN'    => password(label: 'URL token (appended as ?auth= on the webhook URL)', required: true),
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function askSesAuth(): array
-    {
-        note("SES delivers events through SNS; the package verifies each message's signature against AWS's certs automatically. No operator-supplied credential is needed.");
-        note('After install, subscribe an SNS topic to your webhook URL — the SubscriptionConfirmation handshake completes itself.');
-
-        return [];
-    }
-
-    /**
-     * Optional: suppression sync. The provider's authoritative suppression
-     * list is reconciled against ours when `postmaster:sync` runs. Most
-     * providers need an API key for it (separate from the webhook auth);
-     * SES uses the AWS SDK; Resend has no suppression-list API at all.
+     * Optional: suppression sync. The provider's authoritative suppression list
+     * is reconciled against ours when `postmaster:sync` runs. The provider's
+     * setup profile knows whether it has a list to sync and which credentials
+     * it needs; this only owns the shared confirm + bookkeeping.
      *
      * @return array<string, string>
      */
     protected function askSuppressionSync(string $provider): array
     {
-        if ($provider === 'resend') {
-            note('Resend has no suppression-list API, so there is nothing to sync. Skipping.');
+        $setup = $this->setupFor($provider);
+
+        if (! $setup->supportsSuppressionSync()) {
+            note($setup->label().' has no suppression-list API, so there is nothing to sync. Skipping.');
 
             return [];
         }
@@ -238,120 +170,9 @@ class Install extends Command
             return [];
         }
 
-        return match ($provider) {
-            'sendgrid' => $this->askSendGridSync(),
-            'postmark' => $this->askPostmarkSync(),
-            'mailgun'  => $this->askMailgunSync(),
-            'ses'      => $this->noteSesSync(),
-            default    => [],
-        };
-    }
+        $this->syncConfigured = true;
 
-    /**
-     * @return array<string, string>
-     */
-    protected function askSendGridSync(): array
-    {
-        note('Install the SDK with: composer require sendgrid/sendgrid');
-
-        if (config('postmaster.providers.sendgrid.api_key')) {
-            info('Found a SendGrid API key already in your environment — sync will use it.');
-
-            return [];
-        }
-
-        $key = password(
-            label: 'SendGrid API key',
-            hint: 'Settings → API Keys. Needs the "Suppressions" scope.',
-            required: true,
-        );
-
-        return ['POSTMASTER_SENDGRID_API_KEY' => $key];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function askPostmarkSync(): array
-    {
-        note('Install the SDK with: composer require wildbit/postmark-php');
-
-        if (config('postmaster.providers.postmark.server_token')) {
-            info('Found a Postmark server token already in your environment — sync will use it.');
-
-            return [];
-        }
-
-        $token = password(
-            label: 'Postmark server token',
-            hint: 'Servers → (your server) → API tokens.',
-            required: true,
-        );
-
-        return ['POSTMASTER_POSTMARK_SERVER_TOKEN' => $token];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function askMailgunSync(): array
-    {
-        note('Install the SDK with: composer require mailgun/mailgun-php');
-
-        $vars = [];
-
-        if (config('postmaster.providers.mailgun.api_key')) {
-            info('Found a Mailgun API key already in your environment — sync will use it.');
-        } else {
-            $vars['POSTMASTER_MAILGUN_API_KEY'] = password(
-                label: 'Mailgun API key',
-                hint: 'Settings → API Keys → Private API key.',
-                required: true,
-            );
-        }
-
-        if (config('postmaster.providers.mailgun.domain')) {
-            info('Found a Mailgun sending domain already in your environment — sync will use it.');
-        } else {
-            $vars['POSTMASTER_MAILGUN_DOMAIN'] = text(
-                label: 'Mailgun sending domain',
-                placeholder: 'mg.example.com',
-                required: true,
-            );
-        }
-
-        return $vars;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function noteSesSync(): array
-    {
-        note('SES sync uses the AWS SDK that is (or will be) in your app — there are no Postmaster env vars to set here.');
-        note('  · Install the SDK with: composer require aws/aws-sdk-php');
-        note('  · The IAM identity the SDK resolves to needs ses:ListSuppressedDestinations and ses:PutSuppressedDestination.');
-
-        return [];
-    }
-
-    /**
-     * Best-effort detection of which provider Laravel's mail config points
-     * at — used to pre-select the right option in the picker.
-     */
-    protected function detectProvider(): ?string
-    {
-        $default = config('mail.default');
-        $config  = config("mail.mailers.{$default}", []);
-        $transport = $config['transport'] ?? $default;
-
-        return match ($transport) {
-            'ses', 'ses-v2' => 'ses',
-            'postmark'      => 'postmark',
-            'mailgun'       => 'mailgun',
-            'resend'        => 'resend',
-            default         => null,
-        };
+        return $setup->askSuppressionSync();
     }
 
     /**
@@ -384,7 +205,7 @@ class Install extends Command
         }
 
         if (! confirm('Write them?', default: true)) {
-            note('Nothing written.');
+            warning('Skipped — nothing written to .env. The credentials above are not saved, so webhook auth (and the verify step) will fail until you add them yourself.');
             return;
         }
 

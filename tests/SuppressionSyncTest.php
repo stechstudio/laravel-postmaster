@@ -118,6 +118,13 @@ class SuppressionSyncTest extends TestCase
         $this->assertSame(0, EmailAddress::count());
     }
 
+    public function testSyncRejectsAnUnknownProvider()
+    {
+        $this->artisan('postmaster:sync', ['--provider' => 'sendgird'])
+            ->assertFailed()
+            ->expectsOutputToContain('Unknown provider "sendgird"');
+    }
+
     public function testSyncSkipsProvidersThatReportUnavailable()
     {
         FakeSync::$available = false;

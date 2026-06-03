@@ -3,8 +3,10 @@
 namespace STS\Postmaster\Console;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use Throwable;
 
@@ -22,6 +24,21 @@ class VerifySetup extends Command
     protected $signature = 'postmaster:verify {--timeout=120 : Seconds to wait for a webhook}';
 
     protected $description = 'Send a test email and confirm delivery webhooks reach your app';
+
+    /**
+     * Statuses that end the watch. A delivery confirms the whole round trip;
+     * a bounce / drop / complaint is just as terminal — no delivery is coming
+     * — and still proves webhooks reach the app, so there's nothing to gain by
+     * spinning out the rest of the timeout.
+     *
+     * @var array<int, string>
+     */
+    protected const TERMINAL_STATUSES = [
+        EmailEvent::STATUS_DELIVERED,
+        EmailEvent::STATUS_BOUNCED,
+        EmailEvent::STATUS_DROPPED,
+        EmailEvent::STATUS_COMPLAINED,
+    ];
 
     /**
      * Mail transports that map directly to a Postmaster provider.
@@ -302,20 +319,21 @@ class VerifySetup extends Command
     protected function waitForWebhook(string $messageId, int $timeout): int
     {
         Cache::forget(RelayVerificationEvent::EVENTS_KEY);
+        Cache::forget(RelayVerificationEvent::AUTH_FAILED_KEY);
         Cache::put(RelayVerificationEvent::WATCHING_KEY, $messageId, now()->addMinutes(10));
 
         $frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
-        $start = microtime(true);
-        $deadline = $timeout;
-        $lastPoll = -2.0;
-        $frame = 0;
-        $shown = 0;
-        $extended = false;
+        $start      = microtime(true);
+        $lastPoll   = -2.0;
+        $frame      = 0;
+        $shown      = 0;
+        $terminal   = null;
+        $authFailed = null;
 
         $this->newLine();
 
-        while (($elapsed = microtime(true) - $start) < $deadline) {
+        while (($elapsed = microtime(true) - $start) < $timeout && $terminal === null && $authFailed === null) {
             if (microtime(true) - $lastPoll >= 1.0) {
                 $lastPoll = microtime(true);
 
@@ -325,41 +343,118 @@ class VerifySetup extends Command
                 while ($shown < count($events)) {
                     $entry = $events[$shown++];
 
-                    if (is_array($entry)) {
-                        $this->clearLine();
-                        $this->components->info(sprintf(
-                            'Event received: %s (%s)',
-                            $entry['status'] ?? 'event',
-                            $entry['at'] ?? ''
-                        ));
+                    if (! is_array($entry)) {
+                        continue;
+                    }
+
+                    $this->clearLine();
+                    $this->showEvent($entry);
+
+                    if (in_array($entry['status'] ?? null, self::TERMINAL_STATUSES, true)) {
+                        $terminal = $entry['status'];
                     }
                 }
 
-                if ($shown > 0 && ! $extended) {
-                    $extended = true;
-                    // Keep watching briefly for follow-up events (a delivery
-                    // is often followed by opens and clicks).
-                    $deadline = min($timeout, $elapsed + 20);
+                // A webhook arrived but the provider's request failed our auth
+                // check — a far more actionable result than a silent timeout.
+                if ($auth = Cache::get(RelayVerificationEvent::AUTH_FAILED_KEY)) {
+                    $authFailed = is_array($auth) ? $auth : ['provider' => null];
                 }
             }
 
-            $this->output->write(sprintf(
-                "\r %s %s  %ds elapsed   ",
-                $frames[$frame++ % count($frames)],
-                $shown > 0 ? 'Watching for further events...' : 'Waiting for a webhook...',
-                (int) $elapsed
-            ));
+            if ($terminal === null && $authFailed === null) {
+                $this->output->write(sprintf(
+                    "\r %s %s  <fg=gray>%ds</>   ",
+                    $frames[$frame++ % count($frames)],
+                    $shown > 0 ? 'Watching for the delivery webhook...' : 'Waiting for a webhook...',
+                    (int) $elapsed
+                ));
 
-            usleep(125000);
+                usleep(125000);
+            }
         }
 
         $this->clearLine();
         Cache::forget(RelayVerificationEvent::WATCHING_KEY);
         Cache::forget(RelayVerificationEvent::EVENTS_KEY);
+        Cache::forget(RelayVerificationEvent::AUTH_FAILED_KEY);
+
+        return $this->reportOutcome($terminal, $shown, $timeout, $authFailed);
+    }
+
+    /**
+     * Print one received webhook event as a tidy single line: an icon, the
+     * status, and a human-readable time — no INFO badge, no blank padding.
+     *
+     * @param array<string, mixed> $entry
+     */
+    protected function showEvent(array $entry): void
+    {
+        $status = (string) ($entry['status'] ?? 'event');
+        $bad    = in_array($status, [
+            EmailEvent::STATUS_BOUNCED,
+            EmailEvent::STATUS_DROPPED,
+            EmailEvent::STATUS_COMPLAINED,
+        ], true);
+
+        $this->line(sprintf(
+            '  %s  <fg=%s;options=bold>%s</> <fg=gray>at %s</>',
+            $this->iconFor($status),
+            $bad ? 'yellow' : 'green',
+            $status,
+            $this->humanTime($entry['at'] ?? null),
+        ));
+    }
+
+    /**
+     * Render the final result. A delivery is the celebrated success; a bounce /
+     * drop / complaint still confirms the webhook path works, so it's reported
+     * as a success with a caveat about the test message itself. A webhook that
+     * arrived but failed authorization is the most actionable failure of all.
+     *
+     * @param array<string, mixed>|null $authFailed
+     */
+    protected function reportOutcome(?string $terminal, int $shown, int $timeout, ?array $authFailed = null): int
+    {
         $this->newLine();
 
+        if ($authFailed !== null) {
+            $provider = is_string($authFailed['provider'] ?? null) ? $authFailed['provider'] : null;
+
+            $this->line('  🔒 <fg=red;options=bold>A webhook arrived, but it failed authorization.</>');
+            $this->newLine();
+            $this->line(
+                '  Your app is reachable and the provider is posting events'
+                .($provider ? " for [{$provider}]" : '')
+                .' — the webhook is just being rejected before it can be processed.'
+            );
+            $this->newLine();
+            $this->components->bulletList($this->authFailureGuidance($provider));
+
+            return self::FAILURE;
+        }
+
+        if ($terminal === EmailEvent::STATUS_DELIVERED) {
+            $this->line('  🎉 <fg=green;options=bold>Email delivery and webhook handling are set up and working properly!</>');
+            $this->newLine();
+
+            return self::SUCCESS;
+        }
+
+        if ($terminal !== null) {
+            $this->components->warn(
+                "Webhooks are reaching your app — but the test message {$terminal} instead of delivering. "
+                ."Your setup looks correct; try a different inbox to confirm a clean delivery."
+            );
+
+            return self::SUCCESS;
+        }
+
         if ($shown > 0) {
-            $this->components->info('Verified — delivery webhooks are reaching your app.');
+            $this->components->warn(
+                "Webhooks are reaching your app, but no delivery confirmation arrived within {$timeout}s. "
+                ."The delivery event may still be in flight."
+            );
 
             return self::SUCCESS;
         }
@@ -372,6 +467,132 @@ class VerifySetup extends Command
         ]);
 
         return self::FAILURE;
+    }
+
+    /**
+     * Concrete, provider-specific guidance for an auth failure — which .env
+     * variable carries the credential (and whether it's currently set), and
+     * roughly where to find the matching value in the provider's dashboard.
+     *
+     * @return array<int, string>
+     */
+    protected function authFailureGuidance(?string $provider): array
+    {
+        $clear = 'After editing .env, run `php artisan config:clear` — cached config keeps the old values.';
+
+        return match ($provider) {
+            'postmark'  => $this->postmarkGuidance($clear),
+            'sendgrid'  => [
+                'SendGrid signs events with an ECDSA key. POSTMASTER_SENDGRID_VERIFICATION_KEY '
+                    .$this->isSet(config('postmaster.providers.sendgrid.verification_key')).'.',
+                'In SendGrid: Settings → Mail Settings → Event Webhook, turn on "Enable Signed Event Webhook", '
+                    .'then copy the Verification Key into POSTMASTER_SENDGRID_VERIFICATION_KEY.',
+                $clear,
+            ],
+            'mailgun'   => [
+                'Mailgun signs webhooks with your HTTP webhook signing key. POSTMASTER_MAILGUN_SIGNING_KEY '
+                    .'(falls back to MAILGUN_SECRET) '.$this->isSet(config('postmaster.providers.mailgun.signing_key')).'.',
+                'In Mailgun: Send → Webhooks, copy the "HTTP webhook signing key" into POSTMASTER_MAILGUN_SIGNING_KEY '
+                    .'— this is the webhook signing key, not your sending API key.',
+                $clear,
+            ],
+            'resend'    => [
+                'Resend signs webhooks (Svix) with a whsec_ secret. POSTMASTER_RESEND_SIGNING_SECRET '
+                    .$this->isSet(config('postmaster.providers.resend.signing_secret')).'.',
+                'In Resend: Webhooks → select your endpoint → copy the "Signing Secret" (whsec_...) '
+                    .'into POSTMASTER_RESEND_SIGNING_SECRET.',
+                $clear,
+            ],
+            'ses'       => [
+                'SES delivers through SNS, which is verified against the signature embedded in each message '
+                    .'— there is no secret to set in .env.',
+                'A failure here usually means the request is not a genuine SNS message: confirm your SNS topic '
+                    .'subscription points at this exact URL, and that no proxy or middleware alters the raw request '
+                    .'body before it reaches your app.',
+            ],
+            default     => [
+                'Confirm the webhook auth credential matches what the provider sends (token, basic-auth, or signing secret).',
+                'For signature-based providers, check the signing secret and your server clock (skew breaks signatures).',
+                $clear,
+            ],
+        };
+    }
+
+    /**
+     * Postmark supports two auth modes; tailor the advice to the configured one.
+     *
+     * @return array<int, string>
+     */
+    protected function postmarkGuidance(string $clear): array
+    {
+        if (config('postmaster.providers.postmark.auth') === 'token') {
+            $param = config('postmaster.token_parameter', 'auth');
+
+            return [
+                "Postmark is configured for token auth. POSTMASTER_AUTH_TOKEN "
+                    .$this->isSet(config('postmaster.token')).'; the webhook URL must carry it as a query string '
+                    ."(?{$param}=...).",
+                "In Postmark: open your message stream → Webhooks tab → edit the webhook, and confirm its URL ends "
+                    ."with ?{$param}=<token> matching POSTMASTER_AUTH_TOKEN.",
+                $clear,
+            ];
+        }
+
+        $set = config('postmaster.basic_username') && config('postmaster.basic_password')
+            ? 'are set' : 'are NOT both set';
+
+        return [
+            "Postmark uses HTTP basic auth by default. POSTMASTER_AUTH_USERNAME and POSTMASTER_AUTH_PASSWORD {$set}.",
+            'In Postmark: open your message stream → Webhooks tab → edit your webhook → expand the "Basic auth" '
+                .'section and confirm the username and password match POSTMASTER_AUTH_USERNAME / POSTMASTER_AUTH_PASSWORD.',
+            $clear,
+        ];
+    }
+
+    /**
+     * "is set" / "is NOT set" for a credential, so the guidance can call out a
+     * missing value outright rather than just "check it matches".
+     */
+    protected function isSet(mixed $value): string
+    {
+        return $value !== null && $value !== '' ? 'is set' : 'is NOT set';
+    }
+
+    /**
+     * A small emoji cue for a webhook status — falls back to a plain envelope
+     * for anything unmapped.
+     */
+    protected function iconFor(string $status): string
+    {
+        return match ($status) {
+            EmailEvent::STATUS_DELIVERED  => '📬',
+            EmailEvent::STATUS_OPENED     => '👀',
+            EmailEvent::STATUS_CLICKED    => '🔗',
+            EmailEvent::STATUS_BOUNCED    => '⚠️',
+            EmailEvent::STATUS_DROPPED    => '🚫',
+            EmailEvent::STATUS_COMPLAINED => '🚩',
+            EmailEvent::STATUS_DEFERRED   => '⏳',
+            default                       => '✉️',
+        };
+    }
+
+    /**
+     * Format a stored ISO-8601 timestamp as a readable local time, e.g.
+     * "2:23:01 PM". Falls back to the raw value if it can't be parsed.
+     */
+    protected function humanTime(mixed $at): string
+    {
+        if (! is_string($at) || $at === '') {
+            return 'just now';
+        }
+
+        try {
+            return Carbon::parse($at)
+                ->setTimezone(config('app.timezone') ?: 'UTC')
+                ->format('g:i:s A');
+        } catch (Throwable $e) {
+            return $at;
+        }
     }
 
     /**

@@ -44,11 +44,27 @@ class Install extends Command
         'ses'      => [],
     ];
 
+    /**
+     * Whether the operator opted into suppression sync — drives the "schedule
+     * postmaster:sync" line in the closing next-steps summary.
+     */
+    protected bool $syncConfigured = false;
+
     public function handle(): int
     {
         intro('Postmaster setup');
 
-        $provider     = $this->askProvider();
+        $provider = $this->askProvider();
+        $url      = $this->webhookUrl($provider);
+
+        // Surface the webhook URL up front so it's on screen while the operator
+        // sets up auth in the provider dashboard — and so a run that skips the
+        // verify step at the end still leaves them knowing where to point it.
+        note(
+            $this->webhookVerb($provider).":\n  ".$url
+            ."\n\nDerived from APP_URL — set that to your public URL if it looks wrong."
+        );
+
         $envVars      = $this->askProviderAuth($provider);
         $envVars      = array_merge($envVars, $this->askSuppressionSync($provider));
         $persistence  = confirm('Enable the persistence layer? (records every outbound, suppression list, dashboard)', default: true);
@@ -80,14 +96,43 @@ class Install extends Command
             $this->call('migrate');
         }
 
-        if (confirm('Run postmaster:verify to test the round trip end to end?', default: true)) {
+        $ranVerify = confirm('Run postmaster:verify to test the round trip end to end?', default: true);
+
+        if ($ranVerify) {
             $this->newLine();
             $this->call('postmaster:verify');
         }
 
+        $this->showNextSteps($provider, $url, $persistence, $storeContent, $ranVerify);
+
         outro('Postmaster is set up.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * A short, tailored checklist of what's left to do — the webhook URL to
+     * register, the commands worth scheduling, and the verify run if it was
+     * skipped. Only lines that apply to this install are shown.
+     */
+    protected function showNextSteps(string $provider, string $url, bool $persistence, bool $storeContent, bool $ranVerify): void
+    {
+        $steps = [$this->webhookVerb($provider).':  '.$url];
+
+        if ($this->syncConfigured) {
+            $steps[] = "Schedule `postmaster:sync` (e.g. daily) to keep the suppression list in step with {$provider}.";
+        }
+
+        if ($persistence) {
+            $steps[] = 'Schedule `postmaster:prune` (e.g. daily) to age out old activity'
+                .($storeContent ? ' and stored content' : '').'.';
+        }
+
+        if (! $ranVerify) {
+            $steps[] = 'Run `postmaster:verify` to test the round trip once your webhook URL is reachable.';
+        }
+
+        note("Next steps:\n  · ".implode("\n  · ", $steps));
     }
 
     /**
@@ -134,7 +179,7 @@ class Install extends Command
      */
     protected function askSendGridAuth(): array
     {
-        note('SendGrid signs each webhook with ECDSA. Enable "Signed Event Webhook" in your SendGrid Mail Settings, then paste the Verification Key.');
+        note('SendGrid signs each webhook with ECDSA. In Settings → Mail Settings → Event Webhook, turn on "Enable Signed Event Webhook", then paste the Verification Key.');
 
         $key = password(
             label: 'SendGrid Verification Key',
@@ -150,7 +195,7 @@ class Install extends Command
      */
     protected function askMailgunAuth(): array
     {
-        note('Mailgun signs webhooks with HMAC-SHA256. The signing key is at Sending → Webhooks → HTTP webhook signing key.');
+        note('Mailgun signs webhooks with HMAC-SHA256. The signing key is at Send → Webhooks → HTTP webhook signing key.');
 
         $key = password(
             label: 'Mailgun HTTP webhook signing key',
@@ -237,6 +282,8 @@ class Install extends Command
         )) {
             return [];
         }
+
+        $this->syncConfigured = true;
 
         return match ($provider) {
             'sendgrid' => $this->askSendGridSync(),
@@ -336,22 +383,84 @@ class Install extends Command
     }
 
     /**
+     * Substrings that identify a provider from an SMTP host — the clue when
+     * mail goes out over SMTP rather than a provider's API transport.
+     *
+     * @var array<string, string>
+     */
+    protected $smtpHints = [
+        'postmarkapp.com' => 'postmark',
+        'sendgrid.net'    => 'sendgrid',
+        'mailgun.org'     => 'mailgun',
+        'amazonaws.com'   => 'ses',
+        'resend.com'      => 'resend',
+    ];
+
+    /**
      * Best-effort detection of which provider Laravel's mail config points
-     * at — used to pre-select the right option in the picker.
+     * at — used to pre-select the right option in the picker. Matches a direct
+     * transport first, then falls back to the SMTP host so providers used over
+     * SMTP (including SendGrid, which has no first-party transport) are still
+     * recognized.
      */
     protected function detectProvider(): ?string
     {
-        $default = config('mail.default');
-        $config  = config("mail.mailers.{$default}", []);
+        $default   = config('mail.default');
+        $config    = config("mail.mailers.{$default}", []);
         $transport = $config['transport'] ?? $default;
 
-        return match ($transport) {
+        $direct = match ($transport) {
             'ses', 'ses-v2' => 'ses',
             'postmark'      => 'postmark',
             'mailgun'       => 'mailgun',
             'resend'        => 'resend',
             default         => null,
         };
+
+        if ($direct !== null) {
+            return $direct;
+        }
+
+        if ($transport === 'smtp') {
+            $host = (string) ($config['host'] ?? '');
+
+            foreach ($this->smtpHints as $needle => $provider) {
+                if ($host !== '' && str_contains($host, $needle)) {
+                    return $provider;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The absolute webhook URL the provider should POST events to — the named
+     * route when it's registered, otherwise built from APP_URL and the
+     * configured webhook path.
+     */
+    protected function webhookUrl(string $provider): string
+    {
+        try {
+            return route('webhook.postmaster', ['provider' => $provider]);
+        } catch (\Throwable $e) {
+            $base = rtrim((string) config('app.url'), '/');
+            $path = trim((string) config('postmaster.url', 'webhooks/postmaster'), '/');
+
+            return "{$base}/{$path}/{$provider}";
+        }
+    }
+
+    /**
+     * How to describe pointing the provider at the webhook URL. SES is special:
+     * events arrive via an SNS topic subscription rather than a webhook set
+     * directly in the provider dashboard.
+     */
+    protected function webhookVerb(string $provider): string
+    {
+        return $provider === 'ses'
+            ? 'Subscribe an SNS topic to this URL'
+            : "Point your {$provider} webhook at this URL";
     }
 
     /**
@@ -384,7 +493,7 @@ class Install extends Command
         }
 
         if (! confirm('Write them?', default: true)) {
-            note('Nothing written.');
+            warning('Skipped — nothing written to .env. The credentials above are not saved, so webhook auth (and the verify step) will fail until you add them yourself.');
             return;
         }
 

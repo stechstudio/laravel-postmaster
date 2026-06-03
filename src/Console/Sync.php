@@ -31,6 +31,18 @@ class Sync extends Command
 
     public function handle(Postmaster $postmaster): int
     {
+        $configured = array_keys(config('postmaster.providers', []));
+
+        if ($only = $this->option('provider')) {
+            if (! in_array($only, $configured, true)) {
+                $this->components->error(
+                    "Unknown provider \"{$only}\". Configured: ".(empty($configured) ? 'none' : implode(', ', $configured)).'.'
+                );
+
+                return self::FAILURE;
+            }
+        }
+
         $providers = $this->resolveProviders();
 
         if (empty($providers)) {

@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use STS\Postmaster\Console\Concerns\ResolvesProvider;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use Throwable;
@@ -21,6 +22,8 @@ use function Laravel\Prompts\text;
  */
 class VerifySetup extends Command
 {
+    use ResolvesProvider;
+
     protected $signature = 'postmaster:verify {--timeout=120 : Seconds to wait for a webhook}';
 
     protected $description = 'Send a test email and confirm delivery webhooks reach your app';
@@ -38,33 +41,6 @@ class VerifySetup extends Command
         EmailEvent::STATUS_BOUNCED,
         EmailEvent::STATUS_DROPPED,
         EmailEvent::STATUS_COMPLAINED,
-    ];
-
-    /**
-     * Mail transports that map directly to a Postmaster provider.
-     *
-     * @var array<string, string>
-     */
-    protected $transportProviders = [
-        'ses'      => 'ses',
-        'ses-v2'   => 'ses',
-        'postmark' => 'postmark',
-        'mailgun'  => 'mailgun',
-        'resend'   => 'resend',
-    ];
-
-    /**
-     * Substrings that identify a provider from an SMTP host — the clue when
-     * mail goes out over SMTP rather than a provider's API transport.
-     *
-     * @var array<string, string>
-     */
-    protected $smtpHints = [
-        'postmarkapp.com' => 'postmark',
-        'sendgrid.net'    => 'sendgrid',
-        'mailgun.org'     => 'mailgun',
-        'amazonaws.com'   => 'ses',
-        'resend.com'      => 'resend',
     ];
 
     public function handle(): int
@@ -183,62 +159,6 @@ class VerifySetup extends Command
         }
 
         return select('Which provider are you verifying?', $providers);
-    }
-
-    /**
-     * Guess the provider from the mail config: a direct transport match, or
-     * the SMTP host when mail goes out over SMTP.
-     *
-     * @return array{0: string|null, 1: string}
-     */
-    protected function guessProvider(): array
-    {
-        $transport = $this->mailTransport();
-
-        if ($transport === null) {
-            return [null, ''];
-        }
-
-        if (isset($this->transportProviders[$transport])) {
-            return [$this->transportProviders[$transport], "from the \"{$transport}\" mail transport"];
-        }
-
-        if ($transport === 'smtp') {
-            $host = (string) config('mail.mailers.'.config('mail.default').'.host');
-
-            foreach ($this->smtpHints as $needle => $provider) {
-                if ($host !== '' && str_contains($host, $needle)) {
-                    return [$provider, "from the SMTP host \"{$host}\""];
-                }
-            }
-        }
-
-        return [null, ''];
-    }
-
-    /**
-     * The transport name of the default mailer, e.g. "postmark" or "smtp".
-     */
-    protected function mailTransport(): ?string
-    {
-        $mailer = config('mail.default');
-
-        return $mailer ? config("mail.mailers.{$mailer}.transport") : null;
-    }
-
-    /**
-     * The absolute webhook URL the provider should POST events to.
-     */
-    protected function webhookUrl(string $provider): string
-    {
-        try {
-            return route('webhook.postmaster', ['provider' => $provider]);
-        } catch (Throwable $e) {
-            $base = rtrim((string) config('app.url'), '/');
-            $path = trim((string) config('postmaster.url', 'webhooks/postmaster'), '/');
-
-            return "{$base}/{$path}/{$provider}";
-        }
     }
 
     /**
@@ -429,7 +349,11 @@ class VerifySetup extends Command
                 .' — the webhook is just being rejected before it can be processed.'
             );
             $this->newLine();
-            $this->components->bulletList($this->authFailureGuidance($provider));
+            $this->components->bulletList(
+                $provider !== null
+                    ? $this->setupFor($provider)->authFailureGuidance()
+                    : $this->genericAuthFailureGuidance()
+            );
 
             return self::FAILURE;
         }
@@ -470,92 +394,18 @@ class VerifySetup extends Command
     }
 
     /**
-     * Concrete, provider-specific guidance for an auth failure — which .env
-     * variable carries the credential (and whether it's currently set), and
-     * roughly where to find the matching value in the provider's dashboard.
+     * Fallback guidance when the failing provider can't be identified — the
+     * per-provider specifics live on each ProviderSetup::authFailureGuidance().
      *
      * @return array<int, string>
      */
-    protected function authFailureGuidance(?string $provider): array
+    protected function genericAuthFailureGuidance(): array
     {
-        $clear = 'After editing .env, run `php artisan config:clear` — cached config keeps the old values.';
-
-        return match ($provider) {
-            'postmark'  => $this->postmarkGuidance($clear),
-            'sendgrid'  => [
-                'SendGrid signs events with an ECDSA key. POSTMASTER_SENDGRID_VERIFICATION_KEY '
-                    .$this->isSet(config('postmaster.providers.sendgrid.verification_key')).'.',
-                'In SendGrid: Settings → Mail Settings → Event Webhook, turn on "Enable Signed Event Webhook", '
-                    .'then copy the Verification Key into POSTMASTER_SENDGRID_VERIFICATION_KEY.',
-                $clear,
-            ],
-            'mailgun'   => [
-                'Mailgun signs webhooks with your HTTP webhook signing key. POSTMASTER_MAILGUN_SIGNING_KEY '
-                    .'(falls back to MAILGUN_SECRET) '.$this->isSet(config('postmaster.providers.mailgun.signing_key')).'.',
-                'In Mailgun: Send → Webhooks, copy the "HTTP webhook signing key" into POSTMASTER_MAILGUN_SIGNING_KEY '
-                    .'— this is the webhook signing key, not your sending API key.',
-                $clear,
-            ],
-            'resend'    => [
-                'Resend signs webhooks (Svix) with a whsec_ secret. POSTMASTER_RESEND_SIGNING_SECRET '
-                    .$this->isSet(config('postmaster.providers.resend.signing_secret')).'.',
-                'In Resend: Webhooks → select your endpoint → copy the "Signing Secret" (whsec_...) '
-                    .'into POSTMASTER_RESEND_SIGNING_SECRET.',
-                $clear,
-            ],
-            'ses'       => [
-                'SES delivers through SNS, which is verified against the signature embedded in each message '
-                    .'— there is no secret to set in .env.',
-                'A failure here usually means the request is not a genuine SNS message: confirm your SNS topic '
-                    .'subscription points at this exact URL, and that no proxy or middleware alters the raw request '
-                    .'body before it reaches your app.',
-            ],
-            default     => [
-                'Confirm the webhook auth credential matches what the provider sends (token, basic-auth, or signing secret).',
-                'For signature-based providers, check the signing secret and your server clock (skew breaks signatures).',
-                $clear,
-            ],
-        };
-    }
-
-    /**
-     * Postmark supports two auth modes; tailor the advice to the configured one.
-     *
-     * @return array<int, string>
-     */
-    protected function postmarkGuidance(string $clear): array
-    {
-        if (config('postmaster.providers.postmark.auth') === 'token') {
-            $param = config('postmaster.token_parameter', 'auth');
-
-            return [
-                "Postmark is configured for token auth. POSTMASTER_AUTH_TOKEN "
-                    .$this->isSet(config('postmaster.token')).'; the webhook URL must carry it as a query string '
-                    ."(?{$param}=...).",
-                "In Postmark: open your message stream → Webhooks tab → edit the webhook, and confirm its URL ends "
-                    ."with ?{$param}=<token> matching POSTMASTER_AUTH_TOKEN.",
-                $clear,
-            ];
-        }
-
-        $set = config('postmaster.basic_username') && config('postmaster.basic_password')
-            ? 'are set' : 'are NOT both set';
-
         return [
-            "Postmark uses HTTP basic auth by default. POSTMASTER_AUTH_USERNAME and POSTMASTER_AUTH_PASSWORD {$set}.",
-            'In Postmark: open your message stream → Webhooks tab → edit your webhook → expand the "Basic auth" '
-                .'section and confirm the username and password match POSTMASTER_AUTH_USERNAME / POSTMASTER_AUTH_PASSWORD.',
-            $clear,
+            'Confirm the webhook auth credential matches what the provider sends (token, basic-auth, or signing secret).',
+            'For signature-based providers, check the signing secret and your server clock (skew breaks signatures).',
+            'After editing .env, run `php artisan config:clear` — cached config keeps the old values.',
         ];
-    }
-
-    /**
-     * "is set" / "is NOT set" for a credential, so the guidance can call out a
-     * missing value outright rather than just "check it matches".
-     */
-    protected function isSet(mixed $value): string
-    {
-        return $value !== null && $value !== '' ? 'is set' : 'is NOT set';
     }
 
     /**

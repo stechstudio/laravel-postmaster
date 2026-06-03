@@ -20,7 +20,7 @@ use function Laravel\Prompts\text;
  * should POST to, sends a real test email, then watches for the delivery
  * webhook to come back — confirming the whole round trip end to end.
  */
-class VerifySetup extends Command
+class Verify extends Command
 {
     use ResolvesProvider;
 

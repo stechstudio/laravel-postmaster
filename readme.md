@@ -6,26 +6,19 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/stechstudio/laravel-postmaster.svg?style=flat-square)](https://packagist.org/packages/stechstudio/laravel-postmaster)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
 
-**Provider-agnostic email webhooks and delivery tracking for Laravel.**
+**Provider-agnostic email delivery tracking for Laravel.**
 
-Your app sends mail. Postmaster turns every webhook from SendGrid, Postmark,
-Mailgun, Amazon SES, and Resend into one normalized event:
+Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, or
+Resend. Postmaster handles everything those providers send back. It verifies
+each inbound webhook and normalizes them into one event your app listens for —
+so switching providers, running several at once, or failing over between them
+never touches your code.
 
-```php
-use STS\Postmaster\EmailEvent;
-
-Event::listen(function (EmailEvent $event) {
-    if ($event->isBounced()) {
-        // the address bounced; act on it
-    }
-});
-```
-
-Switch providers, run several at once, or fail over between them without
-touching that code. Run the migrations and Postmaster also records every
-outbound email and keeps it current as events arrive. You get a queryable
-delivery history, a self-maintaining suppression list, and a dashboard to
-browse it all.
+Run the migrations and it does more than dispatch events. It records every
+outbound email into a queryable delivery history and keeps each record current
+as events arrive. On top of that history it keeps a self-maintaining
+suppression list, links each email back to your own models, and ships a gated
+support dashboard to browse it all.
 
 ## What you get
 
@@ -38,10 +31,13 @@ browse it all.
 - **Verified by default.** Every inbound webhook is authenticated (by
   signature, token, or basic auth, depending on the provider), and anything it
   can't trust is rejected.
-- **Delivery tracking out of the box.** Run the migrations and Postmaster
-  records every send and keeps it current from the webhook stream. You get
+- **A queryable delivery history.** Run the migrations and Postmaster records
+  every send and keeps it current from the webhook stream. You get
   `delivered()`, `bounced()`, and `failed()` query scopes, a full per-message
-  timeline, and an address suppression list that maintains itself.
+  timeline, and the ability to replay any recorded email.
+- **A self-maintaining suppression list.** A hard bounce, complaint, or drop
+  suppresses an address automatically, and a later delivery clears it. Two-way
+  sync reconciles the list against each provider's own.
 - **Emails linked to your models.** Tie a send to an `Order` or a `User` and
   read its delivery state straight off the model.
 - **A support dashboard.** A gated, cross-tenant UI for searching messages,

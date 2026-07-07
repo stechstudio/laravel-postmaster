@@ -1010,8 +1010,11 @@ environment**, so the dashboard is never unguarded in production by accident.
   delivered. Requires stored content; attachments are not restored.
 
   The button is hidden when the recipient is currently suppressed — clear
-  the suppression first (the Addresses screen has the unsuppress action).
-  Rapid duplicate clicks are throttled per-message
+  the suppression first (the Addresses screen has the unsuppress action) — and
+  on a sandboxed message, which shows **Release** instead (a sandboxed message
+  was never sent, so there's nothing to resend). A message that was released,
+  and so is genuinely sent, is resendable like any other. Rapid duplicate
+  clicks are throttled per-message
   (`POSTMASTER_DASHBOARD_RESEND_THROTTLE_SECONDS=60` by default).
 - **Release.** On a *sandboxed* message, a Release button sends that one email
   for real — the deliberate opt-out from sandbox mode for a single message.

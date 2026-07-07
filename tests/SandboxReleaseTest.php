@@ -189,12 +189,12 @@ class SandboxReleaseTest extends TestCase
         $this->assertFalse($record->fresh()->isSandboxed());
     }
 
-    public function testResendIsHiddenWhileSandboxDeliveryIsActive()
+    public function testResendShowsOnASentMessageEvenUnderSandbox()
     {
         Postmaster::auth(fn () => true);
 
-        // A normal, genuinely-sent message — Resend would normally show, but
-        // under sandbox mode a resend can't actually go out, so it's hidden.
+        // Resend is gated on the message, not the delivery mode: a genuinely
+        // sent message is resendable even while sandbox mode is on globally.
         $record = EmailMessage::create([
             'provider_message_id' => 'real-1',
             'to_address'          => 'x@example.com',
@@ -204,20 +204,33 @@ class SandboxReleaseTest extends TestCase
 
         $this->get('/postmaster/messages/'.$record->getKey())
             ->assertOk()
+            ->assertSee(route('postmaster.messages.resend', $record), false);
+    }
+
+    public function testASandboxedMessageShowsReleaseNotResend()
+    {
+        Postmaster::auth(fn () => true);
+        $record = $this->sandboxOne();
+
+        $this->get('/postmaster/messages/'.$record->getKey())
+            ->assertOk()
+            ->assertSee(route('postmaster.messages.release', $record), false)
             ->assertDontSee(route('postmaster.messages.resend', $record), false);
     }
 
-    public function testAReleasedMessageShowsNeitherReleaseNorResend()
+    public function testAReleasedMessageShowsResendNotRelease()
     {
         Postmaster::auth(fn () => true);
         $record = $this->sandboxOne();
 
         Postmaster::release($record);
 
+        // Once released it's a normal sent message: Release is spent, Resend
+        // is now available.
         $this->get('/postmaster/messages/'.$record->getKey())
             ->assertOk()
             ->assertDontSee(route('postmaster.messages.release', $record), false)
-            ->assertDontSee(route('postmaster.messages.resend', $record), false);
+            ->assertSee(route('postmaster.messages.resend', $record), false);
     }
 
     public function testDashboardReleaseEndpointRefusesANonSandboxedMessage()

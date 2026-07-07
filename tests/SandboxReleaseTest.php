@@ -288,6 +288,22 @@ class SandboxReleaseTest extends TestCase
             ->assertSee(route('postmaster.messages.resend', $record), false);
     }
 
+    public function testDashboardReleaseFlashesAnErrorWhenTheSendFails()
+    {
+        Postmaster::auth(fn () => true);
+        $record = $this->sandboxOne();
+
+        // Simulate no working mail provider: the send throws.
+        Mail::shouldReceive('send')->andThrow(new \RuntimeException('no mail transport configured'));
+
+        $this->post(route('postmaster.messages.release', $record))
+            ->assertRedirect(route('postmaster.messages.show', $record))
+            ->assertSessionHas('postmasterError');
+
+        // The row is untouched — still sandboxed, releasable once mail works.
+        $this->assertTrue($record->fresh()->isSandboxed());
+    }
+
     public function testDashboardReleaseEndpointRefusesANonSandboxedMessage()
     {
         Postmaster::auth(fn () => true);

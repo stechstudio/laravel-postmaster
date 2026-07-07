@@ -401,6 +401,22 @@ class DashboardTest extends TestCase
         $this->assertTrue($mail->hasTag('resent'));
     }
 
+    public function testResendFlashesAnErrorWhenTheSendFails()
+    {
+        Postmaster::auth(fn () => true);
+        \Illuminate\Support\Facades\Mail::shouldReceive('send')->andThrow(new \RuntimeException('no mail transport configured'));
+
+        $message = EmailMessage::create([
+            'provider_message_id' => 'orig',
+            'to_address'          => 'alice@example.com',
+            'html_body'           => '<p>Thanks!</p>',
+        ]);
+
+        $this->post('/postmaster/messages/'.$message->getKey().'/resend')
+            ->assertRedirect('/postmaster/messages/'.$message->getKey())
+            ->assertSessionHas('postmasterError');
+    }
+
     public function testResendRefusesWhenNoContentIsStored()
     {
         Postmaster::auth(fn () => true);

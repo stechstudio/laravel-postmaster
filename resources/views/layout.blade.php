@@ -4,15 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Postmaster — @yield('title', 'Dashboard')</title>
-    <link rel="icon" type="image/png" href="{{ route('postmaster.logo') }}">
-    <link rel="stylesheet" href="{{ route('postmaster.css') }}">
-    <script defer src="{{ route('postmaster.alpine') }}"></script>
+    <link rel="icon" type="image/png" href="{{ \STS\Postmaster\Facades\Postmaster::asset('logo') }}">
+    <link rel="stylesheet" href="{{ \STS\Postmaster\Facades\Postmaster::asset('css') }}">
+    <script defer src="{{ \STS\Postmaster\Facades\Postmaster::asset('alpine') }}"></script>
 </head>
 <body class="pm-body">
 <div class="pm-layout">
     <aside class="pm-sidebar" x-data="{ navOpen: false }">
         <div class="pm-brand">
-            <img src="{{ route('postmaster.logo') }}" alt="" class="pm-brand-mark">
+            <img src="{{ \STS\Postmaster\Facades\Postmaster::asset('logo') }}" alt="" class="pm-brand-mark">
             Postmaster
         </div>
         <button type="button" class="pm-nav-toggle" @click="navOpen = ! navOpen"

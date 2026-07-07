@@ -506,6 +506,23 @@ class DashboardTest extends TestCase
         $this->assertStringContainsString('text/css', (string) $response->headers->get('Content-Type'));
     }
 
+    public function testAssetUrlsAreCacheBusted()
+    {
+        $url = app(\STS\Postmaster\Postmaster::class)->asset('css');
+
+        $this->assertStringStartsWith(route('postmaster.css'), $url);
+        $this->assertMatchesRegularExpression('/\?v=[0-9a-f]{8}$/', $url);
+    }
+
+    public function testDashboardLinksACacheBustedStylesheet()
+    {
+        Postmaster::auth(fn () => true);
+
+        $this->get('/postmaster/messages')
+            ->assertOk()
+            ->assertSee('assets/postmaster.css?v=', false);
+    }
+
     public function testMessageDetailShowsADeleteButton()
     {
         Postmaster::auth(fn () => true);

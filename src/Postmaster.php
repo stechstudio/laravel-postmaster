@@ -55,6 +55,13 @@ class Postmaster
     protected ?Closure $authCallback = null;
 
     /**
+     * Memoized content hashes for the bundled dashboard assets, keyed by name.
+     *
+     * @var array<string, string>
+     */
+    protected array $assetVersions = [];
+
+    /**
      * @param array<string, mixed> $config
      */
     public function __construct(array $config)
@@ -476,6 +483,36 @@ class Postmaster
         } finally {
             OutboundMetadata::setReleasing(null);
         }
+    }
+
+    /**
+     * A cache-busted URL for one of the dashboard's bundled assets ("css",
+     * "alpine", "logo"). The query string is a short hash of the file's
+     * contents, so a package upgrade that changes the file changes its URL —
+     * browsers fetch the new version instead of serving a stale cached copy.
+     * The assets are served from stable routes, so without this a heuristically
+     * cached stylesheet lingers until a hard refresh.
+     */
+    public function asset(string $name): string
+    {
+        static $files = [
+            'css'    => ['route' => 'postmaster.css',    'path' => '/../resources/dist/postmaster.css'],
+            'alpine' => ['route' => 'postmaster.alpine', 'path' => '/../resources/dist/alpine.js'],
+            'logo'   => ['route' => 'postmaster.logo',   'path' => '/../resources/images/postmaster-hat.png'],
+        ];
+
+        if (! isset($files[$name])) {
+            return route($name);
+        }
+
+        $url = route($files[$name]['route']);
+
+        if (! array_key_exists($name, $this->assetVersions)) {
+            $file = __DIR__.$files[$name]['path'];
+            $this->assetVersions[$name] = is_file($file) ? substr((string) md5_file($file), 0, 8) : '';
+        }
+
+        return $this->assetVersions[$name] === '' ? $url : $url.'?v='.$this->assetVersions[$name];
     }
 
     /**

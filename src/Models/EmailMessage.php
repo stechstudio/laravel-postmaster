@@ -285,6 +285,18 @@ class EmailMessage extends Model
     }
 
     /**
+     * Release this message if it was sandboxed — send it for real and flip
+     * the row to "sent". See Postmaster::release() for the full contract.
+     *
+     * Throws \RuntimeException when the message is not sandboxed (nothing to
+     * release, or already released) or has no stored content to send.
+     */
+    public function release(): ?\Illuminate\Mail\SentMessage
+    {
+        return Postmaster::release($this);
+    }
+
+    /**
      * Every message in this row's resend chain — the original at the root,
      * each subsequent resend below it, ordered by send time. Useful for
      * the dashboard's chain card and for answering "did any retry of this

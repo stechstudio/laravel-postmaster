@@ -106,6 +106,14 @@ class RecordOutboundMessage
     public function record(Email $message, ?string $messageId, string $status = EmailEvent::STATUS_SENT): ?EmailMessage
     {
         $metadata = OutboundMetadata::pull(spl_object_id($message));
+
+        // A release of a previously sandboxed message: the send just went out
+        // for real, so reconcile the original row(s) instead of writing new
+        // ones.
+        if (isset($metadata['release_of'])) {
+            return $this->reconcileRelease((int) $metadata['release_of'], $messageId, $status);
+        }
+
         $shared   = $this->sharedAttributes($message, $messageId, $status, $metadata);
         $envelope = $this->envelope($message);
 
@@ -138,6 +146,50 @@ class RecordOutboundMessage
             $this->touchAddress($entry['address']);
 
             $primary = $primary ?? $record;
+        }
+
+        return $primary;
+    }
+
+    /**
+     * Reconcile a released sandbox message. The email just went out for real,
+     * so swap the synthetic sandbox id on the original row(s) for the real
+     * provider message id (webhooks will now correlate), flip them from
+     * "sandboxed" to their true sent status, refresh sent_at, and log the
+     * release on the timeline. Every envelope-sibling row (To/Cc/Bcc) that
+     * shared the sandbox id transitions together.
+     */
+    protected function reconcileRelease(int $originalId, ?string $messageId, string $status): ?EmailMessage
+    {
+        $original = EmailMessage::model()->newQuery()->withoutGlobalScopes()->find($originalId);
+
+        if ($original === null) {
+            return null;
+        }
+
+        $sentAt  = now();
+        $primary = null;
+
+        // The sandbox recorder wrote one row per envelope recipient, all
+        // sharing the synthetic sandbox id — move the whole set together.
+        $rows = EmailMessage::model()->newQuery()->withoutGlobalScopes()
+            ->where('provider_message_id', $original->provider_message_id)
+            ->get();
+
+        foreach ($rows as $row) {
+            $row->forceFill([
+                'provider_message_id' => $messageId,
+                'status'              => $status,
+                'sent_at'             => $sentAt,
+            ])->save();
+
+            $this->recordActivity($row, [
+                'status'      => $status,
+                'reason'      => 'released from sandbox',
+                'occurred_at' => $sentAt,
+            ]);
+
+            $primary = $primary ?? $row;
         }
 
         return $primary;

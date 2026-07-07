@@ -22,6 +22,13 @@ class WorkbenchServiceProvider extends ServiceProvider
 
         config([
             'app.key' => 'base64:'.base64_encode('postmaster-workbench-local-key!!'),
+            // Run the preview in sandbox delivery so the seeded sandboxed
+            // messages and the Release action are faithful — this is the mode
+            // the feature exists for. The mailer is pinned to Laravel's log
+            // driver too, so clicking "Release" is safe (no real delivery)
+            // while still exercising the full release flow.
+            'mail.default'                           => 'log',
+            'postmaster.delivery'                    => 'sandbox',
             'postmaster.persistence.enabled'         => true,
             'postmaster.persistence.record_events'   => true,
             'postmaster.persistence.track_addresses' => true,

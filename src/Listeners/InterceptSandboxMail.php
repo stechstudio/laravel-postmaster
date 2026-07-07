@@ -5,6 +5,7 @@ namespace STS\Postmaster\Listeners;
 use Illuminate\Mail\Events\MessageSending;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Listeners\Concerns\MakesSyntheticMessageId;
+use STS\Postmaster\Support\OutboundMetadata;
 
 /**
  * Sandbox delivery: when "postmaster.delivery" is "sandbox", every outbound
@@ -34,6 +35,15 @@ class InterceptSandboxMail
     public function handle(MessageSending $event): ?bool
     {
         if (config('postmaster.delivery') !== 'sandbox') {
+            return null;
+        }
+
+        // A deliberate release of a previously sandboxed message: let it
+        // through to the transport. StashOutboundMetadata (which runs just
+        // before this listener) has already stashed the marker; peek at it
+        // without consuming it so RecordOutboundMessage can still reconcile
+        // the original row when MessageSent fires.
+        if (isset(OutboundMetadata::peek(spl_object_id($event->message))['release_of'])) {
             return null;
         }
 

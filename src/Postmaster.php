@@ -12,6 +12,7 @@ use STS\Postmaster\Contracts\ProviderSetup;
 use STS\Postmaster\Contracts\SuppressionSync;
 use STS\Postmaster\Http\Controllers\WebhookController;
 use STS\Postmaster\Http\Middleware\VerifyWebhook;
+use STS\Postmaster\Mail\ReleasedMessage;
 use STS\Postmaster\Mail\ResentMessage;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
@@ -422,6 +423,48 @@ class Postmaster
         }
 
         return Mail::send(new ResentMessage($record));
+    }
+
+    /**
+     * Release a previously *sandboxed* email: send it for real, then flip the
+     * existing record from "sandboxed" to "sent" with the real provider
+     * message id (so its webhooks correlate). Sandbox mode intercepts and
+     * suppresses outbound mail; this is the deliberate opt-out for a single
+     * message an operator has decided should actually go out.
+     *
+     * The send reuses the recorded row's stored content, so a release
+     * requires stored content. Attachments are not restored — the package
+     * only persists their filenames, never their bytes.
+     *
+     * Once released the row is no longer sandboxed, so it cannot be released
+     * again — a second call throws.
+     *
+     * Throws \RuntimeException when the message is not sandboxed (nothing to
+     * release, or already released) or has no stored content to send.
+     */
+    public function release(EmailMessage|int $message): ?SentMessage
+    {
+        $record = $message instanceof EmailMessage
+            ? $message
+            : EmailMessage::model()->newQuery()->withoutGlobalScopes()->findOrFail($message);
+
+        if (! $record->isSandboxed()) {
+            throw new \RuntimeException(
+                "Can't release email message #{$record->getKey()}: it is not sandboxed "
+                ."(status is \"{$record->status}\"). Only a sandboxed message can be released, "
+                ."and only once."
+            );
+        }
+
+        if (! $record->html_body && ! $record->text_body) {
+            throw new \RuntimeException(
+                "Can't release email message #{$record->getKey()}: no stored content to send. "
+                ."Sandboxed messages are only releasable when POSTMASTER_STORE_CONTENT was on "
+                ."at the time they were intercepted."
+            );
+        }
+
+        return Mail::send(new ReleasedMessage($record));
     }
 
     /**

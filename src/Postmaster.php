@@ -464,7 +464,18 @@ class Postmaster
             );
         }
 
-        return Mail::send(new ReleasedMessage($record));
+        // Flag the release for the duration of this synchronous send. Both
+        // InterceptSandboxMail (bypass the sandbox) and RecordOutboundMessage
+        // (reconcile this row instead of writing a new one) read the flag —
+        // reliably, rather than matching a marker across the send's events by
+        // object identity, which a real provider transport can defeat.
+        OutboundMetadata::setReleasing($record->getKey());
+
+        try {
+            return Mail::send(new ReleasedMessage($record));
+        } finally {
+            OutboundMetadata::setReleasing(null);
+        }
     }
 
     /**

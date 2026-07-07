@@ -198,7 +198,19 @@ class MessageController extends Controller
             Cache::put($cacheKey, true, now()->addSeconds($throttleSeconds));
         }
 
-        Postmaster::resend($record);
+        try {
+            Postmaster::resend($record);
+        } catch (\Throwable $e) {
+            // The send itself failed — e.g. no working mail provider is wired
+            // up. Report it for the logs, clear the throttle so a retry isn't
+            // blocked, and surface a flash rather than a 500.
+            report($e);
+            Cache::forget($cacheKey);
+
+            return redirect()
+                ->route('postmaster.messages.show', $record)
+                ->with('postmasterError', 'Resend failed — the email could not be sent. '.$e->getMessage());
+        }
 
         return redirect()
             ->route('postmaster.messages.show', $record)
@@ -236,7 +248,19 @@ class MessageController extends Controller
             Cache::put($cacheKey, true, now()->addSeconds($throttleSeconds));
         }
 
-        Postmaster::release($record);
+        try {
+            Postmaster::release($record);
+        } catch (\Throwable $e) {
+            // The send failed — commonly because sandbox mode is on locally
+            // with no real mail provider configured. The row is untouched
+            // (still sandboxed), so it can be released again once mail works.
+            report($e);
+            Cache::forget($cacheKey);
+
+            return redirect()
+                ->route('postmaster.messages.show', $record)
+                ->with('postmasterError', 'Release failed — the email could not be sent. '.$e->getMessage());
+        }
 
         return redirect()
             ->route('postmaster.messages.show', $record)

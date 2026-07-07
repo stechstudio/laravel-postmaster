@@ -197,13 +197,25 @@ class Verify extends Command
         }
 
         if (! $interactive) {
-            $this->components->error('Pass --to=you@example.com to choose where the test email is sent.');
+            // Fall back to the app's own from-address — a real, owned inbox —
+            // so the check can run with no arguments. A bounce there still
+            // proves the webhook path works.
+            $from = trim((string) config('mail.from.address'));
+
+            if (filter_var($from, FILTER_VALIDATE_EMAIL)) {
+                $this->components->info("No --to given; sending the test email to your from-address ({$from}).");
+
+                return $from;
+            }
+
+            $this->components->error('Pass --to=you@example.com to choose where the test email is sent (or set MAIL_FROM_ADDRESS).');
 
             return null;
         }
 
         return text(
             label: 'Send the test email to which address?',
+            default: (string) config('mail.from.address', ''),
             placeholder: 'you@example.com',
             required: true,
             validate: fn ($v) => filter_var(trim($v), FILTER_VALIDATE_EMAIL)

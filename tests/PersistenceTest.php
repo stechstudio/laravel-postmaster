@@ -1495,8 +1495,23 @@ class PersistenceTest extends TestCase
         $this->assertDatabaseHas('email_messages', ['to_address' => 'tester@example.com']);
     }
 
-    public function testVerifyNonInteractiveRequiresATo()
+    public function testVerifyNonInteractiveFallsBackToTheFromAddress()
     {
+        config(['cache.default' => 'array', 'mail.from.address' => 'sender@example.com']);
+
+        // No --to: the app's from-address is used, and the check still runs.
+        $this->artisan('postmaster:verify', ['--no-interaction' => true, '--provider' => 'postmark'])
+            ->expectsOutputToContain('from-address (sender@example.com)')
+            ->expectsOutputToContain('Test email sent to sender@example.com.')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('email_messages', ['to_address' => 'sender@example.com']);
+    }
+
+    public function testVerifyNonInteractiveErrorsWhenNoToAndNoFromAddress()
+    {
+        config(['mail.from.address' => null]);
+
         $this->artisan('postmaster:verify', ['--no-interaction' => true, '--provider' => 'postmark'])
             ->expectsOutputToContain('Pass --to=')
             ->assertExitCode(1);

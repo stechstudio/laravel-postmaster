@@ -42,8 +42,9 @@ support dashboard to browse it all.
   read its delivery state straight off the model.
 - **A support dashboard.** A gated, cross-tenant UI for searching messages,
   watching events arrive live, and inspecting any stored email.
-- **Sandbox delivery.** Intercept every outbound email in staging. It's
-  recorded in your app's history but never actually sent.
+- **Sandbox delivery.** Intercept every outbound email in staging — recorded
+  in your app's history but never actually sent — and release individual
+  messages for real from the dashboard when you're ready.
 
 ## Requirements
 
@@ -235,6 +236,11 @@ lands.
 The live watch needs a cache store shared between your CLI and web processes
 (`file`, `redis`, `database`, and so on). With the per-process `array` store
 the command sends the test email and stops there.
+
+It runs even while [sandbox delivery](#sandbox-delivery) is on: it warns that
+outbound mail is sandboxed, then sends one test email that bypasses the sandbox
+so you can confirm the whole round trip before switching `POSTMASTER_DELIVERY`
+to `normal`. Your delivery setting is left unchanged.
 
 ## The EmailEvent
 

@@ -60,7 +60,7 @@ class Setup extends AbstractProviderSetup
         )];
     }
 
-    public function authFailureGuidance(): array
+    public function webhookAuthGuidance(): array
     {
         return [
             'SendGrid signs events with an ECDSA key. POSTMASTER_SENDGRID_VERIFICATION_KEY '

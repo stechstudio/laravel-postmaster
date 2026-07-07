@@ -49,11 +49,13 @@ abstract class AbstractProviderSetup implements ProviderSetup
         return [];
     }
 
-    public function authFailureGuidance(): array
+    public function webhookAuthGuidance(): array
     {
         return [
-            'Confirm the webhook auth credential matches what the provider sends (token, basic-auth, or signing secret).',
-            'For signature-based providers, check the signing secret and your server clock (skew breaks signatures).',
+            'Set the webhook auth credential this provider uses (token, basic-auth, or signing secret) '
+                .'and configure the provider to send the matching value.',
+            'For signature-based providers, keep the signing secret in sync and your server clock accurate '
+                .'(skew breaks signatures).',
             $this->configClearReminder(),
         ];
     }

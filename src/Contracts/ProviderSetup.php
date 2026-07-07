@@ -64,11 +64,13 @@ interface ProviderSetup
     public function askSuppressionSync(): array;
 
     /**
-     * Concrete guidance, as bullet lines, for when an inbound webhook fails
-     * authorization — which env var carries the credential (and whether it's
-     * currently set), and where to find the value in the provider dashboard.
+     * Concrete guidance, as bullet lines, for setting up (or debugging) this
+     * provider's inbound-webhook authentication: which env var carries the
+     * credential and whether it's currently set, and what to configure on the
+     * provider side so its webhooks authenticate. Shown by postmaster:install
+     * as setup steps and by postmaster:verify when a webhook is rejected.
      *
      * @return array<int, string>
      */
-    public function authFailureGuidance(): array;
+    public function webhookAuthGuidance(): array;
 }

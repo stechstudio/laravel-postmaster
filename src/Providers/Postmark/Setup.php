@@ -83,7 +83,7 @@ class Setup extends AbstractProviderSetup
         )];
     }
 
-    public function authFailureGuidance(): array
+    public function webhookAuthGuidance(): array
     {
         if ($this->providerConfig('auth') === 'token') {
             $param = config('postmaster.token_parameter', 'auth');

@@ -150,10 +150,27 @@ class Install extends Command
             );
         }
 
+        // Always show the webhook-auth setup — a registered URL alone isn't
+        // enough. Every provider rejects unauthenticated webhooks, so the
+        // operator has to configure the credential on both sides (in .env and,
+        // for shared-secret providers like Postmark, on the provider's webhook
+        // too). We never echo secret values into the output; the guidance names
+        // the env vars and where to set them.
+        $this->newLine();
+        $this->line('  <options=bold>Webhook auth</> ('
+            .($setup->webhookAuthConfigured() ? '<fg=green>credential is set in your .env</>' : '<fg=yellow>credential is NOT set in your .env</>')
+            .'):');
+
+        // Use line() rather than components->bulletList(): the guidance lines
+        // are long and bulletList truncates to the terminal width, which would
+        // cut off the env var names and dashboard steps in a narrow terminal or
+        // an ~80-column deploy log.
+        foreach ($setup->webhookAuthGuidance() as $line) {
+            $this->line('    · '.$line);
+        }
+
         if (! $setup->webhookAuthConfigured()) {
-            $this->newLine();
-            $this->components->warn('The webhook auth credential is not set — inbound webhooks will be rejected until it is:');
-            $this->components->bulletList($setup->authFailureGuidance());
+            $this->components->warn('Until the credential is set, every inbound webhook is rejected.');
         }
 
         $this->newLine();

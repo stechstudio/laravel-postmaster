@@ -110,6 +110,27 @@ trait ResolvesProvider
     }
 
     /**
+     * Whether the command can actually prompt for input. This is stricter than
+     * $input->isInteractive() and mirrors how Laravel decides whether Laravel
+     * Prompts render: a real TTY is required. On a platform like Laravel Cloud
+     * the input reports interactive while there is no TTY — so a prompt would
+     * throw "Required." rather than fall back. Gating on isInteractive() first
+     * keeps --no-interaction authoritative (including under test).
+     */
+    protected function canPrompt(): bool
+    {
+        if (! $this->input->isInteractive()) {
+            return false;
+        }
+
+        if (app()->runningUnitTests()) {
+            return true;
+        }
+
+        return defined('STDIN') && @stream_isatty(STDIN);
+    }
+
+    /**
      * Resolve the provider for a non-interactive run: an explicit --provider
      * option (validated against the configured providers) or detection from the
      * mail config. Reports the reason and returns null when neither yields a

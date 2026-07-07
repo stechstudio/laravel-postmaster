@@ -69,7 +69,7 @@ class Verify extends Command
             $this->newLine();
         }
 
-        $interactive = $this->input->isInteractive();
+        $interactive = $this->canPrompt();
 
         $provider = $this->resolveProvider($interactive);
 

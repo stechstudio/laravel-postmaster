@@ -68,6 +68,20 @@ class EmailMessage extends Model
     ];
 
     /**
+     * Deleting a message takes its timeline with it — the activity rows have
+     * no database-level foreign key (email_message_id is a plain column), so
+     * they'd otherwise be orphaned. The resent_from_id foreign key is
+     * ON DELETE SET NULL, so any resends of this message simply lose their
+     * link rather than cascading away.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $message) {
+            $message->activity()->delete();
+        });
+    }
+
+    /**
      * A fresh instance of the configured (swappable) email message model. Use
      * this anywhere a query starts from — `EmailMessage::model()->newQuery()…`
      * — instead of `new (static::class)`, so an app that swapped in a custom

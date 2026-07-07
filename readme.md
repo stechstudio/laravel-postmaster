@@ -1023,6 +1023,13 @@ environment**, so the dashboard is never unguarded in production by accident.
   message id (so its webhooks correlate from then on). Because the row is no
   longer sandboxed it can't be released twice, and the button disappears.
   Requires stored content; shown in place of Resend on sandboxed rows.
+- **Delete.** A Delete button on the message detail page removes a record from
+  the stored history — for scrubbing PII or purging something that shouldn't
+  have been kept. It deletes the message row and its timeline; any resends of
+  it survive (their link is nulled), and other envelope recipients of the same
+  email are separate records, left untouched. The confirm dialog is explicit
+  that this only removes Postmaster's record — it does **not** recall or unsend
+  an email that already went out.
 - **Activity.** A filterable, paginated stream of every recorded event, drawn
   from the timeline (on by default with persistence).
 - **Addresses.** The suppression list.

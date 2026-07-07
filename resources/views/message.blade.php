@@ -19,26 +19,34 @@
 
     <div class="pm-detail-bar">
         <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">← Back to messages</a>
-        @if ($canRelease)
-            <form method="POST" action="{{ route('postmaster.messages.release', $message) }}"
-                  onsubmit="return confirm('Release this sandboxed email and send it for real to {{ $message->to_address }}? This can\'t be undone.')">
+        <div class="pm-detail-actions">
+            @if ($canRelease)
+                <form method="POST" action="{{ route('postmaster.messages.release', $message) }}"
+                      onsubmit="return confirm('Release this sandboxed email and send it for real to {{ $message->to_address }}? This can\'t be undone.')">
+                    @csrf
+                    <button type="submit" class="pm-btn"
+                            @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
+                        Release
+                    </button>
+                </form>
+            @endif
+            @if ($canResend)
+                <form method="POST" action="{{ route('postmaster.messages.resend', $message) }}"
+                      onsubmit="return confirm('Resend this email to {{ $message->to_address }}?')">
+                    @csrf
+                    <button type="submit" class="pm-btn"
+                            @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
+                        Resend
+                    </button>
+                </form>
+            @endif
+            <form method="POST" action="{{ route('postmaster.messages.destroy', $message) }}"
+                  onsubmit="return confirm('Delete this message from your stored history?\n\nThis only removes Postmaster\'s record of the email. It does NOT recall, unsend, or delete the message if it was already sent — a delivered email stays in the recipient\'s inbox.\n\nThis cannot be undone.')">
                 @csrf
-                <button type="submit" class="pm-btn"
-                        @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
-                    Release
-                </button>
+                @method('DELETE')
+                <button type="submit" class="pm-btn pm-btn--danger">Delete</button>
             </form>
-        @endif
-        @if ($canResend)
-            <form method="POST" action="{{ route('postmaster.messages.resend', $message) }}"
-                  onsubmit="return confirm('Resend this email to {{ $message->to_address }}?')">
-                @csrf
-                <button type="submit" class="pm-btn"
-                        @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
-                    Resend
-                </button>
-            </form>
-        @endif
+        </div>
     </div>
 
     <div class="pm-detail-grid">

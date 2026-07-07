@@ -260,6 +260,27 @@ class MessageController extends Controller
     }
 
     /**
+     * Delete a message from the stored history — for scrubbing PII or removing
+     * a record that should never have been kept. This only removes Postmaster's
+     * record (the row and its timeline); it does not recall or unsend an email
+     * that already went out. Other envelope recipients of the same email are
+     * separate records and are left untouched.
+     */
+    public function destroy(int|string $message): RedirectResponse
+    {
+        $record = $this->messageQuery()->findOrFail($message);
+
+        // The model's deleting hook removes the message's timeline activity;
+        // resent_from_id is ON DELETE SET NULL, so any resends just lose their
+        // link rather than being deleted too.
+        $record->delete();
+
+        return redirect()
+            ->route('postmaster.messages')
+            ->with('postmasterFlash', 'Message deleted from your history.');
+    }
+
+    /**
      * Every message recorded against a single recipient-model — the "person
      * view." The morph type is taken straight from the URL (any morph map
      * the app registered applies), so existing morph aliases work without

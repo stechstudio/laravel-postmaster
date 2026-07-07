@@ -51,20 +51,20 @@ class ProviderSetupTest extends TestCase
     public function testAuthFailureGuidanceCallsOutAMissingOrPresentCredential()
     {
         config(['postmaster.providers.resend.signing_secret' => null]);
-        $guidance = implode("\n", $this->resolve('resend')->authFailureGuidance());
+        $guidance = implode("\n", $this->resolve('resend')->webhookAuthGuidance());
         $this->assertStringContainsString('POSTMASTER_RESEND_SIGNING_SECRET is NOT set', $guidance);
 
         config(['postmaster.providers.resend.signing_secret' => 'whsec_abc']);
-        $guidance = implode("\n", $this->resolve('resend')->authFailureGuidance());
+        $guidance = implode("\n", $this->resolve('resend')->webhookAuthGuidance());
         $this->assertStringContainsString('POSTMASTER_RESEND_SIGNING_SECRET is set', $guidance);
     }
 
     public function testPostmarkAuthFailureGuidanceIsModeAware()
     {
         config(['postmaster.providers.postmark.auth' => 'token']);
-        $this->assertStringContainsString('token auth', implode("\n", $this->resolve('postmark')->authFailureGuidance()));
+        $this->assertStringContainsString('token auth', implode("\n", $this->resolve('postmark')->webhookAuthGuidance()));
 
         config(['postmaster.providers.postmark.auth' => 'basic']);
-        $this->assertStringContainsString('basic auth', implode("\n", $this->resolve('postmark')->authFailureGuidance()));
+        $this->assertStringContainsString('basic auth', implode("\n", $this->resolve('postmark')->webhookAuthGuidance()));
     }
 }

@@ -105,10 +105,11 @@ class InstallTest extends TestCase
 
         $this->artisan('postmaster:install', ['--no-interaction' => true, '--provider' => 'postmark'])
             ->expectsOutputToContain('not configured')
+            ->expectsOutputToContain('every inbound webhook is rejected')
             ->assertExitCode(0);
     }
 
-    public function testNonInteractiveInstallReportsConfiguredWebhookAuth()
+    public function testNonInteractiveInstallShowsAuthSetupEvenWhenConfigured()
     {
         config([
             'postmaster.providers.postmark.auth' => 'basic',
@@ -116,8 +117,14 @@ class InstallTest extends TestCase
             'postmaster.basic_password'          => 'secret',
         ]);
 
+        // The whole point: the provider-side auth setup steps are shown even
+        // when the .env credential is present — a registered URL alone won't
+        // authenticate. The env var names appear; secret values never do.
         $this->artisan('postmaster:install', ['--no-interaction' => true, '--provider' => 'postmark'])
             ->doesntExpectOutputToContain('not configured')
+            ->expectsOutputToContain('Basic auth')
+            ->expectsOutputToContain('POSTMASTER_AUTH_USERNAME')
+            ->doesntExpectOutputToContain('secret')   // the password value is never echoed
             ->assertExitCode(0);
     }
 }

@@ -404,8 +404,8 @@ class Verify extends Command
             $this->newLine();
             $this->components->bulletList(
                 $provider !== null
-                    ? $this->setupFor($provider)->authFailureGuidance()
-                    : $this->genericAuthFailureGuidance()
+                    ? $this->setupFor($provider)->webhookAuthGuidance()
+                    : $this->genericWebhookAuthGuidance()
             );
 
             return self::FAILURE;
@@ -448,11 +448,11 @@ class Verify extends Command
 
     /**
      * Fallback guidance when the failing provider can't be identified — the
-     * per-provider specifics live on each ProviderSetup::authFailureGuidance().
+     * per-provider specifics live on each ProviderSetup::webhookAuthGuidance().
      *
      * @return array<int, string>
      */
-    protected function genericAuthFailureGuidance(): array
+    protected function genericWebhookAuthGuidance(): array
     {
         return [
             'Confirm the webhook auth credential matches what the provider sends (token, basic-auth, or signing secret).',

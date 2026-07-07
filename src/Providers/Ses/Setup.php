@@ -52,14 +52,14 @@ class Setup extends AbstractProviderSetup
         return [];
     }
 
-    public function authFailureGuidance(): array
+    public function webhookAuthGuidance(): array
     {
         return [
             'SES delivers through SNS, which is verified against the signature embedded in each message '
                 .'— there is no secret to set in .env.',
-            'A failure here usually means the request is not a genuine SNS message: confirm your SNS topic '
-                .'subscription points at this exact URL, and that no proxy or middleware alters the raw request '
-                .'body before it reaches your app.',
+            'Subscribe an SNS topic to this exact URL (the subscription-confirmation handshake completes '
+                .'itself), and make sure no proxy or middleware alters the raw request body before it '
+                .'reaches your app — that would break signature verification.',
         ];
     }
 }

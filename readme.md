@@ -86,10 +86,17 @@ non-Postmaster lines alone. If you'd rather wire things up by hand,
 On a platform without a TTY — Laravel Cloud, CI, a deploy hook — the wizard
 can't prompt, so `postmaster:install` runs in report mode instead (also
 forced with `-n` / `--no-interaction`). It reads the already-configured
-provider from your environment and prints the webhook URL to register, how to
-point the provider at it, whether the webhook-auth credential is set, and the
+provider from your environment and prints the webhook URL to register and the
 current feature flags — writing nothing. Pass `--provider=` to override
 detection.
+
+It also prints that provider's **webhook-auth setup** — which credential it
+uses, whether it's set in your `.env`, and what to configure on the provider
+side so its webhooks authenticate (a registered URL alone isn't enough; every
+provider rejects unauthenticated webhooks). Secret values are never echoed —
+only the env var names — so it's safe to run in a deploy log. When the
+credential is missing it says so and warns that inbound webhooks will be
+rejected until it's set.
 
 ```bash
 php artisan postmaster:install --no-interaction --provider=sendgrid

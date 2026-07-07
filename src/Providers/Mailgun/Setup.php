@@ -75,7 +75,7 @@ class Setup extends AbstractProviderSetup
         return $vars;
     }
 
-    public function authFailureGuidance(): array
+    public function webhookAuthGuidance(): array
     {
         return [
             'Mailgun signs webhooks with your HTTP webhook signing key. POSTMASTER_MAILGUN_SIGNING_KEY '

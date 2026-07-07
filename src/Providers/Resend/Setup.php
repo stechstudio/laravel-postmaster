@@ -52,7 +52,7 @@ class Setup extends AbstractProviderSetup
         )];
     }
 
-    public function authFailureGuidance(): array
+    public function webhookAuthGuidance(): array
     {
         return [
             'Resend signs webhooks (Svix) with a whsec_ secret. POSTMASTER_RESEND_SIGNING_SECRET '

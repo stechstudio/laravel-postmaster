@@ -62,6 +62,51 @@
     </main>
 </div>
 <script>
+    // Filters auto-submit as a full-page GET reload, which would otherwise
+    // drop keyboard focus mid-word — you type into "Subject", the debounced
+    // submit fires, the page reloads, and the caret is gone. Stash the
+    // focused filter field's name and caret position just before the form
+    // submits, then restore both once the fresh page loads so typing feels
+    // continuous. Scoped to text inputs inside a .pm-filters form; selects
+    // and date pickers submit on change and don't need it.
+    (function () {
+        var KEY = 'pm-filter-focus';
+
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!form.classList || !form.classList.contains('pm-filters')) return;
+            var el = document.activeElement;
+            if (!el || el.tagName !== 'INPUT' || el.type !== 'text' || !form.contains(el)) return;
+            try {
+                sessionStorage.setItem(KEY, JSON.stringify({
+                    path: location.pathname,
+                    name: el.name,
+                    caret: el.selectionStart,
+                }));
+            } catch (err) { /* private mode — just lose focus */ }
+        }, true);
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var raw;
+            try { raw = sessionStorage.getItem(KEY); sessionStorage.removeItem(KEY); }
+            catch (err) { return; }
+            if (!raw) return;
+
+            var state;
+            try { state = JSON.parse(raw); } catch (err) { return; }
+            if (!state || state.path !== location.pathname) return;
+
+            var input = document.querySelector('.pm-filters input[name="' + state.name + '"]');
+            if (!input) return;
+
+            input.focus();
+            // Restore the caret (clamped — the value may be shorter now).
+            var pos = Math.min(state.caret == null ? input.value.length : state.caret, input.value.length);
+            try { input.setSelectionRange(pos, pos); } catch (err) { /* non-text input */ }
+        });
+    })();
+</script>
+<script>
     // Reformats every <time class="pm-when"> into the viewer's chosen
     // timezone, defaulting to whatever the browser reports and falling
     // back to UTC. The header toggle swaps between them; the choice

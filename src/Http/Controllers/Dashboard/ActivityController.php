@@ -45,7 +45,7 @@ class ActivityController extends Controller
             $query->whereHas('emailMessage', fn ($q) => $q->withoutGlobalScopes()->where(EmailMessage::tenantColumn(), $tenant));
         }
 
-        $this->applyDateRange($query, 'occurred_at', $request->query('from'), $request->query('to'));
+        $this->applyDateRange($query, 'occurred_at', $request->query('date_from'), $request->query('date_to'));
 
         return response()->view('postmaster::activity', [
             'entries'    => $query->paginate(50)->withQueryString(),

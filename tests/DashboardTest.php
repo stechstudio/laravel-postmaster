@@ -202,6 +202,40 @@ class DashboardTest extends TestCase
             ->assertSee('bob@example.com');
     }
 
+    public function testRecipientToFilterIsNotClobberedByTheEmptyDateRangeInput()
+    {
+        Postmaster::auth(fn () => true);
+        EmailMessage::create(['provider_message_id' => 'a1', 'to_address' => 'alice@example.com']);
+        EmailMessage::create(['provider_message_id' => 'b1', 'to_address' => 'bob@example.com']);
+
+        // A real browser submits the recipient "To" field alongside the
+        // (empty) date-range end input. Those used to share name="to", so the
+        // empty date input clobbered the recipient value and the filter never
+        // applied. The date range now submits date_to, so "To" stands alone.
+        $this->get('/postmaster/messages?to=alice&date_from=&date_to=')
+            ->assertOk()
+            ->assertSee('alice@example.com')
+            ->assertDontSee('bob@example.com');
+    }
+
+    public function testMessagesDateRangeFilterNarrowsByCreatedAt()
+    {
+        Postmaster::auth(fn () => true);
+        EmailMessage::create([
+            'provider_message_id' => 'old', 'to_address' => 'old@example.com',
+            'created_at' => '2026-01-01 10:00:00',
+        ]);
+        EmailMessage::create([
+            'provider_message_id' => 'new', 'to_address' => 'new@example.com',
+            'created_at' => '2026-06-15 10:00:00',
+        ]);
+
+        $this->get('/postmaster/messages?date_from=2026-06-01&date_to=2026-06-30')
+            ->assertOk()
+            ->assertSee('new@example.com')
+            ->assertDontSee('old@example.com');
+    }
+
     public function testAlpineIsServed()
     {
         Postmaster::auth(fn () => true);

@@ -505,4 +505,74 @@ class DashboardTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('text/css', (string) $response->headers->get('Content-Type'));
     }
+
+    public function testMessageDetailShowsADeleteButton()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'a@example.com']);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSee('Delete')
+            ->assertSee(route('postmaster.messages.destroy', $message), false)
+            // The confirm makes clear this doesn't unsend a delivered email.
+            ->assertSee('does NOT recall', false);
+    }
+
+    public function testDeleteRemovesTheMessageAndItsTimeline()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'a@example.com', 'subject' => 'Secret']);
+        EmailActivity::create(['email_message_id' => $message->getKey(), 'status' => 'sent', 'occurred_at' => now()]);
+        EmailActivity::create(['email_message_id' => $message->getKey(), 'status' => 'delivered', 'occurred_at' => now()]);
+
+        $this->delete('/postmaster/messages/'.$message->getKey())
+            ->assertRedirect('/postmaster/messages')
+            ->assertSessionHas('postmasterFlash');
+
+        $this->assertSame(0, EmailMessage::count());
+        $this->assertSame(0, EmailActivity::count());
+    }
+
+    public function testDeletingAMessageDeletesItsTimelineAtTheModelLevel()
+    {
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'a@example.com']);
+        EmailActivity::create(['email_message_id' => $message->getKey(), 'status' => 'sent', 'occurred_at' => now()]);
+
+        $message->delete();
+
+        $this->assertSame(0, EmailActivity::count());
+    }
+
+    public function testDeletingAMessageKeepsItsResends()
+    {
+        // Deleting a message must not cascade to its resends. (The resent_from_id
+        // link itself is ON DELETE SET NULL at the database level — enforced in
+        // production; SQLite here doesn't enforce foreign keys, so we assert the
+        // one thing that's ours: the resend row survives.)
+        $original = EmailMessage::create(['provider_message_id' => 'orig', 'to_address' => 'a@example.com']);
+        $resend   = EmailMessage::create([
+            'provider_message_id' => 'rs',
+            'to_address'          => 'a@example.com',
+            'resent_from_id'      => $original->getKey(),
+        ]);
+
+        $original->delete();
+
+        $this->assertNotNull($resend->fresh());
+    }
+
+    public function testDeletingOneRecipientLeavesSiblingsAndTheAddress()
+    {
+        Postmaster::auth(fn () => true);
+        $to = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'to@example.com', 'recipient_role' => 'to']);
+        $cc = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'cc@example.com', 'recipient_role' => 'cc']);
+        $address = EmailAddress::create(['address' => 'to@example.com', 'status' => EmailAddress::STATUS_ACTIVE]);
+
+        $this->delete('/postmaster/messages/'.$to->getKey())->assertRedirect('/postmaster/messages');
+
+        $this->assertNull(EmailMessage::find($to->getKey()));
+        $this->assertNotNull(EmailMessage::find($cc->getKey()));      // sibling untouched
+        $this->assertNotNull(EmailAddress::find($address->getKey())); // suppression row untouched
+    }
 }

@@ -189,6 +189,37 @@ class SandboxReleaseTest extends TestCase
         $this->assertFalse($record->fresh()->isSandboxed());
     }
 
+    public function testResendIsHiddenWhileSandboxDeliveryIsActive()
+    {
+        Postmaster::auth(fn () => true);
+
+        // A normal, genuinely-sent message — Resend would normally show, but
+        // under sandbox mode a resend can't actually go out, so it's hidden.
+        $record = EmailMessage::create([
+            'provider_message_id' => 'real-1',
+            'to_address'          => 'x@example.com',
+            'status'              => EmailEvent::STATUS_DELIVERED,
+            'html_body'           => '<p>hi</p>',
+        ]);
+
+        $this->get('/postmaster/messages/'.$record->getKey())
+            ->assertOk()
+            ->assertDontSee(route('postmaster.messages.resend', $record), false);
+    }
+
+    public function testAReleasedMessageShowsNeitherReleaseNorResend()
+    {
+        Postmaster::auth(fn () => true);
+        $record = $this->sandboxOne();
+
+        Postmaster::release($record);
+
+        $this->get('/postmaster/messages/'.$record->getKey())
+            ->assertOk()
+            ->assertDontSee(route('postmaster.messages.release', $record), false)
+            ->assertDontSee(route('postmaster.messages.resend', $record), false);
+    }
+
     public function testDashboardReleaseEndpointRefusesANonSandboxedMessage()
     {
         Postmaster::auth(fn () => true);

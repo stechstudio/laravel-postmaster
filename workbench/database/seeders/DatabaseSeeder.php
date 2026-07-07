@@ -112,6 +112,67 @@ class DatabaseSeeder extends Seeder
                 }
             }
         }
+
+        $this->seedSandboxed();
+    }
+
+    /**
+     * A few sandboxed messages — recorded but never actually sent — so the
+     * dashboard's Release action has something to act on under `composer
+     * serve`. They carry stored content (Release needs it) and no provider,
+     * matching what sandbox delivery produces. One has a Cc so the "release
+     * all envelope siblings together" behavior is visible.
+     */
+    protected function seedSandboxed(): void
+    {
+        $samples = [
+            ['subject' => 'Reset your password',   'to' => 'release-demo@example.com', 'cc' => null],
+            ['subject' => 'Your receipt from Acme', 'to' => 'sandbox-alice@acme.test', 'cc' => 'sandbox-cc@acme.test'],
+            ['subject' => 'Welcome to Acme',        'to' => 'sandbox-bob@mail.dev',    'cc' => null],
+        ];
+
+        foreach ($samples as $n => $sample) {
+            $sentAt     = now()->subHours(rand(1, 48));
+            $providerId = 'sandboxed-'.\Illuminate\Support\Str::uuid()->toString();
+
+            $shared = [
+                'provider'            => null,   // never reached a provider
+                'provider_message_id' => $providerId,
+                'subject'             => $sample['subject'],
+                'from_address'        => 'hello@acme.test',
+                'status'              => EmailEvent::STATUS_SANDBOXED,
+                'tenant_id'           => null,
+                'sent_at'             => $sentAt,
+                'last_event_at'       => null,
+                'tags'                => $this->tagsFor($sample['subject']),
+                'html_body'           => '<p style="font-family:sans-serif">This message was '
+                    .'intercepted by sandbox delivery — recorded, but never sent. Use '
+                    .'<strong>Release</strong> to send it for real.</p>',
+                'created_at'          => $sentAt,
+                'updated_at'          => $sentAt,
+            ];
+
+            $envelope = [['to', $sample['to']]];
+
+            if ($sample['cc']) {
+                $envelope[] = ['cc', $sample['cc']];
+            }
+
+            foreach ($envelope as [$role, $address]) {
+                $row = EmailMessage::create($shared + [
+                    'to_address'     => $address,
+                    'recipient_role' => $role,
+                ]);
+
+                EmailActivity::create([
+                    'email_message_id' => $row->getKey(),
+                    'provider'         => null,
+                    'status'           => EmailEvent::STATUS_SANDBOXED,
+                    'occurred_at'      => $sentAt,
+                    'created_at'       => $sentAt,
+                ]);
+            }
+        }
     }
 
     /**

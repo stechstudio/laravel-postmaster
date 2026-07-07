@@ -99,6 +99,9 @@ class MessageController extends Controller
 
     /**
      * Whether the Resend button should render on this row. False when:
+     *   - sandbox delivery is active (a resend can't actually go out — it
+     *     would just be intercepted and recorded as another sandboxed copy;
+     *     Release is the meaningful action in that mode), or
      *   - there's no stored content to replay, or
      *   - the recipient is currently suppressed locally (the dashboard
      *     wants the operator to clear the suppression intentionally before
@@ -107,9 +110,16 @@ class MessageController extends Controller
      */
     protected function canResend(EmailMessage $record): bool
     {
-        // A sandboxed message was never actually sent — the relevant action
-        // is Release (send this one for real), not Resend (replay as a new
-        // message, which under sandbox mode would just be caught again).
+        // While sandbox delivery is on, nothing can actually be sent, so a
+        // resend would only produce another sandboxed record. Offer Release
+        // (send an existing sandboxed message for real) instead.
+        if (config('postmaster.delivery') === 'sandbox') {
+            return false;
+        }
+
+        // A sandboxed message (e.g. one left over after sandbox mode was
+        // switched off) was never actually sent — Release is its action, not
+        // Resend, which would replay it as a separate new message.
         if ($record->isSandboxed()) {
             return false;
         }

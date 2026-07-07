@@ -109,9 +109,11 @@ class RecordOutboundMessage
 
         // A release of a previously sandboxed message: the send just went out
         // for real, so reconcile the original row(s) instead of writing new
-        // ones.
-        if (isset($metadata['release_of'])) {
-            return $this->reconcileRelease((int) $metadata['release_of'], $messageId, $status);
+        // ones. Postmaster::release() sets this flag for the duration of the
+        // send, so it's reliable regardless of how the transport handles the
+        // message.
+        if (($releaseOf = OutboundMetadata::releasing()) !== null) {
+            return $this->reconcileRelease($releaseOf, $messageId, $status);
         }
 
         $shared   = $this->sharedAttributes($message, $messageId, $status, $metadata);

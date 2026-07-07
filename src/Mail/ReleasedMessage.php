@@ -4,7 +4,6 @@ namespace STS\Postmaster\Mail;
 
 use Illuminate\Mail\Mailable;
 use STS\Postmaster\Models\EmailMessage;
-use STS\Postmaster\Support\OutboundMetadata;
 
 /**
  * Sends a previously *sandboxed* email for real. Used by the dashboard's
@@ -59,13 +58,15 @@ class ReleasedMessage extends Mailable
             // Mailable::text() takes a view name, not a raw string, so wrap
             // the text as a <pre> HTML body to satisfy content validation;
             // the authoritative text part is set on the Symfony message in
-            // markAsRelease() so the recipient still gets a faithful
+            // restoreTextAlternative() so the recipient still gets a faithful
             // multipart/alternative message.
             $this->html('<pre style="font-family:monospace;white-space:pre-wrap;">'
                 .e($this->record->text_body).'</pre>');
         }
 
-        $this->withSymfonyMessage($this->markAsRelease());
+        if ($this->record->text_body) {
+            $this->withSymfonyMessage($this->restoreTextAlternative());
+        }
 
         // Carry the original tags onto the real send — a release is the
         // genuine delivery of this message, so the provider should see the
@@ -78,23 +79,20 @@ class ReleasedMessage extends Mailable
     }
 
     /**
-     * Stamp the release marker and restore the text alternative. The marker
-     * is an in-process courier header, stripped by StashOutboundMetadata
-     * before the message reaches the transport.
+     * Restore the original text alternative on the outgoing message, so a
+     * message with both an html and text body is sent as a faithful
+     * multipart/alternative rather than html only.
+     *
+     * The release itself is flagged out-of-band by Postmaster::release()
+     * (see OutboundMetadata::releasing()), so nothing needs to travel on the
+     * message to identify it as a release.
      */
-    protected function markAsRelease(): \Closure
+    protected function restoreTextAlternative(): \Closure
     {
-        $record = $this->record;
+        $text = $this->record->text_body;
 
-        return function ($message) use ($record) {
-            if ($record->text_body) {
-                $message->text($record->text_body);
-            }
-
-            $message->getHeaders()->addTextHeader(
-                OutboundMetadata::HEADER_RELEASE_OF,
-                (string) $record->getKey()
-            );
+        return function ($message) use ($text) {
+            $message->text($text);
         };
     }
 }

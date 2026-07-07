@@ -26,7 +26,6 @@ class StashOutboundMetadata
         OutboundMetadata::HEADER_TENANT         => 'tenant',
         OutboundMetadata::HEADER_STORE_CONTENT  => 'store_content',
         OutboundMetadata::HEADER_RESENT_FROM    => 'resent_from',
-        OutboundMetadata::HEADER_RELEASE_OF     => 'release_of',
     ];
 
     public function handle(MessageSending $event): void

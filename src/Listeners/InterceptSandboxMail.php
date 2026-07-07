@@ -39,11 +39,10 @@ class InterceptSandboxMail
         }
 
         // A deliberate release of a previously sandboxed message: let it
-        // through to the transport. StashOutboundMetadata (which runs just
-        // before this listener) has already stashed the marker; peek at it
-        // without consuming it so RecordOutboundMessage can still reconcile
-        // the original row when MessageSent fires.
-        if (isset(OutboundMetadata::peek(spl_object_id($event->message))['release_of'])) {
+        // through to the transport. Postmaster::release() flags the release
+        // for the duration of its synchronous send; RecordOutboundMessage
+        // reads the same flag to reconcile the original row.
+        if (OutboundMetadata::releasing() !== null) {
             return null;
         }
 

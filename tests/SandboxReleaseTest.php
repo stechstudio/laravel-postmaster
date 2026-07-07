@@ -3,10 +3,13 @@
 namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailMessage;
+use STS\Postmaster\Support\OutboundMetadata;
 
 /**
  * The dashboard's "Release" action: send a previously sandboxed email for
@@ -76,6 +79,58 @@ class SandboxReleaseTest extends TestCase
         // Under the array test transport the sent status is "captured"; behind
         // a real provider (the usual sandbox setup) it is "sent".
         $this->assertSame(EmailEvent::STATUS_CAPTURED, $fresh->status);
+    }
+
+    public function testReleaseReconcilesEvenWhenTheMessageMetadataBridgeIsBroken()
+    {
+        // Reproduces the production failure: with a real provider transport,
+        // the per-message marker that used to identify a release could fail to
+        // survive from MessageSending to MessageSent, so the recorder wrote a
+        // brand-new message instead of reconciling. Simulate that by consuming
+        // the message's stashed metadata mid-send — the release must still
+        // reconcile in place, because it's flagged out-of-band, not on the
+        // message.
+        Event::listen(MessageSending::class, function ($event) {
+            OutboundMetadata::pull(spl_object_id($event->message));
+        });
+
+        $record = $this->sandboxOne();
+        $this->assertDatabaseCount('email_messages', 1);
+
+        Postmaster::release($record);
+
+        $this->assertDatabaseCount('email_messages', 1);        // no duplicate
+        $this->assertFalse($record->fresh()->isSandboxed());     // reconciled in place
+        $this->assertStringStartsNotWith('sandboxed-', (string) $record->fresh()->provider_message_id);
+    }
+
+    public function testReleaseCarriesNoReleaseMarkerOnTheWire()
+    {
+        // The release is identified out-of-band; nothing about it should ride
+        // on the outgoing message.
+        $captured = null;
+        Event::listen(MessageSending::class, function ($event) use (&$captured) {
+            $captured = $event->message->getHeaders()->toArray();
+        });
+
+        $record = $this->sandboxOne();
+        Postmaster::release($record);
+
+        $this->assertIsArray($captured);
+        $this->assertEmpty(array_filter(
+            $captured,
+            fn ($line) => str_contains(strtolower($line), 'x-postmaster-release')
+        ));
+    }
+
+    public function testReleasingFlagIsClearedAfterTheSend()
+    {
+        $record = $this->sandboxOne();
+
+        Postmaster::release($record);
+
+        // The flag must not leak into subsequent ordinary sends.
+        $this->assertNull(OutboundMetadata::releasing());
     }
 
     public function testReleaseUpdatesTheExistingRowRatherThanCreatingANewOne()

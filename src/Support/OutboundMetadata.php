@@ -35,15 +35,23 @@ class OutboundMetadata
     // their Tracking object. Written to the new row's resent_from_id
     // column for the dashboard's chain card.
     const HEADER_RESENT_FROM    = 'X-Postmaster-Resent-From';
-    // Id of the sandboxed EmailMessage this send is releasing. Set by
-    // Postmaster::release() via the ReleasedMessage mailable. Tells
-    // InterceptSandboxMail to let the send through (rather than cancelling
-    // it) and RecordOutboundMessage to reconcile the existing sandboxed
-    // row(s) instead of creating new ones.
-    const HEADER_RELEASE_OF     = 'X-Postmaster-Release-Of';
 
     /** @var array<int, array<string, mixed>> */
     protected static array $pending = [];
+
+    /**
+     * The id of the sandboxed EmailMessage currently being released, or null.
+     *
+     * A release is a synchronous Mail::send() — so rather than carry a marker
+     * on the message and match it across the MessageSending/MessageSent events
+     * by object identity (fragile: real provider transports can hand the two
+     * events different message instances, dropping the marker), Postmaster::
+     * release() simply sets this flag for the duration of the send. Both
+     * InterceptSandboxMail (bypass the sandbox) and RecordOutboundMessage
+     * (reconcile the existing row instead of writing a new one) read it
+     * directly. It cannot be lost in transit.
+     */
+    protected static ?int $releasing = null;
 
     /**
      * @param array<string, mixed> $attributes
@@ -51,19 +59,6 @@ class OutboundMetadata
     public static function remember(int $objectId, array $attributes): void
     {
         static::$pending[$objectId] = $attributes;
-    }
-
-    /**
-     * Read the metadata stashed for the given message without forgetting it.
-     * Used by MessageSending-time listeners (e.g. InterceptSandboxMail) that
-     * need to inspect the stash before RecordOutboundMessage pulls it at
-     * MessageSent.
-     *
-     * @return array<string, mixed>
-     */
-    public static function peek(int $objectId): array
-    {
-        return static::$pending[$objectId] ?? [];
     }
 
     /**
@@ -78,5 +73,22 @@ class OutboundMetadata
         unset(static::$pending[$objectId]);
 
         return $attributes;
+    }
+
+    /**
+     * Mark (or clear) the sandboxed message being released right now.
+     */
+    public static function setReleasing(?int $messageId): void
+    {
+        static::$releasing = $messageId;
+    }
+
+    /**
+     * The id of the sandboxed message being released in the current send, or
+     * null when this is an ordinary send.
+     */
+    public static function releasing(): ?int
+    {
+        return static::$releasing;
     }
 }

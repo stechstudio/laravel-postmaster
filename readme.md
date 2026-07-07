@@ -1010,8 +1010,11 @@ environment**, so the dashboard is never unguarded in production by accident.
   delivered. Requires stored content; attachments are not restored.
 
   The button is hidden when the recipient is currently suppressed — clear
-  the suppression first (the Addresses screen has the unsuppress action).
-  Rapid duplicate clicks are throttled per-message
+  the suppression first (the Addresses screen has the unsuppress action) — and
+  on a sandboxed message, which shows **Release** instead (a sandboxed message
+  was never sent, so there's nothing to resend). A message that was released,
+  and so is genuinely sent, is resendable like any other. Rapid duplicate
+  clicks are throttled per-message
   (`POSTMASTER_DASHBOARD_RESEND_THROTTLE_SECONDS=60` by default).
 - **Release.** On a *sandboxed* message, a Release button sends that one email
   for real — the deliberate opt-out from sandbox mode for a single message.
@@ -1083,8 +1086,13 @@ usual delivery/open/bounce webhooks correlate to it from then on.
 > which point Laravel's `log` mailer is the simpler tool.
 
 Because sandbox silently drops *all* mail, enabling it in `production` is almost
-never intended. Postmaster logs a warning at boot if it sees that, and
-`postmaster:verify` reports it rather than attempting a round-trip check.
+never intended. Postmaster logs a warning at boot if it sees that.
+
+`postmaster:verify` still runs the full round trip while sandbox is on — it
+warns that delivery is sandboxed, then sends a single test email that bypasses
+the sandbox (the same escape hatch as Release) so you can confirm your webhook
+setup works before flipping `POSTMASTER_DELIVERY` to `normal`. Your delivery
+setting is left unchanged.
 
 The `POSTMASTER_DELIVERY` setting is an enum, and `normal` is the default. A
 `redirect` mode, which would send every email to a single catch-all address, is

@@ -98,28 +98,23 @@ class MessageController extends Controller
     }
 
     /**
-     * Whether the Resend button should render on this row. False when:
-     *   - sandbox delivery is active (a resend can't actually go out — it
-     *     would just be intercepted and recorded as another sandboxed copy;
-     *     Release is the meaningful action in that mode), or
+     * Whether the Resend button should render on this row. Gated on the
+     * message itself, not the global delivery mode. False when:
+     *   - the message is sandboxed (never actually sent — its action is
+     *     Release, which sends this one for real; a resend would instead
+     *     replay it as a separate new message), or
      *   - there's no stored content to replay, or
      *   - the recipient is currently suppressed locally (the dashboard
      *     wants the operator to clear the suppression intentionally before
      *     re-sending). Operator can still resend via the EmailMessage::resend()
      *     API from their own code — this is just the dashboard's UX choice.
+     *
+     * A message that was released (and so is genuinely sent) is resendable
+     * like any other sent message, even while sandbox mode is on globally —
+     * the resend is simply itself sandboxed, then releasable in turn.
      */
     protected function canResend(EmailMessage $record): bool
     {
-        // While sandbox delivery is on, nothing can actually be sent, so a
-        // resend would only produce another sandboxed record. Offer Release
-        // (send an existing sandboxed message for real) instead.
-        if (config('postmaster.delivery') === 'sandbox') {
-            return false;
-        }
-
-        // A sandboxed message (e.g. one left over after sandbox mode was
-        // switched off) was never actually sent — Release is its action, not
-        // Resend, which would replay it as a separate new message.
         if ($record->isSandboxed()) {
             return false;
         }

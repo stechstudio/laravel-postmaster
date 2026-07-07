@@ -47,22 +47,23 @@ class Verify extends Command
     {
         $this->components->info('Verifying your Postmaster setup.');
 
-        if (config('postmaster.delivery') === 'sandbox') {
+        // Sandbox delivery suppresses all outbound mail — but an admin might
+        // reasonably keep it on until they've confirmed everything works. So
+        // rather than refusing, warn loudly and send a single real test email
+        // that bypasses the sandbox (the same escape hatch the dashboard's
+        // Release action uses), leaving the POSTMASTER_DELIVERY setting alone.
+        $sandboxed = config('postmaster.delivery') === 'sandbox';
+
+        if ($sandboxed) {
             $this->newLine();
             $this->components->warn(
-                'Sandbox delivery is enabled (POSTMASTER_DELIVERY=sandbox), so outbound mail '
-                .'is intercepted and never sent — a test email cannot produce a delivery '
-                .'webhook. Set POSTMASTER_DELIVERY=normal to run the full round-trip check.'
+                'Sandbox delivery is enabled (POSTMASTER_DELIVERY=sandbox). Your app intercepts '
+                .'and suppresses all outbound mail, so nothing reaches real recipients while it '
+                .'stays on. For this check only, Postmaster will send ONE real test email — '
+                .'bypassing the sandbox — to confirm the delivery-webhook round trip. Your '
+                .'POSTMASTER_DELIVERY setting is not changed.'
             );
-
-            if (! config('postmaster.persistence.enabled')) {
-                $this->components->warn(
-                    'Sandbox is also running without persistence (POSTMASTER_PERSISTENCE=false), '
-                    .'so intercepted mail is suppressed but recorded nowhere.'
-                );
-            }
-
-            return self::FAILURE;
+            $this->newLine();
         }
 
         $provider = $this->resolveProvider();
@@ -106,7 +107,7 @@ class Verify extends Command
 
         $address = $this->askForAddress();
 
-        $messageId = $this->sendTestEmail($address);
+        $messageId = $this->sendTestEmail($address, bypassSandbox: $sandboxed);
 
         if ($messageId === false) {
             return self::FAILURE;
@@ -211,13 +212,19 @@ class Verify extends Command
     /**
      * Send the test email. Returns the sent message id, null if it sent but
      * no id was available, or false if the send failed (already reported).
+     *
+     * When $bypassSandbox is true the send runs with sandbox delivery briefly
+     * switched off, so the one test email reaches the transport even while
+     * POSTMASTER_DELIVERY=sandbox.
      */
-    protected function sendTestEmail(string $address): string|null|false
+    protected function sendTestEmail(string $address, bool $bypassSandbox = false): string|null|false
     {
+        $send = fn () => Mail::raw($this->body(), function ($message) use ($address) {
+            $message->to($address)->subject('Postmaster setup verification');
+        });
+
         try {
-            $sent = Mail::raw($this->body(), function ($message) use ($address) {
-                $message->to($address)->subject('Postmaster setup verification');
-            });
+            $sent = $bypassSandbox ? $this->withoutSandbox($send) : $send();
 
             return $sent?->getMessageId();
         } catch (Throwable $e) {
@@ -226,6 +233,28 @@ class Verify extends Command
             $this->line('  <fg=red>'.$e->getMessage().'</>');
 
             return false;
+        }
+    }
+
+    /**
+     * Run a callback with sandbox delivery temporarily switched off, so a
+     * single send reaches the transport even while POSTMASTER_DELIVERY=sandbox.
+     * The InterceptSandboxMail listener reads this config at send time, so
+     * flipping it here is enough; the original value is always restored.
+     *
+     * @template T
+     * @param  \Closure(): T $callback
+     * @return T
+     */
+    protected function withoutSandbox(\Closure $callback)
+    {
+        $original = config('postmaster.delivery');
+        config(['postmaster.delivery' => 'normal']);
+
+        try {
+            return $callback();
+        } finally {
+            config(['postmaster.delivery' => $original]);
         }
     }
 

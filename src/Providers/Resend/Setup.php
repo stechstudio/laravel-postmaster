@@ -35,6 +35,11 @@ class Setup extends AbstractProviderSetup
         return false;
     }
 
+    public function webhookAuthConfigured(): bool
+    {
+        return (bool) $this->providerConfig('signing_secret');
+    }
+
     public function askWebhookAuth(): array
     {
         note('Resend signs webhooks via Svix. Find the signing secret in your Resend Webhooks dashboard — it starts with "whsec_".');

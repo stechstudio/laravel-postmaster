@@ -44,6 +44,14 @@ interface ProviderSetup
      */
     public function askWebhookAuth(): array;
 
+    /**
+     * Whether the credential this provider needs to authenticate inbound
+     * webhooks is currently configured. True for providers that need none
+     * (SES verifies SNS signatures against AWS's certs). Used by a
+     * non-interactive `postmaster:install` to report setup completeness.
+     */
+    public function webhookAuthConfigured(): bool;
+
     /** Whether this provider exposes a suppression list worth syncing. */
     public function supportsSuppressionSync(): bool;
 

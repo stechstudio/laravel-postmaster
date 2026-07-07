@@ -24,7 +24,10 @@ class Verify extends Command
 {
     use ResolvesProvider;
 
-    protected $signature = 'postmaster:verify {--timeout=120 : Seconds to wait for a webhook}';
+    protected $signature = 'postmaster:verify
+        {--timeout=120 : Seconds to wait for a webhook}
+        {--provider= : The provider to verify (defaults to auto-detection)}
+        {--to= : Recipient for the test email (required for a non-interactive run)}';
 
     protected $description = 'Send a test email and confirm delivery webhooks reach your app';
 
@@ -66,7 +69,9 @@ class Verify extends Command
             $this->newLine();
         }
 
-        $provider = $this->resolveProvider();
+        $interactive = $this->input->isInteractive();
+
+        $provider = $this->resolveProvider($interactive);
 
         if ($provider === null) {
             return self::FAILURE;
@@ -89,7 +94,9 @@ class Verify extends Command
             $this->newLine();
         }
 
-        if (! confirm("Have you set that webhook URL in your {$provider} dashboard?")) {
+        // Interactively we confirm the webhook is registered before spending a
+        // send; non-interactively we can't ask, so we assume it's set and run.
+        if ($interactive && ! confirm("Have you set that webhook URL in your {$provider} dashboard?")) {
             $this->components->warn("Add the webhook URL above in your {$provider} dashboard, then run this command again.");
 
             return self::FAILURE;
@@ -105,7 +112,11 @@ class Verify extends Command
             );
         }
 
-        $address = $this->askForAddress();
+        $address = $this->resolveAddress($interactive);
+
+        if ($address === null) {
+            return self::FAILURE;
+        }
 
         $messageId = $this->sendTestEmail($address, bypassSandbox: $sandboxed);
 
@@ -121,7 +132,7 @@ class Verify extends Command
             return self::SUCCESS;
         }
 
-        return $this->waitForWebhook($messageId, max(0, (int) $this->option('timeout')));
+        return $this->waitForWebhook($messageId, max(0, (int) $this->option('timeout')), $interactive);
     }
 
     /**
@@ -136,11 +147,15 @@ class Verify extends Command
     }
 
     /**
-     * Decide which provider to verify — detected from the mail config where
-     * possible, confirmed with (or chosen by) the user.
+     * Decide which provider to verify — from --provider, detected from the mail
+     * config, or (interactively) confirmed with / chosen by the operator.
      */
-    protected function resolveProvider(): ?string
+    protected function resolveProvider(bool $interactive): ?string
     {
+        if (! $interactive || $this->option('provider')) {
+            return $this->resolveProviderNonInteractively($this->option('provider'));
+        }
+
         $providers = array_keys(config('postmaster.providers', []));
 
         if (empty($providers)) {
@@ -163,41 +178,30 @@ class Verify extends Command
     }
 
     /**
-     * Whether a URL's host is a local/private address a provider's servers
-     * could not POST a webhook to.
+     * The recipient for the test email — from --to, or (interactively) prompted.
+     * Returns null (after reporting) when a non-interactive run has no --to, or
+     * when the supplied address is invalid.
      */
-    protected function looksLocal(string $url): bool
+    protected function resolveAddress(bool $interactive): ?string
     {
-        $host = parse_url($url, PHP_URL_HOST);
+        if ($given = $this->option('to')) {
+            $given = trim($given);
 
-        if (! is_string($host) || $host === '') {
-            return true;
-        }
+            if (! filter_var($given, FILTER_VALIDATE_EMAIL)) {
+                $this->components->error("\"{$given}\" is not a valid email address.");
 
-        $host = strtolower($host);
-
-        if (in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)) {
-            return true;
-        }
-
-        foreach (['.test', '.local', '.localhost', '.example', '.invalid'] as $tld) {
-            if (str_ends_with($host, $tld)) {
-                return true;
+                return null;
             }
+
+            return $given;
         }
 
-        if (filter_var($host, FILTER_VALIDATE_IP)) {
-            return ! filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        if (! $interactive) {
+            $this->components->error('Pass --to=you@example.com to choose where the test email is sent.');
+
+            return null;
         }
 
-        return false;
-    }
-
-    /**
-     * Prompt for a real recipient address, re-asking until one is valid.
-     */
-    protected function askForAddress(): string
-    {
         return text(
             label: 'Send the test email to which address?',
             placeholder: 'you@example.com',
@@ -265,7 +269,7 @@ class Verify extends Command
      * The webhook arrives in a separate process; RelayVerificationEvent mirrors
      * matching events into the cache, which this loop polls.
      */
-    protected function waitForWebhook(string $messageId, int $timeout): int
+    protected function waitForWebhook(string $messageId, int $timeout, bool $interactive = true): int
     {
         Cache::forget(RelayVerificationEvent::EVENTS_KEY);
         Cache::forget(RelayVerificationEvent::AUTH_FAILED_KEY);
@@ -281,6 +285,12 @@ class Verify extends Command
         $authFailed = null;
 
         $this->newLine();
+
+        // No live spinner without a terminal (logs, CI) — just note the wait
+        // once; events still print as they land.
+        if (! $interactive) {
+            $this->line("  Waiting up to {$timeout}s for a webhook...");
+        }
 
         while (($elapsed = microtime(true) - $start) < $timeout && $terminal === null && $authFailed === null) {
             if (microtime(true) - $lastPoll >= 1.0) {
@@ -312,12 +322,14 @@ class Verify extends Command
             }
 
             if ($terminal === null && $authFailed === null) {
-                $this->output->write(sprintf(
-                    "\r %s %s  <fg=gray>%ds</>   ",
-                    $frames[$frame++ % count($frames)],
-                    $shown > 0 ? 'Watching for the delivery webhook...' : 'Waiting for a webhook...',
-                    (int) $elapsed
-                ));
+                if ($interactive) {
+                    $this->output->write(sprintf(
+                        "\r %s %s  <fg=gray>%ds</>   ",
+                        $frames[$frame++ % count($frames)],
+                        $shown > 0 ? 'Watching for the delivery webhook...' : 'Waiting for a webhook...',
+                        (int) $elapsed
+                    ));
+                }
 
                 usleep(125000);
             }

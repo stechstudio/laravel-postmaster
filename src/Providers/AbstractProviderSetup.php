@@ -32,6 +32,13 @@ abstract class AbstractProviderSetup implements ProviderSetup
         return "Point your {$this->label()} webhook at this URL";
     }
 
+    public function webhookAuthConfigured(): bool
+    {
+        // Default for providers that need no operator-supplied credential
+        // (SES). Providers that do need one override this.
+        return true;
+    }
+
     public function supportsSuppressionSync(): bool
     {
         return true;

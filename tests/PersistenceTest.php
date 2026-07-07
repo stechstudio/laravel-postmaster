@@ -1478,6 +1478,61 @@ class PersistenceTest extends TestCase
         $this->assertDatabaseHas('email_messages', ['to_address' => 'tester@example.com']);
     }
 
+    public function testVerifyRunsNonInteractivelyWithProviderAndTo()
+    {
+        config(['cache.default' => 'array']);
+
+        // No prompts: provider and recipient come from options, the "have you
+        // set the webhook?" confirm is skipped, and the test email still sends.
+        $this->artisan('postmaster:verify', [
+            '--no-interaction' => true,
+            '--provider'       => 'postmark',
+            '--to'             => 'tester@example.com',
+        ])
+            ->expectsOutputToContain('Test email sent to tester@example.com.')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('email_messages', ['to_address' => 'tester@example.com']);
+    }
+
+    public function testVerifyNonInteractiveRequiresATo()
+    {
+        $this->artisan('postmaster:verify', ['--no-interaction' => true, '--provider' => 'postmark'])
+            ->expectsOutputToContain('Pass --to=')
+            ->assertExitCode(1);
+    }
+
+    public function testVerifyNonInteractiveRejectsAnUnknownProvider()
+    {
+        $this->artisan('postmaster:verify', [
+            '--no-interaction' => true,
+            '--to'             => 'x@example.com',
+            '--provider'       => 'nope',
+        ])
+            ->expectsOutputToContain('Unknown provider "nope"')
+            ->assertExitCode(1);
+    }
+
+    public function testVerifyNonInteractiveFailsWhenProviderCannotBeDetermined()
+    {
+        // mail.default is 'array' here, so nothing is detected and no
+        // --provider was given.
+        $this->artisan('postmaster:verify', ['--no-interaction' => true, '--to' => 'x@example.com'])
+            ->expectsOutputToContain('Could not determine the provider')
+            ->assertExitCode(1);
+    }
+
+    public function testVerifyNonInteractiveRejectsAnInvalidTo()
+    {
+        $this->artisan('postmaster:verify', [
+            '--no-interaction' => true,
+            '--provider'       => 'postmark',
+            '--to'             => 'not-an-email',
+        ])
+            ->expectsOutputToContain('is not a valid email address')
+            ->assertExitCode(1);
+    }
+
     public function testVerificationEventsAreRelayedToTheWatchedMessage()
     {
         Cache::put(RelayVerificationEvent::WATCHING_KEY, 'watched-message', now()->addMinutes(5));

@@ -108,4 +108,75 @@ trait ResolvesProvider
             return "{$base}/{$path}/{$provider}";
         }
     }
+
+    /**
+     * Resolve the provider for a non-interactive run: an explicit --provider
+     * option (validated against the configured providers) or detection from the
+     * mail config. Reports the reason and returns null when neither yields a
+     * configured provider, so the caller can exit with a failure.
+     */
+    protected function resolveProviderNonInteractively(?string $option): ?string
+    {
+        $configured = array_keys(config('postmaster.providers', []));
+
+        if (empty($configured)) {
+            $this->components->error('No providers are configured in config/postmaster.php.');
+
+            return null;
+        }
+
+        if ($option !== null && $option !== '') {
+            if (! in_array($option, $configured, true)) {
+                $this->components->error("Unknown provider \"{$option}\". Configured: ".implode(', ', $configured).'.');
+
+                return null;
+            }
+
+            return $option;
+        }
+
+        $guess = $this->detectProvider();
+
+        if ($guess !== null && in_array($guess, $configured, true)) {
+            return $guess;
+        }
+
+        $this->components->error(
+            'Could not determine the provider from your mail config. '
+            .'Pass --provider=NAME (one of: '.implode(', ', $configured).').'
+        );
+
+        return null;
+    }
+
+    /**
+     * Whether a URL's host is a local/private address a provider's servers
+     * could not POST a webhook to.
+     */
+    protected function looksLocal(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            return true;
+        }
+
+        $host = strtolower($host);
+
+        if (in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)) {
+            return true;
+        }
+
+        foreach (['.test', '.local', '.localhost', '.example', '.invalid'] as $tld) {
+            if (str_ends_with($host, $tld)) {
+                return true;
+            }
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return ! filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        }
+
+        return false;
+    }
 }

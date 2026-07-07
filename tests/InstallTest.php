@@ -44,6 +44,26 @@ class InstallTest extends TestCase
         $this->assertNull($this->detectFor(['transport' => 'array']));
     }
 
+    public function testCanPromptIsFalseWhenInputIsNotInteractive()
+    {
+        // Regression: non-interactive input — whether from --no-interaction or
+        // a no-TTY platform like Laravel Cloud — must route to the report path,
+        // never attempt a prompt (which would throw "Required.").
+        $command = new Install;
+
+        $input = new \Symfony\Component\Console\Input\ArrayInput([]);
+        $input->setInteractive(false);
+
+        $property = new \ReflectionProperty($command, 'input');
+        $property->setAccessible(true);
+        $property->setValue($command, $input);
+
+        $method = new \ReflectionMethod($command, 'canPrompt');
+        $method->setAccessible(true);
+
+        $this->assertFalse($method->invoke($command));
+    }
+
     public function testNonInteractiveInstallReportsSetupForTheDetectedProvider()
     {
         config(['mail.default' => 'postmark', 'mail.mailers.postmark' => ['transport' => 'postmark']]);

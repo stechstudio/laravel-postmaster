@@ -41,7 +41,7 @@ class Install extends Command
         // Without a TTY (Laravel Cloud, CI) or with --no-interaction, we can't
         // prompt for credentials — so instead of walking the wizard, report
         // the setup for the already-configured provider and validate it.
-        if (! $this->input->isInteractive()) {
+        if (! $this->canPrompt()) {
             return $this->reportSetup();
         }
 

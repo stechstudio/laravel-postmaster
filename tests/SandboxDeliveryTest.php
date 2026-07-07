@@ -89,4 +89,46 @@ class SandboxDeliveryTest extends TestCase
         $this->assertTrue(Mail::getSymfonyTransport()->messages()->isEmpty());
         $this->assertDatabaseCount('email_messages', 0);
     }
+
+    public function testVerifyStillRunsTheRoundTripUnderSandbox()
+    {
+        config(['cache.default' => 'array']);
+
+        // Verify warns that sandbox is on, then sends its one test email
+        // anyway — bypassing the interceptor — rather than refusing.
+        $this->artisan('postmaster:verify')
+            ->expectsOutputToContain('Sandbox delivery is enabled')
+            ->expectsChoice('Which provider are you verifying?', 'postmark', ['sendgrid', 'postmark', 'mailgun', 'ses', 'resend'])
+            ->expectsConfirmation('Have you set that webhook URL in your postmark dashboard?', 'yes')
+            ->expectsQuestion('Send the test email to which address?', 'tester@example.com')
+            ->expectsOutputToContain('Test email sent to tester@example.com.')
+            ->assertExitCode(0);
+
+        // The test email reached the transport and was recorded as a real
+        // send, not intercepted and suppressed as sandboxed.
+        $this->assertFalse(Mail::getSymfonyTransport()->messages()->isEmpty());
+        $this->assertDatabaseHas('email_messages', ['to_address' => 'tester@example.com']);
+        $this->assertSame(0, EmailMessage::sandbox()->where('to_address', 'tester@example.com')->count());
+    }
+
+    public function testVerifyLeavesTheSandboxSettingUnchanged()
+    {
+        config(['cache.default' => 'array']);
+
+        $this->artisan('postmaster:verify')
+            ->expectsChoice('Which provider are you verifying?', 'postmark', ['sendgrid', 'postmark', 'mailgun', 'ses', 'resend'])
+            ->expectsConfirmation('Have you set that webhook URL in your postmark dashboard?', 'yes')
+            ->expectsQuestion('Send the test email to which address?', 'tester@example.com');
+
+        // The bypass is scoped to the one send; sandbox mode is still on after.
+        $this->assertSame('sandbox', config('postmaster.delivery'));
+
+        // A subsequent normal send is intercepted again, proving the toggle
+        // was restored.
+        Mail::raw('Hello', function ($message) {
+            $message->to('after@example.com')->subject('After');
+        });
+
+        $this->assertSame(1, EmailMessage::sandbox()->where('to_address', 'after@example.com')->count());
+    }
 }

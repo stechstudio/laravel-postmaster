@@ -1083,8 +1083,13 @@ usual delivery/open/bounce webhooks correlate to it from then on.
 > which point Laravel's `log` mailer is the simpler tool.
 
 Because sandbox silently drops *all* mail, enabling it in `production` is almost
-never intended. Postmaster logs a warning at boot if it sees that, and
-`postmaster:verify` reports it rather than attempting a round-trip check.
+never intended. Postmaster logs a warning at boot if it sees that.
+
+`postmaster:verify` still runs the full round trip while sandbox is on — it
+warns that delivery is sandboxed, then sends a single test email that bypasses
+the sandbox (the same escape hatch as Release) so you can confirm your webhook
+setup works before flipping `POSTMASTER_DELIVERY` to `normal`. Your delivery
+setting is left unchanged.
 
 The `POSTMASTER_DELIVERY` setting is an enum, and `normal` is the default. A
 `redirect` mode, which would send every email to a single catch-all address, is

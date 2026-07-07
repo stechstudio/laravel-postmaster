@@ -41,6 +41,11 @@ class Setup extends AbstractProviderSetup
         )];
     }
 
+    public function webhookAuthConfigured(): bool
+    {
+        return (bool) $this->providerConfig('signing_key');
+    }
+
     public function askSuppressionSync(): array
     {
         note('Install the SDK with: composer require mailgun/mailgun-php');

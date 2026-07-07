@@ -26,7 +26,7 @@ class Install extends Command
 {
     use ResolvesProvider;
 
-    protected $signature = 'postmaster:install';
+    protected $signature = 'postmaster:install {--provider= : The provider to set up (defaults to auto-detection)}';
 
     protected $description = 'Walk through Postmaster setup interactively';
 
@@ -38,6 +38,13 @@ class Install extends Command
 
     public function handle(): int
     {
+        // Without a TTY (Laravel Cloud, CI) or with --no-interaction, we can't
+        // prompt for credentials — so instead of walking the wizard, report
+        // the setup for the already-configured provider and validate it.
+        if (! $this->input->isInteractive()) {
+            return $this->reportSetup();
+        }
+
         intro('Postmaster setup');
 
         $provider = $this->askProvider();
@@ -95,6 +102,89 @@ class Install extends Command
         outro('Postmaster is set up.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The non-interactive path: no prompts, no .env writes. Reports the setup
+     * for the configured provider — the webhook URL to register, how to point
+     * the provider at it, whether the webhook-auth credential is in place, and
+     * the current feature flags — then lists the remaining manual steps.
+     *
+     * Reads everything from config/.env (set out-of-band on the platform), so
+     * it's safe to run in a deploy step. Fails only when no provider can be
+     * determined; a missing webhook credential is surfaced as a warning.
+     */
+    protected function reportSetup(): int
+    {
+        $this->components->info('Postmaster setup (non-interactive)');
+
+        $provider = $this->resolveProviderNonInteractively($this->option('provider'));
+
+        if ($provider === null) {
+            return self::FAILURE;
+        }
+
+        $setup = $this->setupFor($provider);
+        $url   = $this->webhookUrl($provider);
+
+        $this->newLine();
+        $this->components->twoColumnDetail('Provider', $setup->label());
+        $this->components->twoColumnDetail('Mail transport', $this->mailTransport() ?: 'unknown');
+        $this->components->twoColumnDetail('Persistence', config('postmaster.persistence.enabled') ? 'enabled' : 'disabled');
+        $this->components->twoColumnDetail('Content storage', config('postmaster.persistence.store_content') ? 'enabled' : 'disabled');
+        $this->components->twoColumnDetail('Delivery', (string) config('postmaster.delivery', 'normal'));
+        $this->components->twoColumnDetail(
+            'Webhook auth',
+            $setup->webhookAuthConfigured() ? '<fg=green>configured</>' : '<fg=yellow>not configured</>'
+        );
+        $this->newLine();
+
+        $this->line('  <options=bold>'.$setup->webhookVerb().':</>');
+        $this->line("    {$url}");
+        $this->line('  <fg=gray>Derived from APP_URL — set that to your public URL if it looks wrong.</>');
+
+        if ($this->looksLocal($url)) {
+            $this->components->warn(
+                'That webhook URL points at a local/unreachable address. Set APP_URL to your public URL '
+                .'so the provider can reach it.'
+            );
+        }
+
+        if (! $setup->webhookAuthConfigured()) {
+            $this->newLine();
+            $this->components->warn('The webhook auth credential is not set — inbound webhooks will be rejected until it is:');
+            $this->components->bulletList($setup->authFailureGuidance());
+        }
+
+        $this->newLine();
+        $this->components->bulletList($this->nextSteps($setup->label(), $setup->supportsSuppressionSync()));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * The remaining manual steps for a non-interactive setup.
+     *
+     * @return array<int, string>
+     */
+    protected function nextSteps(string $providerLabel, bool $supportsSync): array
+    {
+        $steps = [];
+
+        if (config('postmaster.persistence.enabled')) {
+            $steps[] = 'Run `php artisan migrate` — the persistence migrations ship with the package.';
+            $steps[] = 'Schedule `postmaster:prune` (e.g. daily) to age out old activity'
+                .(config('postmaster.persistence.store_content') ? ' and stored content' : '').'.';
+        }
+
+        if ($supportsSync) {
+            $steps[] = "Schedule `postmaster:sync` (e.g. daily) to mirror {$providerLabel}'s suppression list.";
+        }
+
+        $steps[] = 'Register the webhook URL above in your provider dashboard.';
+        $steps[] = 'Run `postmaster:verify --to=you@example.com` to test the round trip end to end.';
+
+        return $steps;
     }
 
     /**

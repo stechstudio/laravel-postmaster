@@ -81,6 +81,20 @@ and offers to clean up entries left over from earlier choices, and it leaves
 non-Postmaster lines alone. If you'd rather wire things up by hand,
 [Securing webhooks](#securing-webhooks) below has each provider's credential.
 
+### Non-interactive environments
+
+On a platform without a TTY — Laravel Cloud, CI, a deploy hook — the wizard
+can't prompt, so `postmaster:install` runs in report mode instead (also
+forced with `-n` / `--no-interaction`). It reads the already-configured
+provider from your environment and prints the webhook URL to register, how to
+point the provider at it, whether the webhook-auth credential is set, and the
+current feature flags — writing nothing. Pass `--provider=` to override
+detection.
+
+```bash
+php artisan postmaster:install --no-interaction --provider=sendgrid
+```
+
 ## Getting started
 
 The wizard handles everything inside your app. Two things still need your hand:
@@ -236,6 +250,16 @@ lands.
 The live watch needs a cache store shared between your CLI and web processes
 (`file`, `redis`, `database`, and so on). With the per-process `array` store
 the command sends the test email and stops there.
+
+It runs non-interactively too (no TTY, or `-n` / `--no-interaction`) — for a
+deploy hook or CI check. Pass the recipient with `--to=`, and `--provider=` if
+it can't be detected from your mail config; the "have you set the webhook?"
+confirmation is skipped, the live watch prints without a spinner, and the exit
+code reflects the result (0 on a delivery, non-zero on a timeout or failure).
+
+```bash
+php artisan postmaster:verify --no-interaction --to=you@example.com --provider=postmark
+```
 
 It runs even while [sandbox delivery](#sandbox-delivery) is on: it warns that
 outbound mail is sandboxed, then sends one test email that bypasses the sandbox

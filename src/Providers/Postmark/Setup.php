@@ -55,6 +55,17 @@ class Setup extends AbstractProviderSetup
         ];
     }
 
+    public function webhookAuthConfigured(): bool
+    {
+        // Postmark authenticates webhooks with the shared token or basic-auth
+        // credentials, depending on the configured scheme.
+        if ($this->providerConfig('auth') === 'token') {
+            return (bool) config('postmaster.token');
+        }
+
+        return (bool) config('postmaster.basic_username') && (bool) config('postmaster.basic_password');
+    }
+
     public function askSuppressionSync(): array
     {
         note('Install the SDK with: composer require wildbit/postmark-php');

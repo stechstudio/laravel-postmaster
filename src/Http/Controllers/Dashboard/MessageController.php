@@ -41,7 +41,7 @@ class MessageController extends Controller
 
         $this->applyContains($query, 'to_address', $request->query('to'));
         $this->applyContains($query, 'subject', $request->query('subject'));
-        $this->applyDateRange($query, 'created_at', $request->query('from'), $request->query('to'));
+        $this->applyDateRange($query, 'created_at', $request->query('date_from'), $request->query('date_to'));
 
         return response()->view('postmaster::messages', [
             'messages'   => $query->paginate(50)->withQueryString(),

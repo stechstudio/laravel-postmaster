@@ -19,6 +19,16 @@
 
     <div class="pm-detail-bar">
         <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">← Back to messages</a>
+        @if ($canRelease)
+            <form method="POST" action="{{ route('postmaster.messages.release', $message) }}"
+                  onsubmit="return confirm('Release this sandboxed email and send it for real to {{ $message->to_address }}? This can\'t be undone.')">
+                @csrf
+                <button type="submit" class="pm-btn"
+                        @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
+                    Release
+                </button>
+            </form>
+        @endif
         @if ($canResend)
             <form method="POST" action="{{ route('postmaster.messages.resend', $message) }}"
                   onsubmit="return confirm('Resend this email to {{ $message->to_address }}?')">

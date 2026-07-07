@@ -88,6 +88,7 @@ class MessageController extends Controller
             'tenantTerm'     => $this->tenantTerm(),
             'recipientLabel' => $this->labelForRecipientOnRecord($record),
             'canResend'      => $this->canResend($record),
+            'canRelease'     => $this->canRelease($record),
             // Remote images are blocked by the preview CSP. The viewer can
             // opt in per view with ?images=1; the bar is offered only when
             // the message actually has a remote image to unblock.
@@ -106,6 +107,40 @@ class MessageController extends Controller
      */
     protected function canResend(EmailMessage $record): bool
     {
+        // A sandboxed message was never actually sent — the relevant action
+        // is Release (send this one for real), not Resend (replay as a new
+        // message, which under sandbox mode would just be caught again).
+        if ($record->isSandboxed()) {
+            return false;
+        }
+
+        if (! $record->html_body && ! $record->text_body) {
+            return false;
+        }
+
+        if (! $record->to_address) {
+            return false;
+        }
+
+        $address = EmailAddress::model()->newQuery()
+            ->where('address', EmailAddress::normalize($record->to_address))
+            ->first();
+
+        return ! $address || ! $address->isSuppressed();
+    }
+
+    /**
+     * Whether the Release button should render on this row. True only for a
+     * still-sandboxed message that has stored content to send and whose
+     * recipient isn't locally suppressed. Once released the row is no longer
+     * sandboxed, so the button naturally disappears and can't fire twice.
+     */
+    protected function canRelease(EmailMessage $record): bool
+    {
+        if (! $record->isSandboxed()) {
+            return false;
+        }
+
         if (! $record->html_body && ! $record->text_body) {
             return false;
         }
@@ -163,6 +198,60 @@ class MessageController extends Controller
         return redirect()
             ->route('postmaster.messages.show', $record)
             ->with('postmasterFlash', 'Message resent.');
+    }
+
+    /**
+     * Release a sandboxed message: send it for real and flip the record to
+     * "sent". Sandbox delivery recorded it but never handed it to a provider;
+     * this is the deliberate opt-out for a single message. See
+     * Postmaster::release() for the mechanics.
+     */
+    public function release(Request $request, int|string $message): RedirectResponse
+    {
+        $record = $this->messageQuery()->findOrFail($message);
+
+        if (! $this->canRelease($record)) {
+            return redirect()
+                ->route('postmaster.messages.show', $record)
+                ->with('postmasterError', $this->releaseBlockedReason($record));
+        }
+
+        // Guard against a double-click firing two sends before the first has
+        // flipped the row out of "sandboxed".
+        $throttleSeconds = (int) config('postmaster.dashboard.resend_throttle_seconds', 60);
+        $cacheKey = "postmaster.release.{$record->getKey()}";
+
+        if ($throttleSeconds > 0 && Cache::has($cacheKey)) {
+            return redirect()
+                ->route('postmaster.messages.show', $record)
+                ->with('postmasterError', 'Already releasing this message. Give it a moment.');
+        }
+
+        if ($throttleSeconds > 0) {
+            Cache::put($cacheKey, true, now()->addSeconds($throttleSeconds));
+        }
+
+        Postmaster::release($record);
+
+        return redirect()
+            ->route('postmaster.messages.show', $record)
+            ->with('postmasterFlash', "Released — {$record->to_address} was sent for real.");
+    }
+
+    /**
+     * The reason a release was refused, for the flash message.
+     */
+    protected function releaseBlockedReason(EmailMessage $record): string
+    {
+        if (! $record->isSandboxed()) {
+            return "Can't release — this message isn't sandboxed (it may already have been released).";
+        }
+
+        if (! $record->html_body && ! $record->text_body) {
+            return "Can't release — no stored content to send. Content storage was off when it was sandboxed.";
+        }
+
+        return "Can't release — {$record->to_address} is suppressed. Unsuppress the address first.";
     }
 
     /**

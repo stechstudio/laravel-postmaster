@@ -1013,6 +1013,13 @@ environment**, so the dashboard is never unguarded in production by accident.
   the suppression first (the Addresses screen has the unsuppress action).
   Rapid duplicate clicks are throttled per-message
   (`POSTMASTER_DASHBOARD_RESEND_THROTTLE_SECONDS=60` by default).
+- **Release.** On a *sandboxed* message, a Release button sends that one email
+  for real — the deliberate opt-out from sandbox mode for a single message.
+  Unlike Resend it doesn't create a new record: it sends the stored content,
+  then flips the existing row from `sandboxed` to sent with the real provider
+  message id (so its webhooks correlate from then on). Because the row is no
+  longer sandboxed it can't be released twice, and the button disappears.
+  Requires stored content; shown in place of Resend on sandboxed rows.
 - **Activity.** A filterable, paginated stream of every recorded event, drawn
   from the timeline (on by default with persistence).
 - **Addresses.** The suppression list.
@@ -1050,6 +1057,25 @@ EmailMessage::sandbox()->get();   // everything intercepted in sandbox mode
 A sandboxed message is **terminal**: it never reached a provider, so no
 delivery/open/bounce webhooks will ever follow. Render the `sandboxed` status
 distinctly in your UI rather than as a pending send.
+
+### Releasing a sandboxed email
+
+Sometimes one sandboxed message really should go out — a support reply, a
+one-off you want to test end to end. The dashboard's **Release** button (and
+its API) sends that specific message for real and flips its record from
+`sandboxed` to sent, keeping the same row so its history stays intact. Once
+released it can't be released again.
+
+```php
+$message->release();               // send this sandboxed message for real
+Postmaster::release($message);
+Postmaster::release($messageId);
+```
+
+Release requires stored content (there's nothing to send otherwise) and throws
+`RuntimeException` if the message isn't sandboxed — already released, or never
+sandboxed to begin with. The real provider message id lands on the row, so the
+usual delivery/open/bounce webhooks correlate to it from then on.
 
 > Sandbox is provider-agnostic. It works the same no matter which provider you
 > send through. It needs persistence on to record anything (the default).

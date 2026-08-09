@@ -403,4 +403,67 @@ class AttachmentStorageTest extends TestCase
         $this->assertSame(AttachmentStatus::Stored, $attachment->status);
         Storage::disk('local')->assertExists($attachment->path);
     }
+
+    public function testEvictionReclaimsOldestFilesUntilUsageFitsTheBudget()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.attachments.prune_after_days' => 0,
+            'postmaster.persistence.attachments.max_disk_usage'   => 20,
+        ]);
+
+        $store = app(AttachmentStore::class);
+
+        // Three distinct 10-byte files: 30 bytes against a 20-byte ceiling.
+        foreach (['AAAAAAAAAA', 'BBBBBBBBBB', 'CCCCCCCCCC'] as $index => $body) {
+            $store->store($this->emailWith($body, "file{$index}.pdf"), "msg-{$index}", true);
+            EmailAttachment::where('filename', "file{$index}.pdf")
+                ->update(['created_at' => now()->subDays(10 - $index)]);
+        }
+
+        $this->assertSame(30, $store->usage());
+
+        Artisan::call('postmaster:prune', ['--attachments' => true]);
+
+        // The oldest file goes; usage now fits.
+        $this->assertSame(20, $store->usage());
+        $this->assertSame(AttachmentStatus::Evicted, EmailAttachment::where('filename', 'file0.pdf')->first()->status);
+        $this->assertSame(AttachmentStatus::Stored, EmailAttachment::where('filename', 'file2.pdf')->first()->status);
+        $this->assertCount(2, Storage::disk('local')->allFiles());
+    }
+
+    public function testEvictionTakesEveryReferenceToASharedFileTogether()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.attachments.prune_after_days' => 0,
+            'postmaster.persistence.attachments.max_disk_usage'   => 1,
+        ]);
+
+        $store = app(AttachmentStore::class);
+        $store->store($this->emailWith('SHARED'), 'msg-1', true);
+        $store->store($this->emailWith('SHARED'), 'msg-2', true);
+
+        Artisan::call('postmaster:prune', ['--attachments' => true]);
+
+        $this->assertCount(2, EmailAttachment::all());
+        $this->assertCount(0, EmailAttachment::where('status', AttachmentStatus::Stored)->get());
+        $this->assertSame(0, $store->usage());
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+    }
+
+    public function testEvictionIsSkippedWhenNoBudgetIsSet()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.attachments.prune_after_days' => 0,
+            'postmaster.persistence.attachments.max_disk_usage'   => null,
+        ]);
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+
+        Artisan::call('postmaster:prune', ['--attachments' => true]);
+
+        $this->assertSame(AttachmentStatus::Stored, EmailAttachment::first()->status);
+    }
 }

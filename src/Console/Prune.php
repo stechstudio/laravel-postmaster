@@ -56,6 +56,7 @@ class Prune extends Command
 
         if (in_array('attachments', $runs, true)) {
             $this->pruneAttachments($dryRun);
+            $this->evictAttachments($dryRun);
         }
 
         if (in_array('activity', $runs, true)) {
@@ -155,6 +156,66 @@ class Prune extends Command
             ($dryRun ? 'would reclaim' : 'reclaimed')." {$expired->count()} "
                 .Str::plural('attachment', $expired->count())
                 .($dryRun ? ' <fg=gray>(dry run)</>' : ' ('.$this->bytes($freed).')')
+        );
+    }
+
+    /**
+     * Reclaim the least-recently-referenced attachments until disk usage fits
+     * the configured ceiling.
+     *
+     * Works on checksum *groups* rather than rows, because content-addressed
+     * storage means a file is only reclaimed when every reference to it goes —
+     * evicting row by row would free nothing and loop forever.
+     *
+     * Metadata rows survive, marked Evicted, so the dashboard reports
+     * "invoice.pdf, 2.1 MB, evicted Aug 1" rather than serving a dead link.
+     */
+    protected function evictAttachments(bool $dryRun): void
+    {
+        $ceiling = (int) config('postmaster.persistence.attachments.max_disk_usage');
+
+        if ($ceiling <= 0) {
+            $this->components->twoColumnDetail('Attachment disk budget', '<fg=gray>unbounded</>');
+
+            return;
+        }
+
+        $store    = app(AttachmentStore::class);
+        $usage    = $store->usage();
+        $freed    = 0;
+        $count    = 0;
+        $examined = [];
+
+        while ($usage > $ceiling) {
+            $checksum = EmailAttachment::model()->newQuery()
+                ->where('status', AttachmentStatus::Stored)
+                ->whereNotIn('checksum', $examined)
+                ->groupBy('checksum')
+                ->orderByRaw('max(created_at) asc')
+                ->value('checksum');
+
+            if ($checksum === null) {
+                break;
+            }
+
+            // Tracked in both modes: under --dry-run nothing changes on disk,
+            // so without this the same group would be selected forever.
+            $examined[] = $checksum;
+
+            $bytes = $dryRun
+                ? $store->sizeOf($checksum)
+                : $store->forgetChecksum($checksum, AttachmentStatus::Evicted);
+
+            $freed += $bytes;
+            $usage -= $bytes;
+            $count++;
+        }
+
+        $this->components->twoColumnDetail(
+            'Attachment disk budget',
+            ($dryRun ? 'would evict' : 'evicted')." {$count} ".Str::plural('file', $count)
+                .' ('.$this->bytes($freed).')'
+                .($dryRun ? ' <fg=gray>(dry run)</>' : '')
         );
     }
 

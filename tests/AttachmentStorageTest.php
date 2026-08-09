@@ -4,6 +4,7 @@ namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use STS\Postmaster\Attachments\AttachmentStatus;
 use STS\Postmaster\Attachments\AttachmentStore;
@@ -13,6 +14,8 @@ use STS\Postmaster\Models\EmailAttachment;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Postmaster as PostmasterManager;
 use STS\Postmaster\Support\OutboundMetadata;
+use STS\Postmaster\Tests\Stubs\AttachedMail;
+use STS\Postmaster\Tests\Stubs\FullMail;
 use STS\Postmaster\Tracking;
 use Symfony\Component\Mime\Email;
 
@@ -225,5 +228,93 @@ class AttachmentStorageTest extends TestCase
         app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
 
         $this->assertSame(AttachmentStatus::Failed, EmailAttachment::first()->status);
+    }
+
+    public function testEnvelopeSiblingsShareOneAttachmentSet()
+    {
+        Storage::fake('local');
+        config(['postmaster.persistence.attachments.store' => true]);
+
+        Mail::to('to@example.com')->cc('cc@example.com')->bcc('bcc@example.com')->send(new FullMail);
+
+        $this->assertCount(3, EmailMessage::all());
+        $this->assertCount(1, EmailAttachment::all());
+
+        foreach (EmailMessage::all() as $message) {
+            $this->assertCount(1, $message->attachments);
+            $this->assertSame('invoice.pdf', $message->attachments->first()->filename);
+        }
+    }
+
+    public function testAPerMessageOverrideBeatsTheConfigFlag()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.attachments.store' => true,
+            // Content storage on so a metadata row is still written — with
+            // both switches off there'd be no row at all to assert against.
+            'postmaster.persistence.store_content'     => true,
+        ]);
+
+        Mail::to('to@example.com')->send((new AttachedMail)->dontStoreAttachments());
+
+        $this->assertSame(AttachmentStatus::NotStored, EmailAttachment::first()->status);
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+    }
+
+    public function testADeclaredTrackingOverrideBeatsTheConfigFlag()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.attachments.store' => true,
+            'postmaster.persistence.store_content'     => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new AttachedMail(storeAttachments: false));
+
+        $this->assertSame(AttachmentStatus::NotStored, EmailAttachment::first()->status);
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+    }
+
+    public function testAnOverrideOfBothSwitchesWritesNoAttachmentRowAtAll()
+    {
+        Storage::fake('local');
+        config(['postmaster.persistence.attachments.store' => true]);
+
+        Mail::to('to@example.com')->send((new AttachedMail)->dontStoreAttachments());
+
+        $this->assertCount(0, EmailAttachment::all());
+    }
+
+    public function testADeclaredTrackingOverrideCanTurnStorageOn()
+    {
+        Storage::fake('local');
+
+        Mail::to('to@example.com')->send(new AttachedMail(storeAttachments: true));
+
+        $this->assertSame(AttachmentStatus::Stored, EmailAttachment::first()->status);
+        $this->assertCount(1, Storage::disk('local')->allFiles());
+    }
+
+    public function testNoAttachmentRowsAreWrittenWhenBothSwitchesAreOff()
+    {
+        Storage::fake('local');
+
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $this->assertCount(0, EmailAttachment::all());
+    }
+
+    public function testContentStorageAloneRecordsAttachmentMetadata()
+    {
+        Storage::fake('local');
+        config(['postmaster.persistence.store_content' => true]);
+
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $attachment = EmailAttachment::first();
+
+        $this->assertSame('invoice.pdf', $attachment->filename);
+        $this->assertSame(AttachmentStatus::NotStored, $attachment->status);
     }
 }

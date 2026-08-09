@@ -815,7 +815,7 @@ class PersistenceTest extends TestCase
         $this->assertSame(['to@example.com'], array_column($record->recipients['to'], 'address'));
         $this->assertSame(['cc@example.com'], array_column($record->recipients['cc'], 'address'));
         $this->assertSame(['bcc@example.com'], array_column($record->recipients['bcc'], 'address'));
-        $this->assertSame(['invoice.pdf'], $record->legacy_attachment_names);
+        $this->assertSame(['invoice.pdf'], $record->attachments->pluck('filename')->all());
     }
 
     public function testMessageContentIsNotStoredByDefault()
@@ -828,7 +828,7 @@ class PersistenceTest extends TestCase
         $this->assertNull($record->text_body);
         $this->assertNull($record->from_address);
         $this->assertNull($record->recipients);
-        $this->assertNull($record->legacy_attachment_names);
+        $this->assertCount(0, $record->attachments);
     }
 
     public function testPruneContentCommandPurgesOldContentButKeepsTheRecord()

@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Listeners;
 
 use Illuminate\Mail\Events\MessageSent;
+use STS\Postmaster\Attachments\AttachmentStore;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Postmaster;
 use STS\Postmaster\Listeners\Concerns\InteractsWithEmailAddresses;
@@ -119,6 +120,8 @@ class RecordOutboundMessage
         $shared   = $this->sharedAttributes($message, $messageId, $status, $metadata);
         $envelope = $this->envelope($message);
 
+        $this->storeAttachments($message, $messageId, $metadata);
+
         $primary = null;
 
         foreach ($envelope as $entry) {
@@ -151,6 +154,27 @@ class RecordOutboundMessage
         }
 
         return $primary;
+    }
+
+    /**
+     * Record this submission's attachments — once, not once per envelope
+     * recipient, so a To + 2 Cc send writes one set of rows that all three
+     * message rows resolve through.
+     *
+     * Metadata lands whenever either switch is on; the bytes only when
+     * attachment storage is.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    protected function storeAttachments(Email $message, ?string $messageId, array $metadata): void
+    {
+        $storeBytes = $this->resolveFlag($message, $metadata, 'attachments');
+
+        if (! $storeBytes && ! $this->resolveFlag($message, $metadata, 'content')) {
+            return;
+        }
+
+        app(AttachmentStore::class)->store($message, (string) $messageId, $storeBytes);
     }
 
     /**
@@ -239,20 +263,31 @@ class RecordOutboundMessage
             $attributes[EmailMessage::tenantColumn()] = $tenant;
         }
 
-        // Per-message storeContent() / dontStoreContent() wins; then the
-        // app-registered storeContentWhen() resolver; then the store_content
-        // setting. (resolveStoreContent() returns null when no resolver is
-        // registered, so the config flag is the final fallback.)
-        $storeContent = isset($metadata['store_content'])
-            ? $metadata['store_content'] === '1'
-            : ($this->events->resolveStoreContent($message)
-                ?? (bool) config('postmaster.persistence.store_content', false));
-
-        if ($storeContent) {
+        if ($this->resolveFlag($message, $metadata, 'content')) {
             $attributes += $this->content($message);
         }
 
         return $attributes;
+    }
+
+    /**
+     * Resolve one of the two storage switches for this message.
+     *
+     * Precedence, identical for both: a per-message override wins, then the
+     * app-registered resolver, then the config flag. (The resolvers return
+     * null when none is registered, so config is the final fallback.)
+     *
+     * @param  array<string, mixed> $metadata
+     */
+    protected function resolveFlag(Email $message, array $metadata, string $which): bool
+    {
+        [$key, $resolved, $config] = $which === 'content'
+            ? ['store_content', $this->events->resolveStoreContent($message), 'postmaster.persistence.store_content']
+            : ['store_attachments', $this->events->resolveStoreAttachments($message), 'postmaster.persistence.attachments.store'];
+
+        return isset($metadata[$key])
+            ? $metadata[$key] === '1'
+            : ($resolved ?? (bool) config($config, false));
     }
 
     /**
@@ -317,8 +352,10 @@ class RecordOutboundMessage
     }
 
     /**
-     * A full representation of the message — sender, recipients, bodies, and
-     * attachment filenames (never attachment contents).
+     * A full representation of the message — sender, recipients, and bodies.
+     * Attachments are recorded separately by AttachmentStore, on their own
+     * table, because they belong to the submission rather than to any one
+     * envelope recipient's row.
      *
      * @return array<string, mixed>
      */
@@ -335,7 +372,6 @@ class RecordOutboundMessage
             ],
             'html_body'    => $this->body($message->getHtmlBody()),
             'text_body'    => $this->body($message->getTextBody()),
-            'legacy_attachment_names' => $this->attachments($message),
         ];
     }
 
@@ -349,21 +385,6 @@ class RecordOutboundMessage
             'address' => $address->getAddress(),
             'name'    => $address->getName(),
         ], $addresses);
-    }
-
-    /**
-     * The attachment filenames on the message — contents are never stored.
-     *
-     * @return array<int, string>
-     */
-    protected function attachments(Email $message): array
-    {
-        $names = array_map(
-            fn ($attachment) => $attachment->getFilename(),
-            $message->getAttachments()
-        );
-
-        return array_values(array_filter($names));
     }
 
     /**

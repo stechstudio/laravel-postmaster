@@ -48,6 +48,8 @@ class Postmaster
      */
     protected ?Closure $storeContentResolver = null;
 
+    protected ?Closure $storeAttachmentsResolver = null;
+
     /**
      * Authorizes access to the dashboard. Registered by the consuming app,
      * typically in a service provider.
@@ -382,6 +384,55 @@ class Postmaster
         }
 
         return (bool) call_user_func($this->storeContentResolver, $message);
+    }
+
+    /**
+     * Build a callback that overrides attachment storage for a single message,
+     * regardless of the postmaster.persistence.attachments.store setting.
+     */
+    public function storeAttachments(bool $store): Closure
+    {
+        return function (Email $message) use ($store) {
+            $message->getHeaders()->addTextHeader(
+                OutboundMetadata::HEADER_STORE_ATTACHMENTS, $store ? '1' : '0'
+            );
+        };
+    }
+
+    /**
+     * Register a resolver that decides, per message, whether to store its
+     * attachments — the global equivalent of the per-message
+     * storeAttachments() / dontStoreAttachments() builders. Independent of the
+     * content resolver, so you can keep an invoice while discarding the body
+     * that carried a magic-login link.
+     *
+     * The closure receives the Symfony Email and must return true to store
+     * attachments, false to skip them. It runs once per message, not per
+     * envelope recipient.
+     *
+     * Precedence: a per-message storeAttachments() / dontStoreAttachments()
+     * override wins; then this resolver; then the
+     * postmaster.persistence.attachments.store config flag.
+     */
+    public function storeAttachmentsWhen(Closure $resolver): static
+    {
+        $this->storeAttachmentsResolver = $resolver;
+
+        return $this;
+    }
+
+    /**
+     * Decide whether to store the given message's attachments via the
+     * registered resolver. Returns null when none is registered, so the caller
+     * falls back to the config flag.
+     */
+    public function resolveStoreAttachments(Email $message): ?bool
+    {
+        if ($this->storeAttachmentsResolver === null) {
+            return null;
+        }
+
+        return (bool) call_user_func($this->storeAttachmentsResolver, $message);
     }
 
     /**

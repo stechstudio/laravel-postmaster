@@ -30,6 +30,10 @@ class OutboundMetadata
     const HEADER_RECIPIENT_MAP  = 'X-Postmaster-Recipient-Map';
     const HEADER_TENANT         = 'X-Postmaster-Tenant';
     const HEADER_STORE_CONTENT  = 'X-Postmaster-Store-Content';
+    // Whether to keep this message's attachment bytes. Independent of
+    // HEADER_STORE_CONTENT: an invoice can be worth keeping when the body
+    // carrying a magic-login link is not.
+    const HEADER_STORE_ATTACHMENTS = 'X-Postmaster-Store-Attachments';
     // Id of the EmailMessage this send is a resend of. Set by
     // Postmaster::resend() and by Mailables declaring resent_from on
     // their Tracking object. Written to the new row's resent_from_id

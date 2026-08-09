@@ -3,9 +3,16 @@
 namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Mail\Events\MessageSending;
 use STS\Postmaster\Attachments\AttachmentStatus;
+use STS\Postmaster\Facades\Postmaster;
+use STS\Postmaster\Listeners\StashOutboundMetadata;
 use STS\Postmaster\Models\EmailAttachment;
 use STS\Postmaster\Models\EmailMessage;
+use STS\Postmaster\Postmaster as PostmasterManager;
+use STS\Postmaster\Support\OutboundMetadata;
+use STS\Postmaster\Tracking;
+use Symfony\Component\Mime\Email;
 
 class AttachmentStorageTest extends TestCase
 {
@@ -75,5 +82,50 @@ class AttachmentStorageTest extends TestCase
         $this->assertSame(10 * 1024 * 1024, config('postmaster.persistence.attachments.max_size'));
         $this->assertNull(config('postmaster.persistence.attachments.max_disk_usage'));
         $this->assertSame(30, config('postmaster.persistence.attachments.prune_after_days'));
+    }
+
+    public function testTheAttachmentResolverReturnsNullUntilOneIsRegistered()
+    {
+        $message = (new Email)->subject('Hello');
+
+        $this->assertNull(app(PostmasterManager::class)->resolveStoreAttachments($message));
+    }
+
+    public function testTheAttachmentResolverDecidesPerMessage()
+    {
+        Postmaster::storeAttachmentsWhen(
+            fn (Email $message) => ! str_contains((string) $message->getSubject(), 'reset')
+        );
+
+        $keep = (new Email)->subject('Your invoice');
+        $skip = (new Email)->subject('Password reset');
+
+        $postmaster = app(PostmasterManager::class);
+
+        $this->assertTrue($postmaster->resolveStoreAttachments($keep));
+        $this->assertFalse($postmaster->resolveStoreAttachments($skip));
+    }
+
+    public function testThePerMessageOverrideTravelsAsAStashedHeader()
+    {
+        $message = new Email;
+
+        (app(PostmasterManager::class)->storeAttachments(false))($message);
+
+        $this->assertTrue($message->getHeaders()->has(OutboundMetadata::HEADER_STORE_ATTACHMENTS));
+
+        (new StashOutboundMetadata)->handle(new MessageSending($message));
+
+        // Stripped from the wire, and readable from the in-process stash.
+        $this->assertFalse($message->getHeaders()->has(OutboundMetadata::HEADER_STORE_ATTACHMENTS));
+        $this->assertSame('0', OutboundMetadata::pull(spl_object_id($message))['store_attachments']);
+    }
+
+    public function testTrackingDeclaresAttachmentStorageOnAMailable()
+    {
+        $tracking = new Tracking(storeAttachments: false);
+
+        $this->assertFalse($tracking->storeAttachments);
+        $this->assertNull($tracking->storeContent);
     }
 }

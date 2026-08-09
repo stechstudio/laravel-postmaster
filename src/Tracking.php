@@ -56,6 +56,14 @@ class Tracking
      *                                              that builds its own resend
      *                                              outside those paths can declare
      *                                              it here.
+     * @param bool|null               $storeAttachments Whether to store this
+     *                                              email's attachments. null
+     *                                              defers to the
+     *                                              postmaster.persistence.attachments.store
+     *                                              setting. Independent of
+     *                                              $storeContent — declared
+     *                                              last so existing positional
+     *                                              callers keep working.
      */
     public function __construct(
         public readonly ?Model $related = null,
@@ -65,6 +73,7 @@ class Tracking
         public readonly array $tags = [],
         public readonly ?bool $storeContent = null,
         public readonly EmailMessage|int|null $resentFrom = null,
+        public readonly ?bool $storeAttachments = null,
     ) {
     }
 }

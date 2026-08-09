@@ -28,6 +28,7 @@ use STS\Postmaster\Tracking;
  * optional.
  *
  * The imperative relatedTo() / forTenant() / storeContent() / dontStoreContent()
+ * / storeAttachments() / dontStoreAttachments()
  * methods are still available for cases where a value is only known at runtime.
  */
 trait TracksMailable
@@ -87,6 +88,10 @@ trait TracksMailable
 
         if ($tracking->storeContent !== null) {
             $tracking->storeContent ? $this->storeContent() : $this->dontStoreContent();
+        }
+
+        if ($tracking->storeAttachments !== null) {
+            $tracking->storeAttachments ? $this->storeAttachments() : $this->dontStoreAttachments();
         }
 
         if ($tracking->resentFrom !== null) {

@@ -8,7 +8,8 @@ use STS\Postmaster\Postmaster;
 
 /**
  * Adds the fluent relatedTo() / forRecipient() / forTenant() / storeContent()
- * / dontStoreContent() methods to whatever it's applied to, declaring what
+ * / dontStoreContent() / storeAttachments() / dontStoreAttachments() methods
+ * to whatever it's applied to, declaring what
  * the email is about and how it should be recorded. When persistence is
  * enabled, the recorded email_messages row reflects each of them.
  *
@@ -93,6 +94,26 @@ trait WithTracking
     public function dontStoreContent(): static
     {
         return $this->withSymfonyMessage(app(Postmaster::class)->storeContent(false));
+    }
+
+    /**
+     * Store this email's attachments, overriding the
+     * persistence.attachments.store setting.
+     */
+    public function storeAttachments(): static
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->storeAttachments(true));
+    }
+
+    /**
+     * Skip storing this email's attachments, overriding the
+     * persistence.attachments.store setting. Independent of
+     * dontStoreContent() — use it for mail whose attachments are large,
+     * regenerable, or sensitive enough that keeping the bytes isn't worth it.
+     */
+    public function dontStoreAttachments(): static
+    {
+        return $this->withSymfonyMessage(app(Postmaster::class)->storeAttachments(false));
     }
 
     /**

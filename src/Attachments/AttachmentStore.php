@@ -1,0 +1,168 @@
+<?php
+
+namespace STS\Postmaster\Attachments;
+
+use Illuminate\Support\Facades\Storage;
+use STS\Postmaster\Models\EmailAttachment;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\DataPart;
+
+/**
+ * Captures the attachments carried by an outbound email, and reclaims them
+ * again when they age out.
+ *
+ * Bytes are content-addressed by sha256, so identical content is written once
+ * however many messages carry it — the logo embedded on every send costs one
+ * file, not one per message. That makes deletion a reference-counting problem:
+ * a file is only unlinked once no Stored row still points at its checksum.
+ *
+ * Called from the recorder and the prune command. Never from UI code — the
+ * dashboard reaches attachments through EmailAttachment's own affordances.
+ */
+class AttachmentStore
+{
+    /**
+     * Record every attachment on the message. Metadata is always written;
+     * $storeBytes decides whether the contents go to disk with it.
+     *
+     * Called once per submission, not once per envelope recipient, so a
+     * To + 2 Cc send produces one set of rows that all three messages share.
+     */
+    public function store(Email $message, string $providerMessageId, bool $storeBytes): void
+    {
+        foreach ($message->getAttachments() as $part) {
+            $body     = $part->getBody();
+            $checksum = hash('sha256', $body);
+            $size     = strlen($body);
+
+            EmailAttachment::model()->newQuery()->create([
+                'provider_message_id' => $providerMessageId,
+                'filename'            => $part->getFilename() ?: 'attachment',
+                'mime_type'           => $part->getContentType(),
+                'size'                => $size,
+                'checksum'            => $checksum,
+                'disposition'         => $part->getDisposition() === 'inline' ? 'inline' : 'attachment',
+                'content_id'          => $this->contentIdOf($part),
+            ] + $this->placement($checksum, $body, $size, $storeBytes));
+        }
+    }
+
+    /**
+     * Total bytes held on disk, counted over *distinct checksums*. Summing
+     * rows would report every reference to a shared file as fresh usage —
+     * 400,000 references to one logo would look like 400,000 copies, and
+     * eviction would spin without ever reclaiming that phantom space.
+     */
+    public function usage(): int
+    {
+        return (int) EmailAttachment::model()->newQuery()
+            ->where('status', AttachmentStatus::Stored)
+            ->select('checksum', 'size')
+            ->distinct()
+            ->get()
+            ->sum('size');
+    }
+
+    /**
+     * The on-disk cost of one checksum group — its size counted once,
+     * regardless of how many rows reference it.
+     */
+    public function sizeOf(string $checksum): int
+    {
+        return (int) EmailAttachment::model()->newQuery()
+            ->where('checksum', $checksum)
+            ->where('status', AttachmentStatus::Stored)
+            ->value('size');
+    }
+
+    /**
+     * The content id to record for an inline part, so resend can re-embed it
+     * under the same reference the html body already points at.
+     *
+     * Symfony only materializes a generated cid when the message is
+     * serialized, and resolves `cid:filename` references against the part's
+     * filename at that point. Depending on how far the transport has gotten
+     * by MessageSent, hasContentId() may still be false — so fall back to the
+     * filename, which is the reference the body actually carries.
+     *
+     * Null for ordinary attachments: they have no cid to preserve.
+     */
+    protected function contentIdOf(DataPart $part): ?string
+    {
+        if ($part->getDisposition() !== 'inline') {
+            return null;
+        }
+
+        return $part->hasContentId() ? $part->getContentId() : $part->getFilename();
+    }
+
+    /**
+     * Where this attachment's bytes end up: the status, disk, and path columns
+     * for the row. Reuses an existing file when the checksum is already on
+     * disk, so nothing is written twice.
+     *
+     * @return array<string, mixed>
+     */
+    protected function placement(string $checksum, string $body, int $size, bool $storeBytes): array
+    {
+        if (! $storeBytes) {
+            return ['status' => AttachmentStatus::NotStored];
+        }
+
+        $max = (int) config('postmaster.persistence.attachments.max_size');
+
+        if ($max > 0 && $size > $max) {
+            return ['status' => AttachmentStatus::Oversize];
+        }
+
+        if ($existing = $this->existing($checksum)) {
+            return [
+                'status'    => AttachmentStatus::Stored,
+                'disk'      => $existing->disk,
+                'path'      => $existing->path,
+                'stored_at' => now(),
+            ];
+        }
+
+        $disk = (string) config('postmaster.persistence.attachments.disk', 'local');
+        $path = $this->pathFor($checksum);
+
+        // The disk is a genuine external boundary — S3 can be down, a local
+        // volume can be full. MessageSent fires after the send, so a failure
+        // here can't unsend anything and must not blow up the request. The
+        // row still lands, marked Failed, and the exception is reported.
+        return rescue(function () use ($disk, $path, $body) {
+            Storage::disk($disk)->put($path, $body);
+
+            return [
+                'status'    => AttachmentStatus::Stored,
+                'disk'      => $disk,
+                'path'      => $path,
+                'stored_at' => now(),
+            ];
+        }, ['status' => AttachmentStatus::Failed]);
+    }
+
+    /**
+     * A row whose bytes for this checksum are already on disk, if any.
+     */
+    protected function existing(string $checksum): ?EmailAttachment
+    {
+        return EmailAttachment::model()->newQuery()
+            ->where('checksum', $checksum)
+            ->where('status', AttachmentStatus::Stored)
+            ->whereNotNull('path')
+            ->first();
+    }
+
+    /**
+     * Content-addressed path with two levels of fan-out, so no single
+     * directory ends up holding millions of entries.
+     */
+    protected function pathFor(string $checksum): string
+    {
+        $prefix = trim((string) config('postmaster.persistence.attachments.path', 'postmaster/attachments'), '/');
+
+        return $prefix.'/'.substr($checksum, 0, 2).'/'.substr($checksum, 2, 2).'/'.$checksum;
+    }
+}

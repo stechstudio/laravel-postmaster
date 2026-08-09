@@ -4,7 +4,9 @@ namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Storage;
 use STS\Postmaster\Attachments\AttachmentStatus;
+use STS\Postmaster\Attachments\AttachmentStore;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Listeners\StashOutboundMetadata;
 use STS\Postmaster\Models\EmailAttachment;
@@ -127,5 +129,101 @@ class AttachmentStorageTest extends TestCase
 
         $this->assertFalse($tracking->storeAttachments);
         $this->assertNull($tracking->storeContent);
+    }
+
+    protected function emailWith(string $body = 'PDF DATA', string $name = 'invoice.pdf'): Email
+    {
+        return (new Email)->subject('Invoice')->text('Hi')
+            ->attach($body, $name, 'application/pdf');
+    }
+
+    public function testStoringWritesBytesAndRecordsMetadata()
+    {
+        Storage::fake('local');
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+
+        $attachment = EmailAttachment::first();
+
+        $this->assertSame('invoice.pdf', $attachment->filename);
+        $this->assertSame('application/pdf', $attachment->mime_type);
+        $this->assertSame(8, $attachment->size);
+        $this->assertSame(hash('sha256', 'PDF DATA'), $attachment->checksum);
+        $this->assertSame('attachment', $attachment->disposition);
+        $this->assertSame(AttachmentStatus::Stored, $attachment->status);
+        $this->assertNotNull($attachment->stored_at);
+
+        Storage::disk('local')->assertExists($attachment->path);
+        $this->assertSame('PDF DATA', Storage::disk('local')->get($attachment->path));
+    }
+
+    public function testIdenticalContentIsWrittenOnceAndReferencedTwice()
+    {
+        Storage::fake('local');
+
+        $store = app(AttachmentStore::class);
+        $store->store($this->emailWith(), 'msg-1', true);
+        $store->store($this->emailWith(), 'msg-2', true);
+
+        $this->assertCount(2, EmailAttachment::all());
+        $this->assertCount(1, EmailAttachment::all()->pluck('path')->unique());
+        $this->assertCount(1, Storage::disk('local')->allFiles());
+
+        // Usage counts distinct checksums, not rows.
+        $this->assertSame(8, $store->usage());
+    }
+
+    public function testAnOversizeAttachmentRecordsMetadataWithoutBytes()
+    {
+        Storage::fake('local');
+        config(['postmaster.persistence.attachments.max_size' => 4]);
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+
+        $attachment = EmailAttachment::first();
+
+        $this->assertSame(AttachmentStatus::Oversize, $attachment->status);
+        $this->assertSame(8, $attachment->size);
+        $this->assertNull($attachment->path);
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+    }
+
+    public function testMetadataIsRecordedWithoutBytesWhenStorageIsOff()
+    {
+        Storage::fake('local');
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', false);
+
+        $attachment = EmailAttachment::first();
+
+        $this->assertSame(AttachmentStatus::NotStored, $attachment->status);
+        $this->assertSame('invoice.pdf', $attachment->filename);
+        $this->assertNull($attachment->path);
+        $this->assertCount(0, Storage::disk('local')->allFiles());
+    }
+
+    public function testInlinePartsKeepTheirContentIdAndDisposition()
+    {
+        Storage::fake('local');
+
+        $email = (new Email)->subject('Branded')->html('<img src="cid:logo.png">');
+        $email->embed('PNG DATA', 'logo.png', 'image/png');
+
+        app(AttachmentStore::class)->store($email, 'msg-1', true);
+
+        $attachment = EmailAttachment::first();
+
+        $this->assertSame('inline', $attachment->disposition);
+        $this->assertSame('logo.png', $attachment->content_id);
+        $this->assertSame(AttachmentStatus::Stored, $attachment->status);
+    }
+
+    public function testAFailingDiskRecordsTheAttachmentAsFailedWithoutThrowing()
+    {
+        config(['postmaster.persistence.attachments.disk' => 'does-not-exist']);
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+
+        $this->assertSame(AttachmentStatus::Failed, EmailAttachment::first()->status);
     }
 }

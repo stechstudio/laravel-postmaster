@@ -4,6 +4,7 @@ namespace STS\Postmaster\Mail;
 
 use Illuminate\Mail\Mailable;
 use STS\Postmaster\Models\EmailMessage;
+use Symfony\Component\Mime\Part\DataPart;
 
 /**
  * Sends a previously *sandboxed* email for real. Used by the dashboard's
@@ -12,8 +13,9 @@ use STS\Postmaster\Models\EmailMessage;
  * chosen to let this specific one out.
  *
  * The bodies, recipients, subject, and tags all come from the recorded row,
- * so a release requires stored content. Attachments are not restored — the
- * package only keeps their filenames, never their bytes.
+ * so a release requires stored content. Attachments are reattached when their
+ * bytes are still stored; ones never captured, pruned, or evicted are left
+ * off.
  *
  * Unlike a resend, a release does not create a new record: it carries a
  * release marker (X-Postmaster-Release-Of) that tells InterceptSandboxMail
@@ -68,6 +70,8 @@ class ReleasedMessage extends Mailable
             $this->withSymfonyMessage($this->restoreTextAlternative());
         }
 
+        $this->withSymfonyMessage($this->reattachStoredAttachments());
+
         // Carry the original tags onto the real send — a release is the
         // genuine delivery of this message, so the provider should see the
         // same tags it would have on a normal send.
@@ -93,6 +97,37 @@ class ReleasedMessage extends Mailable
 
         return function ($message) use ($text) {
             $message->text($text);
+        };
+    }
+
+    /**
+     * Put back whatever attachment bytes we still hold. An inline part goes
+     * back under its filename and Symfony rewrites the body's cid:filename
+     * reference to a fresh cid while serializing — the same mechanism that
+     * resolved it when the message was first composed.
+     *
+     * Attachments never captured — or since pruned or evicted — are simply
+     * left off; a release that drops an attachment still beats one that
+     * refuses to go out.
+     */
+    protected function reattachStoredAttachments(): \Closure
+    {
+        $attachments = $this->record->availableAttachments();
+
+        return function ($message) use ($attachments) {
+            foreach ($attachments as $attachment) {
+                $part = new DataPart(
+                    $attachment->contents(),
+                    $attachment->filename,
+                    $attachment->mime_type
+                );
+
+                if ($attachment->disposition === 'inline') {
+                    $part->asInline();
+                }
+
+                $message->addPart($part);
+            }
         };
     }
 }

@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
@@ -165,8 +166,8 @@ class MessageController extends Controller
      * Resend a previously recorded email — typically after a bounce, once
      * the recipient has corrected their address. The replay carries over
      * subject, sender, recipients, bodies, and the tracking context, plus
-     * a "resent" tag of its own. Requires stored content; attachments are
-     * not restored (we never keep their bytes).
+     * a "resent" tag of its own. Requires stored content; attachments come
+     * along when their bytes are still stored.
      */
     public function resend(Request $request, int|string $message): RedirectResponse
     {
@@ -212,9 +213,16 @@ class MessageController extends Controller
                 ->with('postmasterError', 'Resend failed — the email could not be sent. '.$e->getMessage());
         }
 
+        // Say so when the replay couldn't carry everything the original did —
+        // a silently attachment-less resend is exactly the failure this
+        // feature exists to fix, so it shouldn't be invisible when it happens.
+        $missing = $record->attachments->count() - $record->availableAttachments()->count();
+
         return redirect()
             ->route('postmaster.messages.show', $record)
-            ->with('postmasterFlash', 'Message resent.');
+            ->with('postmasterFlash', 'Message resent.'.($missing > 0
+                ? " Sent without {$missing} ".Str::plural('attachment', $missing).' (no longer stored).'
+                : ''));
     }
 
     /**

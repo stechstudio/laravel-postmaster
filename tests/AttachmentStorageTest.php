@@ -4,7 +4,9 @@ namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use STS\Postmaster\Attachments\AttachmentStatus;
@@ -17,6 +19,7 @@ use STS\Postmaster\Postmaster as PostmasterManager;
 use STS\Postmaster\Support\OutboundMetadata;
 use STS\Postmaster\Tests\Stubs\AttachedMail;
 use STS\Postmaster\Tests\Stubs\FullMail;
+use STS\Postmaster\Tests\Stubs\InlineImageMail;
 use STS\Postmaster\Tracking;
 use Symfony\Component\Mime\Email;
 
@@ -218,7 +221,7 @@ class AttachmentStorageTest extends TestCase
         $attachment = EmailAttachment::first();
 
         $this->assertSame('inline', $attachment->disposition);
-        $this->assertSame('logo.png', $attachment->content_id);
+        $this->assertSame('logo.png', $attachment->filename);
         $this->assertSame(AttachmentStatus::Stored, $attachment->status);
     }
 
@@ -465,5 +468,85 @@ class AttachmentStorageTest extends TestCase
         Artisan::call('postmaster:prune', ['--attachments' => true]);
 
         $this->assertSame(AttachmentStatus::Stored, EmailAttachment::first()->status);
+    }
+
+    public function testResendReattachesStoredBytes()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $sent = [];
+        Event::listen(MessageSent::class, function ($event) use (&$sent) {
+            $sent[] = $event->message;
+        });
+
+        Postmaster::resend(EmailMessage::first());
+
+        $parts = end($sent)->getAttachments();
+
+        $this->assertCount(1, $parts);
+        $this->assertSame('invoice.pdf', $parts[0]->getFilename());
+        $this->assertSame('PDF DATA', $parts[0]->getBody());
+    }
+
+    public function testResendSkipsAttachmentsWhoseBytesAreGone()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new FullMail);
+
+        app(AttachmentStore::class)->forget(EmailAttachment::first(), AttachmentStatus::Pruned);
+
+        $sent = [];
+        Event::listen(MessageSent::class, function ($event) use (&$sent) {
+            $sent[] = $event->message;
+        });
+
+        Postmaster::resend(EmailMessage::first());
+
+        $this->assertCount(0, end($sent)->getAttachments());
+    }
+
+    public function testAnInlinePartIsReEmbeddedUnderItsOriginalContentId()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new InlineImageMail);
+
+        $sent = [];
+        Event::listen(MessageSent::class, function ($event) use (&$sent) {
+            $sent[] = $event->message;
+        });
+
+        Postmaster::resend(EmailMessage::first());
+
+        $replay = end($sent);
+        $part   = $replay->getAttachments()[0];
+
+        $this->assertSame('inline', $part->getDisposition());
+        $this->assertSame('logo.png', $part->getFilename());
+
+        // The invariant that actually matters: once serialized, the body
+        // carries no unresolved cid:logo.png. Symfony rewrites cid:filename
+        // to the part's real cid on the way out — if the part hadn't come
+        // back under its filename, that reference would survive verbatim and
+        // the image would break in the recipient's client.
+        $rendered = $replay->toString();
+
+        $this->assertStringNotContainsString('cid:logo.png', $rendered);
+        $this->assertStringContainsString("Content-ID: <{$part->getContentId()}>", $rendered);
     }
 }

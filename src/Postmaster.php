@@ -461,9 +461,8 @@ class Postmaster
      * The new send is linked back to the original via resent_from_id, which
      * the dashboard's chain card walks to show the full retry history.
      *
-     * Requires the original to have stored content. Attachments are not
-     * restored — the package only persists their filenames, never their
-     * bytes.
+     * Requires the original to have stored content. Attachments come back too
+     * when their bytes are still stored — see persistence.attachments.
      *
      * Throws \RuntimeException when there's no stored content to replay.
      */
@@ -491,8 +490,8 @@ class Postmaster
      * message an operator has decided should actually go out.
      *
      * The send reuses the recorded row's stored content, so a release
-     * requires stored content. Attachments are not restored — the package
-     * only persists their filenames, never their bytes.
+     * requires stored content. Attachments come back too when their bytes are
+     * still stored — see persistence.attachments.
      *
      * Once released the row is no longer sandboxed, so it cannot be released
      * again — a second call throws.

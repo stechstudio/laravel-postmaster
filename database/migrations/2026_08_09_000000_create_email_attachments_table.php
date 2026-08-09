@@ -26,10 +26,10 @@ return new class extends Migration
             // sha256 of the contents: the dedup key on write and the
             // reference-count key on delete.
             $table->string('checksum', 64)->index();
-            // Symfony's own vocabulary: 'attachment' or 'inline'.
+            // Symfony's own vocabulary: 'attachment' or 'inline'. Enough on
+            // its own to re-embed: Symfony resolves a body's cid: references
+            // against part filenames, so no content id needs recording.
             $table->string('disposition', 16)->default('attachment');
-            // CID for inline parts, so re-embedding on resend is faithful.
-            $table->string('content_id')->nullable();
             // Recorded per row so changing the configured disk later doesn't
             // orphan files written under the old one.
             $table->string('disk')->nullable();

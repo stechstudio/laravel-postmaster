@@ -183,6 +183,17 @@ class EmailMessage extends Model
     }
 
     /**
+     * The attachments whose bytes are still on disk. Resend and release
+     * reattach these; the rest survive as metadata only.
+     *
+     * @return Collection<int, EmailAttachment>
+     */
+    public function availableAttachments(): Collection
+    {
+        return $this->attachments->filter->isAvailable()->values();
+    }
+
+    /**
      * The tenant this email belongs to. Requires the tenant model class to
      * be set via the "postmaster.persistence.tenant_model" config key.
      */

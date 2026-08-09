@@ -42,7 +42,6 @@ class AttachmentStore
                 'size'                => $size,
                 'checksum'            => $checksum,
                 'disposition'         => $part->getDisposition() === 'inline' ? 'inline' : 'attachment',
-                'content_id'          => $this->contentIdOf($part),
             ] + $this->placement($checksum, $body, $size, $storeBytes));
         }
     }
@@ -73,27 +72,6 @@ class AttachmentStore
             ->where('checksum', $checksum)
             ->where('status', AttachmentStatus::Stored)
             ->value('size');
-    }
-
-    /**
-     * The content id to record for an inline part, so resend can re-embed it
-     * under the same reference the html body already points at.
-     *
-     * Symfony only materializes a generated cid when the message is
-     * serialized, and resolves `cid:filename` references against the part's
-     * filename at that point. Depending on how far the transport has gotten
-     * by MessageSent, hasContentId() may still be false — so fall back to the
-     * filename, which is the reference the body actually carries.
-     *
-     * Null for ordinary attachments: they have no cid to preserve.
-     */
-    protected function contentIdOf(DataPart $part): ?string
-    {
-        if ($part->getDisposition() !== 'inline') {
-            return null;
-        }
-
-        return $part->hasContentId() ? $part->getContentId() : $part->getFilename();
     }
 
     /**

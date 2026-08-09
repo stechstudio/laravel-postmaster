@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 use STS\Postmaster\Attachments\AttachmentStatus;
 
 /**
@@ -20,7 +21,6 @@ use STS\Postmaster\Attachments\AttachmentStatus;
  * @property int $size
  * @property string $checksum
  * @property string $disposition  'attachment' | 'inline'
- * @property string|null $content_id
  * @property string|null $disk
  * @property string|null $path
  * @property AttachmentStatus $status
@@ -67,5 +67,14 @@ class EmailAttachment extends Model
         return $this->status === AttachmentStatus::Stored
             && $this->path !== null
             && $this->disk !== null;
+    }
+
+    /**
+     * The stored bytes. Only call this when isAvailable() is true — a missing
+     * disk or path is a bug in the caller, not a condition to swallow.
+     */
+    public function contents(): string
+    {
+        return Storage::disk($this->disk)->get($this->path);
     }
 }

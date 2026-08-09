@@ -5,6 +5,7 @@ namespace STS\Postmaster\Mail;
 use Illuminate\Mail\Mailable;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Support\OutboundMetadata;
+use Symfony\Component\Mime\Part\DataPart;
 
 /**
  * Replays a previously recorded email through the configured mailer. Used by
@@ -12,8 +13,9 @@ use STS\Postmaster\Support\OutboundMetadata;
  * the recipient has corrected their address.
  *
  * The bodies, recipients, and subject all come from the recorded row — a
- * resend therefore requires stored content. Attachments are not restored:
- * the package only keeps their filenames, never their bytes.
+ * resend therefore requires stored content. Attachments are reattached when
+ * their bytes are still stored; ones that were never captured, or have since
+ * been pruned or evicted, are simply left off.
  *
  * Business context (related model, recipient model, tenant, tags) carries
  * over so the resend lives under the same person / record in the dashboard
@@ -89,6 +91,24 @@ class ResentMessage extends Mailable
             // version of a text-only original.
             if ($record->text_body) {
                 $message->text($record->text_body);
+            }
+
+            // Reattach whatever bytes we still hold. An inline part goes back
+            // under its filename and Symfony rewrites the body's cid:filename
+            // reference to a fresh cid while serializing — the same mechanism
+            // that resolved it on the first send.
+            foreach ($record->availableAttachments() as $attachment) {
+                $part = new DataPart(
+                    $attachment->contents(),
+                    $attachment->filename,
+                    $attachment->mime_type
+                );
+
+                if ($attachment->disposition === 'inline') {
+                    $part->asInline();
+                }
+
+                $message->addPart($part);
             }
 
             $headers = $message->getHeaders();

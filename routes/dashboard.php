@@ -21,6 +21,8 @@ Route::get('/', OverviewController::class)->name('postmaster.overview');
 
 Route::get('messages', [MessageController::class, 'index'])->name('postmaster.messages');
 Route::get('messages/{message}', [MessageController::class, 'show'])->name('postmaster.messages.show');
+Route::get('messages/{message}/attachments/{attachment}', [MessageController::class, 'attachment'])
+    ->name('postmaster.messages.attachment');
 Route::post('messages/{message}/resend', [MessageController::class, 'resend'])->name('postmaster.messages.resend');
 Route::delete('messages/{message}', [MessageController::class, 'destroy'])->name('postmaster.messages.destroy');
 Route::post('messages/{message}/release', [MessageController::class, 'release'])->name('postmaster.messages.release');

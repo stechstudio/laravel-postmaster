@@ -25,7 +25,7 @@
                       onsubmit="return confirm('Release this sandboxed email and send it for real to {{ $message->to_address }}? This can\'t be undone.')">
                     @csrf
                     <button type="submit" class="pm-btn"
-                            @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
+                            @if ($message->missingAttachmentCount() > 0) title="{{ $message->missingAttachmentCount() }} attachment(s) are no longer stored and won't be included." @endif>
                         Release
                     </button>
                 </form>
@@ -35,7 +35,7 @@
                       onsubmit="return confirm('Resend this email to {{ $message->to_address }}?')">
                     @csrf
                     <button type="submit" class="pm-btn"
-                            @if (! empty($message->attachments)) title="Attachments aren't restored — only their filenames are stored." @endif>
+                            @if ($message->missingAttachmentCount() > 0) title="{{ $message->missingAttachmentCount() }} attachment(s) are no longer stored and won't be included." @endif>
                         Resend
                     </button>
                 </form>
@@ -91,11 +91,23 @@
                 </div>
             @endif
 
-            @if (! empty($message->attachments))
+            @if ($message->attachments->isNotEmpty() || $message->legacyAttachmentNames())
                 <div style="margin-top: 14px;">
                     <div class="pm-stat-label">Attachments</div>
                     <ul class="pm-mono" style="margin: 6px 0 0; padding-left: 18px;">
-                        @foreach ($message->attachments as $name)
+                        @foreach ($message->attachments as $attachment)
+                            <li>
+                                @if ($attachment->isAvailable())
+                                    <a href="{{ route('postmaster.messages.attachment', [$message, $attachment]) }}">{{ $attachment->filename }}</a>
+                                @else
+                                    {{ $attachment->filename }}
+                                @endif
+                                <span style="opacity: .6;">
+                                    — {{ number_format($attachment->size / 1024, 1) }} KB{{ $attachment->isAvailable() ? '' : ', '.str_replace('_', ' ', $attachment->status->value) }}
+                                </span>
+                            </li>
+                        @endforeach
+                        @foreach ($message->legacyAttachmentNames() as $name)
                             <li>{{ $name }}</li>
                         @endforeach
                     </ul>

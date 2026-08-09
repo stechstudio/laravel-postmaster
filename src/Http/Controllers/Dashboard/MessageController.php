@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
+use STS\Postmaster\Models\EmailAttachment;
 use STS\Postmaster\Models\EmailMessage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The inbox: a filterable, cross-tenant list of recorded messages, and the
@@ -163,6 +165,25 @@ class MessageController extends Controller
     }
 
     /**
+     * Stream one of a message's stored attachments back to the operator.
+     *
+     * Scoped to the message deliberately: the attachment id alone is not
+     * authority to read it, so an id from another message 404s rather than
+     * leaking across records.
+     */
+    public function attachment(int|string $message, int|string $attachment): StreamedResponse
+    {
+        $record = $this->messageQuery()->findOrFail($message);
+
+        /** @var EmailAttachment|null $file */
+        $file = $record->attachments()->whereKey($attachment)->first();
+
+        abort_unless($file?->isAvailable(), 404);
+
+        return $file->download();
+    }
+
+    /**
      * Resend a previously recorded email — typically after a bounce, once
      * the recipient has corrected their address. The replay carries over
      * subject, sender, recipients, bodies, and the tracking context, plus
@@ -216,7 +237,7 @@ class MessageController extends Controller
         // Say so when the replay couldn't carry everything the original did —
         // a silently attachment-less resend is exactly the failure this
         // feature exists to fix, so it shouldn't be invisible when it happens.
-        $missing = $record->attachments->count() - $record->availableAttachments()->count();
+        $missing = $record->missingAttachmentCount();
 
         return redirect()
             ->route('postmaster.messages.show', $record)

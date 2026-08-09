@@ -194,6 +194,17 @@ class EmailMessage extends Model
     }
 
     /**
+     * How many of this message's attachments a replay can no longer carry —
+     * never captured, oversize, pruned, or evicted. Drives the resend/release
+     * warning, so an operator knows before clicking that the copy going out
+     * won't be complete.
+     */
+    public function missingAttachmentCount(): int
+    {
+        return $this->attachments->count() - $this->availableAttachments()->count();
+    }
+
+    /**
      * The tenant this email belongs to. Requires the tenant model class to
      * be set via the "postmaster.persistence.tenant_model" config key.
      */

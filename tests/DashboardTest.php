@@ -3,13 +3,18 @@
 namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use STS\Postmaster\Attachments\AttachmentStatus;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
+use STS\Postmaster\Models\EmailAttachment;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Tests\Stubs\Account;
+use STS\Postmaster\Tests\Stubs\FullMail;
 use STS\Postmaster\Tests\Stubs\Tenant;
 use STS\Postmaster\Tests\Stubs\User;
 
@@ -607,5 +612,90 @@ class DashboardTest extends TestCase
         $this->assertNull(EmailMessage::find($to->getKey()));
         $this->assertNotNull(EmailMessage::find($cc->getKey()));      // sibling untouched
         $this->assertNotNull(EmailAddress::find($address->getKey())); // suppression row untouched
+    }
+
+    public function testAStoredAttachmentCanBeDownloaded()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $message    = EmailMessage::first();
+        $attachment = $message->attachments->first();
+
+        $response = $this->get("/postmaster/messages/{$message->getKey()}/attachments/{$attachment->getKey()}");
+
+        $response->assertOk();
+        $response->assertDownload('invoice.pdf');
+        $this->assertSame('PDF DATA', $response->streamedContent());
+    }
+
+    public function testDownloadingAnUnavailableAttachmentIsNotFound()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config(['postmaster.persistence.store_content' => true]);
+
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $message    = EmailMessage::first();
+        $attachment = $message->attachments->first();
+
+        $this->get("/postmaster/messages/{$message->getKey()}/attachments/{$attachment->getKey()}")
+            ->assertNotFound();
+    }
+
+    public function testAnAttachmentFromAnotherMessageIsNotFound()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('first@example.com')->send(new FullMail);
+        $first = EmailMessage::first();
+
+        $other = EmailAttachment::create([
+            'provider_message_id' => 'unrelated',
+            'filename'            => 'secret.pdf',
+            'size'                => 3,
+            'checksum'            => str_repeat('c', 64),
+            'disposition'         => 'attachment',
+            'status'              => AttachmentStatus::Stored,
+            'disk'                => 'local',
+            'path'                => 'postmaster/attachments/cc/cc/'.str_repeat('c', 64),
+        ]);
+
+        $this->get("/postmaster/messages/{$first->getKey()}/attachments/{$other->getKey()}")
+            ->assertNotFound();
+    }
+
+    public function testDownloadingAnAttachmentRequiresDashboardAuthorization()
+    {
+        Postmaster::auth(fn () => false);
+        Storage::fake('local');
+
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'to_address' => 'to@example.com']);
+
+        $attachment = EmailAttachment::create([
+            'provider_message_id' => 'm1',
+            'filename'            => 'invoice.pdf',
+            'size'                => 8,
+            'checksum'            => str_repeat('d', 64),
+            'disposition'         => 'attachment',
+            'status'              => AttachmentStatus::Stored,
+            'disk'                => 'local',
+            'path'                => 'postmaster/attachments/dd/dd/'.str_repeat('d', 64),
+        ]);
+
+        $this->get("/postmaster/messages/{$message->getKey()}/attachments/{$attachment->getKey()}")
+            ->assertForbidden();
     }
 }

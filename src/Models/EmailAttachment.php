@@ -5,6 +5,7 @@ namespace STS\Postmaster\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use STS\Postmaster\Attachments\AttachmentStatus;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * One attachment carried by one outbound email, recorded when either content
@@ -76,5 +77,16 @@ class EmailAttachment extends Model
     public function contents(): string
     {
         return Storage::disk($this->disk)->get($this->path);
+    }
+
+    /**
+     * Stream the stored bytes back as a download. The controller calls this
+     * rather than reaching for Storage itself — and rather than handing out a
+     * cloud temporary URL, which would be a second authorization path and a
+     * link that outlives the session that requested it.
+     */
+    public function download(): StreamedResponse
+    {
+        return Storage::disk($this->disk)->download($this->path, $this->filename);
     }
 }

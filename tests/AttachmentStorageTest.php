@@ -4,6 +4,7 @@ namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use STS\Postmaster\Attachments\AttachmentStatus;
@@ -316,5 +317,90 @@ class AttachmentStorageTest extends TestCase
 
         $this->assertSame('invoice.pdf', $attachment->filename);
         $this->assertSame(AttachmentStatus::NotStored, $attachment->status);
+    }
+
+    public function testASharedFileSurvivesUntilItsLastReferenceGoes()
+    {
+        Storage::fake('local');
+
+        $store = app(AttachmentStore::class);
+        $store->store($this->emailWith(), 'msg-1', true);
+        $store->store($this->emailWith(), 'msg-2', true);
+
+        [$first, $second] = EmailAttachment::all()->all();
+        $path = $first->path;
+
+        $this->assertSame(0, $store->forget($first, AttachmentStatus::Pruned));
+        Storage::disk('local')->assertExists($path);
+        $this->assertSame(AttachmentStatus::Pruned, $first->fresh()->status);
+        $this->assertNull($first->fresh()->path);
+
+        $this->assertSame(8, $store->forget($second, AttachmentStatus::Pruned));
+        Storage::disk('local')->assertMissing($path);
+    }
+
+    public function testPruningRemovesBytesPastTheRetentionWindowAndKeepsTheRow()
+    {
+        Storage::fake('local');
+        config(['postmaster.persistence.attachments.prune_after_days' => 30]);
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+
+        $attachment = EmailAttachment::first();
+        $path = $attachment->path;
+        $attachment->forceFill(['created_at' => now()->subDays(45)])->save();
+
+        Artisan::call('postmaster:prune', ['--attachments' => true]);
+
+        $attachment = $attachment->fresh();
+
+        $this->assertSame(AttachmentStatus::Pruned, $attachment->status);
+        $this->assertSame('invoice.pdf', $attachment->filename);
+        $this->assertNull($attachment->path);
+        Storage::disk('local')->assertMissing($path);
+    }
+
+    public function testPruningLeavesAttachmentsInsideTheWindowAlone()
+    {
+        Storage::fake('local');
+        config(['postmaster.persistence.attachments.prune_after_days' => 30]);
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+
+        Artisan::call('postmaster:prune', ['--attachments' => true]);
+
+        $this->assertSame(AttachmentStatus::Stored, EmailAttachment::first()->status);
+    }
+
+    public function testPruningWithNoFlagsStillRunsEveryPass()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.attachments.prune_after_days' => 30,
+            'postmaster.persistence.prune_content_after_days'     => 30,
+        ]);
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+        EmailAttachment::first()->forceFill(['created_at' => now()->subDays(45)])->save();
+
+        Artisan::call('postmaster:prune');
+
+        $this->assertSame(AttachmentStatus::Pruned, EmailAttachment::first()->status);
+    }
+
+    public function testADryRunReportsWithoutRemovingAnything()
+    {
+        Storage::fake('local');
+        config(['postmaster.persistence.attachments.prune_after_days' => 30]);
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+        EmailAttachment::first()->forceFill(['created_at' => now()->subDays(45)])->save();
+
+        Artisan::call('postmaster:prune', ['--attachments' => true, '--dry-run' => true]);
+
+        $attachment = EmailAttachment::first();
+
+        $this->assertSame(AttachmentStatus::Stored, $attachment->status);
+        Storage::disk('local')->assertExists($attachment->path);
     }
 }

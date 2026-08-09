@@ -144,6 +144,82 @@ class AttachmentStore
     }
 
     /**
+     * Release one attachment's claim on its bytes, marking it with the reason.
+     * The file is unlinked only when no other Stored row shares its checksum —
+     * the reference count that content-addressing makes necessary.
+     *
+     * Returns the bytes actually reclaimed: 0 when the file lives on for
+     * another reference.
+     */
+    public function forget(EmailAttachment $attachment, AttachmentStatus $reason): int
+    {
+        $freed = 0;
+
+        if ($attachment->isAvailable() && ! $this->referencedElsewhere($attachment)) {
+            $disk = $attachment->disk;
+            $path = $attachment->path;
+
+            rescue(fn () => Storage::disk($disk)->delete($path));
+
+            $freed = $attachment->size;
+        }
+
+        $attachment->forceFill([
+            'status' => $reason,
+            'disk'   => null,
+            'path'   => null,
+        ])->save();
+
+        return $freed;
+    }
+
+    /**
+     * Release a whole checksum group at once — every row that points at one
+     * file. Used by eviction, which reclaims space and therefore has to take
+     * all of a file's references together: dropping one at a time frees
+     * nothing until the last.
+     */
+    public function forgetChecksum(string $checksum, AttachmentStatus $reason): int
+    {
+        $rows = EmailAttachment::model()->newQuery()
+            ->where('checksum', $checksum)
+            ->where('status', AttachmentStatus::Stored)
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return 0;
+        }
+
+        $first = $rows->first();
+        $freed = $first->size;
+
+        if ($first->disk !== null && $first->path !== null) {
+            $disk = $first->disk;
+            $path = $first->path;
+
+            rescue(fn () => Storage::disk($disk)->delete($path));
+        }
+
+        foreach ($rows as $row) {
+            $row->forceFill(['status' => $reason, 'disk' => null, 'path' => null])->save();
+        }
+
+        return $freed;
+    }
+
+    /**
+     * Whether another Stored row still points at this attachment's bytes.
+     */
+    protected function referencedElsewhere(EmailAttachment $attachment): bool
+    {
+        return EmailAttachment::model()->newQuery()
+            ->where('checksum', $attachment->checksum)
+            ->where('status', AttachmentStatus::Stored)
+            ->whereKeyNot($attachment->getKey())
+            ->exists();
+    }
+
+    /**
      * A row whose bytes for this checksum are already on disk, if any.
      */
     protected function existing(string $checksum): ?EmailAttachment

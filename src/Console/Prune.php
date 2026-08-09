@@ -86,7 +86,7 @@ class Prune extends Command
                     ->orWhereNotNull('text_body')
                     ->orWhereNotNull('from_address')
                     ->orWhereNotNull('recipients')
-                    ->orWhereNotNull('attachments');
+                    ->orWhereNotNull('legacy_attachment_names');
             });
 
         $count = $dryRun
@@ -96,7 +96,7 @@ class Prune extends Command
                 'recipients'   => null,
                 'html_body'    => null,
                 'text_body'    => null,
-                'attachments'  => null,
+                'legacy_attachment_names' => null,
             ]);
 
         $this->components->twoColumnDetail(

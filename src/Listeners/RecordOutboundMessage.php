@@ -335,7 +335,7 @@ class RecordOutboundMessage
             ],
             'html_body'    => $this->body($message->getHtmlBody()),
             'text_body'    => $this->body($message->getTextBody()),
-            'attachments'  => $this->attachments($message),
+            'legacy_attachment_names' => $this->attachments($message),
         ];
     }
 

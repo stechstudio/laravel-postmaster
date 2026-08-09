@@ -199,6 +199,45 @@ return [
         'prune_content_after_days' => env('POSTMASTER_PRUNE_CONTENT_AFTER_DAYS', 30),
 
         /*
+         * The table recording one row per attachment carried by an outbound
+         * email. Metadata is written whenever either content storage or
+         * attachment storage is on; the bytes only when the latter is.
+         */
+        'attachments_table' => 'email_attachments',
+        'attachment_model'  => \STS\Postmaster\Models\EmailAttachment::class,
+
+        /*
+         * Attachment storage. Off by default, and independent of
+         * store_content — so you can keep an invoice PDF while discarding a
+         * body that carries a magic-login link.
+         *
+         * Bytes are written to `disk` at content-addressed paths, so identical
+         * content (a logo embedded on every send) is stored once no matter how
+         * many messages reference it.
+         *
+         *   store            Capture attachment bytes at all.
+         *   disk             Any configured filesystem disk. Use an s3 disk
+         *                    and size stops being a concern.
+         *   path             Prefix under that disk.
+         *   max_size         Per-file ceiling in bytes. Larger attachments
+         *                    record their metadata and skip the bytes.
+         *   max_disk_usage   Total ceiling in bytes. When set, the daily prune
+         *                    evicts least-recently-referenced files until
+         *                    usage fits. null leaves it unbounded.
+         *   prune_after_days Retention for the bytes. The metadata row
+         *                    survives so the record of what was sent stays
+         *                    intact. 0 or null disables pruning.
+         */
+        'attachments' => [
+            'store'            => env('POSTMASTER_STORE_ATTACHMENTS', false),
+            'disk'             => env('POSTMASTER_ATTACHMENTS_DISK', 'local'),
+            'path'             => 'postmaster/attachments',
+            'max_size'         => env('POSTMASTER_ATTACHMENTS_MAX_SIZE', 10 * 1024 * 1024),
+            'max_disk_usage'   => env('POSTMASTER_ATTACHMENTS_MAX_DISK_USAGE'),
+            'prune_after_days' => env('POSTMASTER_PRUNE_ATTACHMENTS_AFTER_DAYS', 30),
+        ],
+
+        /*
          * Record a full delivery timeline. With this on, the initial send and
          * every webhook event are also stored as their own rows in the
          * email_activity table — so a message keeps its complete

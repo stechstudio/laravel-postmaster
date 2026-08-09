@@ -31,7 +31,8 @@ use STS\Postmaster\Facades\Postmaster;
  * @property array|null $recipients
  * @property string|null $html_body
  * @property string|null $text_body
- * @property array|null $attachments
+ * @property array|null $legacy_attachment_names
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, EmailAttachment> $attachments
  * @property array|null $tags
  * @property string|null $status
  * @property string|null $bounce_type
@@ -60,8 +61,8 @@ class EmailMessage extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'recipients'    => 'array',
-        'attachments'   => 'array',
+        'recipients'              => 'array',
+        'legacy_attachment_names' => 'array',
         'tags'          => 'array',
         'sent_at'       => 'datetime',
         'last_event_at' => 'datetime',
@@ -154,6 +155,31 @@ class EmailMessage extends Model
         return $this->hasMany($model, 'email_message_id')
             ->orderBy('occurred_at')
             ->orderBy('id');
+    }
+
+    /**
+     * The attachments this email carried. Keyed on provider_message_id rather
+     * than this row's id, because one submission writes a row per envelope
+     * recipient and they all carried the same files — so To, Cc, and Bcc rows
+     * resolve one shared set instead of three copies.
+     */
+    public function attachments(): HasMany
+    {
+        $model = config('postmaster.persistence.attachment_model', EmailAttachment::class);
+
+        return $this->hasMany($model, 'provider_message_id', 'provider_message_id');
+    }
+
+    /**
+     * Attachment filenames recorded before the email_attachments table
+     * existed. Pre-upgrade rows kept only names in a JSON column; the
+     * dashboard falls back to this when the relation is empty.
+     *
+     * @return array<int, string>
+     */
+    public function legacyAttachmentNames(): array
+    {
+        return $this->legacy_attachment_names ?? [];
     }
 
     /**

@@ -180,10 +180,11 @@ return [
         'tenant_model'  => null,
 
         /*
-         * Store the full message content (sender, recipients, bodies, and
-         * attachment filenames) on each record. Off by default: message
-         * bodies are large and may contain personal data or secrets such as
-         * password-reset links.
+         * Store the full message content (sender, recipients, and bodies) on
+         * each record, plus attachment metadata. Attachment *bytes* are a
+         * separate opt-in — see the attachments block below. Off by default:
+         * message bodies are large and may contain personal data or secrets
+         * such as password-reset links.
          */
         'store_content' => env('POSTMASTER_STORE_CONTENT', false),
 

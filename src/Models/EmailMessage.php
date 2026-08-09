@@ -337,7 +337,8 @@ class EmailMessage extends Model
      * Replay this message through the configured mailer, preserving its
      * sender, recipients, subject, bodies, and tracking context (plus a
      * `resent` tag of its own). The new row links back to this one via
-     * resent_from_id. Requires stored content; attachments are not restored.
+     * resent_from_id. Requires stored content; attachments come along when
+     * their bytes are still stored.
      *
      * Throws \RuntimeException when there is no stored content to replay.
      */

@@ -613,7 +613,7 @@ implying an action that can't actually do what it suggests.
 
 By default a record holds only delivery metadata. Enable content storage and
 each record also keeps a full representation of the email: sender, recipients
-(to/cc/bcc), subject, HTML and text bodies, and attachment filenames. This is
+(to/cc/bcc), subject, HTML and text bodies, and attachment metadata. This is
 captured from the message itself at send time, so it works the same for every
 provider.
 
@@ -623,7 +623,8 @@ POSTMASTER_STORE_CONTENT=true
 
 > Message bodies are large and routinely contain personal data or secrets
 > (password-reset links, magic-login tokens). This is why it's off by default.
-> Attachment **contents** are never stored, only their filenames. And because
+> Attachment **contents** are stored separately and off by default — see
+> [Storing attachments](#storing-attachments). And because
 > content is captured before sending, it won't reflect the click-tracking link
 > rewriting some providers apply afterward.
 
@@ -636,13 +637,14 @@ POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=14   # tighter
 POSTMASTER_PRUNE_CONTENT_AFTER_DAYS=0    # disable pruning entirely (not advised for content)
 ```
 
-Stored content and timeline events share one daily prune command. Run it by
-hand any time:
+Stored content, attachments, and timeline events share one daily prune
+command. Run it by hand any time:
 
 ```bash
-php artisan postmaster:prune              # both content and events
-php artisan postmaster:prune --content    # only stored content
-php artisan postmaster:prune --activity   # only timeline activity
+php artisan postmaster:prune                # every pass
+php artisan postmaster:prune --content      # only stored content
+php artisan postmaster:prune --attachments  # only stored attachments
+php artisan postmaster:prune --activity     # only timeline activity
 ```
 
 A single email can override the global setting. A Mailable's `Tracking` carries
@@ -681,6 +683,62 @@ the subject or a header rather than the class; where you need class-level
 precision, Laravel's own `ResetPassword::toMailUsing()` hook runs early enough
 to call `dontStoreContent()` directly.
 
+### Storing attachments
+
+Attachment metadata — filename, type, size — is recorded whenever either
+storage switch is on. The bytes themselves are a separate opt-in:
+
+```
+POSTMASTER_STORE_ATTACHMENTS=true
+POSTMASTER_ATTACHMENTS_DISK=s3
+```
+
+With it on, Resend and Release replay a message with its attachments intact,
+and the dashboard offers each one as a download.
+
+This is independent of `POSTMASTER_STORE_CONTENT`, which is the point: an
+invoice PDF is often worth keeping when the body that carried a magic-login
+link is not. Both switches take the same three-tier control, per-message
+override first:
+
+```php
+return (new MailMessage)->subject('Your statement')->dontStoreAttachments();
+```
+
+```php
+return new Tracking(related: $this->invoice, storeAttachments: true);
+```
+
+```php
+Postmaster::storeAttachmentsWhen(
+    fn ($message) => ! str_contains((string) $message->getSubject(), 'Export')
+);
+```
+
+Bytes are content-addressed by sha256, so a logo embedded on every send costs
+one file no matter how many messages carry it, and a file is only removed once
+every message referencing it has released it.
+
+Three limits keep the disk in hand:
+
+```
+POSTMASTER_ATTACHMENTS_MAX_SIZE=10485760          # per file; larger ones record metadata only
+POSTMASTER_PRUNE_ATTACHMENTS_AFTER_DAYS=30        # retention for the bytes
+POSTMASTER_ATTACHMENTS_MAX_DISK_USAGE=5368709120  # total ceiling; evicts oldest first
+```
+
+The daily prune enforces the last two. Either way the metadata row survives, so
+the dashboard still reports what an email carried:
+
+```bash
+php artisan postmaster:prune --attachments
+php artisan postmaster:prune --attachments --dry-run
+```
+
+> An attachment whose bytes are gone — never stored, oversize, pruned, or
+> evicted — is listed with its status instead of a download link. Resend and
+> Release send without it rather than refusing, and say how many were left off.
+
 ### Resending a recorded email
 
 Any recorded `EmailMessage` with stored content can be replayed through the
@@ -709,10 +767,11 @@ $message->resendChain();               // the whole lineage, ordered by sent_at
 $message->resends()->delivered()->exists();
 ```
 
-Attachments are not restored — the package only persists their filenames,
-never their bytes. Resend throws `RuntimeException` when there's no stored
-content to replay; enable `POSTMASTER_STORE_CONTENT` ahead of the original
-send.
+Attachments are restored when their bytes are stored — see
+[Storing attachments](#storing-attachments). Ones that were never captured, or
+have since been pruned or evicted, are left off and the dashboard reports how
+many. Resend throws `RuntimeException` when there's no stored content to
+replay; enable `POSTMASTER_STORE_CONTENT` ahead of the original send.
 
 App code that builds its own resend outside `Postmaster::resend()` (e.g. a
 custom Mailable for a specific retry workflow) can declare the link via
@@ -1044,7 +1103,7 @@ environment**, so the dashboard is never unguarded in production by accident.
   links back to the original via `resent_from_id`, and the message detail
   shows a **Resend chain** sidebar card walking the lineage so a support
   reviewer can see at a glance whether a retry-after-unsuppress ever
-  delivered. Requires stored content; attachments are not restored.
+  delivered. Requires stored content; attachments come along when stored.
 
   The button is hidden when the recipient is currently suppressed — clear
   the suppression first (the Addresses screen has the unsuppress action) — and

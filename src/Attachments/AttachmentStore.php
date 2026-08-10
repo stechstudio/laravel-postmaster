@@ -109,8 +109,18 @@ class AttachmentStore
         // volume can be full. MessageSent fires after the send, so a failure
         // here can't unsend anything and must not blow up the request. The
         // row still lands, marked Failed, and the exception is reported.
+        //
+        // A failed write surfaces two different ways: put() throws only when
+        // the disk sets 'throw' => true, and otherwise reports the failure by
+        // returning false. Both have to end up Failed. Recording Stored off a
+        // write that didn't happen would leave the row pointing at bytes that
+        // aren't there — and because paths are content-addressed, every later
+        // message carrying that same file would dedupe onto the same dead
+        // path, turning one transient outage into a permanent hole.
         return rescue(function () use ($disk, $path, $body) {
-            Storage::disk($disk)->put($path, $body);
+            if (! Storage::disk($disk)->put($path, $body)) {
+                return ['status' => AttachmentStatus::Failed];
+            }
 
             return [
                 'status'    => AttachmentStatus::Stored,

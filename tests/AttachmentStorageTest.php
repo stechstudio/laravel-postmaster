@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Tests;
 
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Events\MessageSent;
@@ -233,6 +234,53 @@ class AttachmentStorageTest extends TestCase
         app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
 
         $this->assertSame(AttachmentStatus::Failed, EmailAttachment::first()->status);
+    }
+
+    /**
+     * A disk only throws on a failed write when it is configured with
+     * 'throw' => true, which is not Laravel's default. Otherwise put() reports
+     * the failure by returning false, which is the shape a real S3 disk takes
+     * when a write is throttled or the credentials have lapsed.
+     */
+    public function testAWriteThatReportsFailureIsNotRecordedAsStored()
+    {
+        $disk = \Mockery::mock(Filesystem::class);
+        $disk->shouldReceive('put')->once()->andReturn(false);
+        Storage::set('local', $disk);
+
+        app(AttachmentStore::class)->store($this->emailWith(), 'msg-1', true);
+
+        $attachment = EmailAttachment::first();
+
+        $this->assertSame(AttachmentStatus::Failed, $attachment->status);
+        $this->assertNull($attachment->path);
+        $this->assertNull($attachment->disk);
+        $this->assertFalse($attachment->isAvailable());
+    }
+
+    /**
+     * The consequence content-addressing adds: a row wrongly marked Stored is
+     * not just one bad download, it is the entry every later message carrying
+     * the same file dedupes onto. A failed write must not poison the checksum.
+     */
+    public function testAFailedWriteDoesNotPoisonLaterSendsOfTheSameFile()
+    {
+        $failing = \Mockery::mock(Filesystem::class);
+        $failing->shouldReceive('put')->once()->andReturn(false);
+        Storage::set('local', $failing);
+
+        $store = app(AttachmentStore::class);
+        $store->store($this->emailWith(), 'msg-1', true);
+
+        // The outage passes; the same attachment goes out again.
+        Storage::fake('local');
+        $store->store($this->emailWith(), 'msg-2', true);
+
+        $second = EmailAttachment::where('provider_message_id', 'msg-2')->first();
+
+        $this->assertSame(AttachmentStatus::Stored, $second->status);
+        Storage::disk('local')->assertExists($second->path);
+        $this->assertSame('PDF DATA', Storage::disk('local')->get($second->path));
     }
 
     public function testEnvelopeSiblingsShareOneAttachmentSet()

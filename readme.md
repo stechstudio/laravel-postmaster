@@ -1,5 +1,4 @@
-<img width="1500" height="676" alt="postmaster-gh" src="https://github.com/user-attachments/assets/f13e7990-61d2-4364-91ad-9a4a331b1350" />
-
+<img width="1500" height="676" alt="postmaster-gh" src="https://github.com/user-attachments/assets/3bcc32df-7bf4-4c0c-b3d7-1b4eb2261bec" />
 
 # Postmaster
 

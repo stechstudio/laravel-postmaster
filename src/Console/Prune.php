@@ -155,7 +155,7 @@ class Prune extends Command
             'Stored attachments',
             ($dryRun ? 'would reclaim' : 'reclaimed')." {$expired->count()} "
                 .Str::plural('attachment', $expired->count())
-                .($dryRun ? ' <fg=gray>(dry run)</>' : ' ('.$this->bytes($freed).')')
+                .($dryRun ? ' <fg=gray>(dry run)</>' : ' ('.EmailAttachment::humanBytes($freed).')')
         );
     }
 
@@ -214,27 +214,9 @@ class Prune extends Command
         $this->components->twoColumnDetail(
             'Attachment disk budget',
             ($dryRun ? 'would evict' : 'evicted')." {$count} ".Str::plural('file', $count)
-                .' ('.$this->bytes($freed).')'
+                .' ('.EmailAttachment::humanBytes($freed).')'
                 .($dryRun ? ' <fg=gray>(dry run)</>' : '')
         );
-    }
-
-    /**
-     * Human-readable byte count for the report lines.
-     */
-    protected function bytes(int $bytes): string
-    {
-        $value = (float) $bytes;
-
-        foreach (['B', 'KB', 'MB', 'GB'] as $unit) {
-            if ($value < 1024 || $unit === 'GB') {
-                return round($value, 1).$unit;
-            }
-
-            $value /= 1024;
-        }
-
-        return $value.'B';
     }
 
     /**

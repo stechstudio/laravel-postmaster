@@ -79,7 +79,16 @@
                            class="pm-btn pm-btn--sm">Show images</a>
                     </div>
                 @endif
-                <iframe class="pm-frame" sandbox srcdoc="{{ $previewCsp.$message->html_body }}" title="Message body"></iframe>
+                {{-- Embedded images are substituted in as data URIs by
+                     previewBody(). When one can't be — never captured, or
+                     since pruned or evicted — say so, rather than leaving a
+                     broken icon that reads as a broken email. --}}
+                @if ($message->hasUnresolvedInlineImages())
+                    <div class="pm-imgbar">
+                        <span>Some embedded images are no longer stored, and can't be shown.</span>
+                    </div>
+                @endif
+                <iframe class="pm-frame" sandbox srcdoc="{{ $previewCsp.$message->previewBody() }}" title="Message body"></iframe>
             @elseif ($message->text_body)
                 <div class="pm-pre">{{ $message->text_body }}</div>
             @else
@@ -91,26 +100,40 @@
                 </div>
             @endif
 
-            @if ($message->attachments->isNotEmpty() || $message->legacyAttachmentNames())
-                <div style="margin-top: 14px;">
-                    <div class="pm-stat-label">Attachments</div>
-                    <ul class="pm-mono" style="margin: 6px 0 0; padding-left: 18px;">
-                        @foreach ($message->attachments as $attachment)
-                            <li>
-                                @if ($attachment->isAvailable())
-                                    <a href="{{ route('postmaster.messages.attachment', [$message, $attachment]) }}">{{ $attachment->filename }}</a>
-                                @else
-                                    {{ $attachment->filename }}
-                                @endif
-                                <span style="opacity: .6;">
-                                    — {{ number_format($attachment->size / 1024, 1) }} KB{{ $attachment->isAvailable() ? '' : ', '.str_replace('_', ' ', $attachment->status->value) }}
-                                </span>
-                            </li>
-                        @endforeach
-                        @foreach ($message->legacyAttachmentNames() as $name)
-                            <li>{{ $name }}</li>
-                        @endforeach
-                    </ul>
+            {{-- Real attachments only. Embedded images are part of the body
+                 above, not something the recipient sees paperclipped on. --}}
+            @php
+                $files = $message->fileAttachments();
+                $legacy = $message->legacyAttachmentNames();
+                $fileCount = $files->count() + count($legacy);
+                $summary = $fileCount.' '.\Illuminate\Support\Str::plural('file', $fileCount)
+                    .($files->isNotEmpty()
+                        ? ' · '.\STS\Postmaster\Models\EmailAttachment::humanBytes($files->sum('size'))
+                        : '');
+            @endphp
+
+            @if ($files->isNotEmpty() || $legacy)
+                <div class="pm-card pm-attachments">
+                    <div class="pm-card-head">
+                        <h2 class="pm-section-title">Attachments</h2>
+                        <span class="pm-link">{{ $summary }}</span>
+                    </div>
+
+                    @foreach ($files as $attachment)
+                        @include('postmaster::partials.attachment', ['message' => $message, 'attachment' => $attachment])
+                    @endforeach
+
+                    {{-- Recorded before the attachments table existed: we have
+                         the name and nothing else. --}}
+                    @foreach ($legacy as $name)
+                        <div class="pm-att-row is-gone">
+                            <span class="pm-att-icon">@include('postmaster::partials.att-icon', ['image' => false])</span>
+                            <span class="pm-att-main">
+                                <span class="pm-att-name">{{ $name }}</span>
+                                <span class="pm-att-sub">not stored</span>
+                            </span>
+                        </div>
+                    @endforeach
                 </div>
             @endif
         </div>

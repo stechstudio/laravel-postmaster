@@ -442,6 +442,62 @@ a { color: inherit; text-decoration: none; }
     white-space: pre-wrap;
 }
 
+/* Attachments — a header strip plus one row per file, sharing the shape of
+   the overview's feed cards. The whole row is the download link when the
+   bytes are still held; rows whose bytes are gone are inert and say why. */
+.pm-attachments { padding: 0; margin-top: 18px; }
+.pm-attachments .pm-card-head .pm-section-title { margin: 0; }
+
+.pm-att-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-att-row:last-child { border-bottom: 0; }
+a.pm-att-row:hover { background: var(--pm-muted); }
+a.pm-att-row:focus-visible {
+    outline: 2px solid var(--pm-ring);
+    outline-offset: -2px;
+}
+
+.pm-att-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    background: var(--pm-muted);
+    color: var(--pm-muted-fg);
+}
+a.pm-att-row:hover .pm-att-icon { background: var(--pm-accent); color: var(--pm-fg); }
+.pm-att-icon svg { width: 16px; height: 16px; }
+
+.pm-att-main { flex: 1; min-width: 0; }
+.pm-att-name {
+    display: block;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pm-att-sub {
+    display: block;
+    color: var(--pm-muted-fg);
+    font-size: 12px;
+}
+
+/* Always visible, not hover-revealed — a hover-only affordance is invisible
+   to touch and unreachable by keyboard. */
+.pm-att-get { flex-shrink: 0; color: var(--pm-muted-fg); }
+a.pm-att-row:hover .pm-att-get { color: var(--pm-fg); }
+.pm-att-get svg { width: 16px; height: 16px; display: block; }
+
+.pm-att-row.is-gone .pm-att-icon { opacity: 0.55; }
+.pm-att-row.is-gone .pm-att-name { font-weight: 400; color: var(--pm-muted-fg); }
+
 /* Timeframe pills */
 .pm-pills { display: inline-flex; gap: 4px; }
 .pm-pills a {

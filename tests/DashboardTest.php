@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use STS\Postmaster\Attachments\AttachmentStatus;
+use STS\Postmaster\Attachments\AttachmentStore;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
@@ -15,6 +16,8 @@ use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Tests\Stubs\Account;
 use STS\Postmaster\Tests\Stubs\FullMail;
+use STS\Postmaster\Tests\Stubs\InlineImageMail;
+use STS\Postmaster\Tests\Stubs\MixedAttachmentMail;
 use STS\Postmaster\Tests\Stubs\Tenant;
 use STS\Postmaster\Tests\Stubs\User;
 
@@ -675,6 +678,88 @@ class DashboardTest extends TestCase
 
         $this->get("/postmaster/messages/{$first->getKey()}/attachments/{$other->getKey()}")
             ->assertNotFound();
+    }
+
+    public function testTheAttachmentCardListsFilesAndHidesEmbeddedImages()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new MixedAttachmentMail);
+
+        $response = $this->get('/postmaster/messages/'.EmailMessage::first()->getKey());
+
+        $response->assertOk();
+        $response->assertSee('Attachments');
+        $response->assertSee('invoice.pdf');
+        $response->assertSee('1 file');
+        // The embedded logo belongs to the body, not the attachment list.
+        $response->assertDontSee('logo.png');
+    }
+
+    public function testAMessageWithOnlyAnEmbeddedImageShowsNoAttachmentCard()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new InlineImageMail);
+
+        $this->get('/postmaster/messages/'.EmailMessage::first()->getKey())
+            ->assertOk()
+            ->assertDontSee('Attachments');
+    }
+
+    public function testAnUnavailableAttachmentShowsItsStatusInsteadOfALink()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $message = EmailMessage::first();
+        app(AttachmentStore::class)->forget($message->attachments->first(), AttachmentStatus::Evicted);
+
+        $response = $this->get('/postmaster/messages/'.$message->getKey());
+
+        $response->assertOk();
+        $response->assertSee('invoice.pdf');
+        $response->assertSee('evicted');
+        $response->assertDontSee('/attachments/', false);
+    }
+
+    public function testTheEmbeddedImageNoticeAppearsOnlyWhenOneCannotBeShown()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new InlineImageMail);
+        $message = EmailMessage::first();
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertDontSee("no longer stored, and can't be shown", false);
+
+        app(AttachmentStore::class)->forget($message->attachments->first(), AttachmentStatus::Pruned);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSee("no longer stored, and can't be shown", false);
     }
 
     public function testDownloadingAnAttachmentRequiresDashboardAuthorization()

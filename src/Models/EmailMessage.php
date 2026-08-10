@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use RuntimeException;
+use STS\Postmaster\Attachments\InlineImages;
 use STS\Postmaster\Concerns\HasStatusPredicates;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
@@ -59,6 +60,11 @@ class EmailMessage extends Model
     ];
 
     protected $guarded = [];
+
+    /** Memoized result of previewBody(), which the detail view reads twice. */
+    protected ?string $previewBody = null;
+
+    protected bool $previewBodyResolved = false;
 
     protected $casts = [
         'recipients'              => 'array',
@@ -202,6 +208,44 @@ class EmailMessage extends Model
     public function missingAttachmentCount(): int
     {
         return $this->attachments->count() - $this->availableAttachments()->count();
+    }
+
+    /**
+     * The real attachments — what the recipient would see paperclipped to the
+     * message. Embedded images are excluded: a logo isn't an attachment, it's
+     * part of the body, and listing it on every templated email would bury
+     * the invoice.
+     *
+     * @return Collection<int, EmailAttachment>
+     */
+    public function fileAttachments(): Collection
+    {
+        return $this->attachments->where('disposition', 'attachment')->values();
+    }
+
+    /**
+     * The stored html body with its `cid:` references resolved into inline
+     * images, ready to drop into the dashboard preview. Memoized: the preview
+     * asks for it and then asks whether anything failed to resolve, and
+     * base64-encoding the bytes twice would be wasteful.
+     */
+    public function previewBody(): ?string
+    {
+        if (! $this->previewBodyResolved) {
+            $this->previewBody = app(InlineImages::class)->resolve($this->html_body, $this->attachments);
+            $this->previewBodyResolved = true;
+        }
+
+        return $this->previewBody;
+    }
+
+    /**
+     * Whether the preview still references an embedded image we couldn't
+     * supply — never captured, pruned, evicted, or too large to inline.
+     */
+    public function hasUnresolvedInlineImages(): bool
+    {
+        return app(InlineImages::class)->hasUnresolved($this->previewBody());
     }
 
     /**

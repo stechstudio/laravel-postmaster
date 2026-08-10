@@ -71,6 +71,33 @@ class EmailAttachment extends Model
     }
 
     /**
+     * This attachment's size, for humans.
+     */
+    public function humanSize(): string
+    {
+        return static::humanBytes($this->size);
+    }
+
+    /**
+     * A byte count for humans. Shared by the dashboard's attachment rows and
+     * the prune command's report lines, so the two never drift.
+     */
+    public static function humanBytes(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $value = (float) $bytes;
+        $unit  = 0;
+
+        while ($value >= 1024 && $unit < count($units) - 1) {
+            $value /= 1024;
+            $unit++;
+        }
+
+        return ($unit === 0 ? (string) (int) $value : number_format($value, $value < 10 ? 1 : 0))
+            .' '.$units[$unit];
+    }
+
+    /**
      * The stored bytes. Only call this when isAvailable() is true — a missing
      * disk or path is a bug in the caller, not a condition to swallow.
      */

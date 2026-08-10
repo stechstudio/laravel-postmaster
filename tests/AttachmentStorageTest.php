@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use STS\Postmaster\Attachments\AttachmentStatus;
 use STS\Postmaster\Attachments\AttachmentStore;
+use STS\Postmaster\Attachments\InlineImages;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Listeners\StashOutboundMetadata;
 use STS\Postmaster\Models\EmailAttachment;
@@ -548,5 +549,85 @@ class AttachmentStorageTest extends TestCase
 
         $this->assertStringNotContainsString('cid:logo.png', $rendered);
         $this->assertStringContainsString("Content-ID: <{$part->getContentId()}>", $rendered);
+    }
+
+    public function testThePreviewResolvesAnEmbeddedImageIntoADataUri()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new InlineImageMail);
+
+        $message = EmailMessage::first();
+
+        $this->assertStringContainsString(
+            'data:image/png;base64,'.base64_encode('PNG DATA'),
+            $message->previewBody()
+        );
+        $this->assertStringNotContainsString('cid:logo.png', $message->previewBody());
+        $this->assertFalse($message->hasUnresolvedInlineImages());
+    }
+
+    public function testThePreviewReportsAnEmbeddedImageItCannotSupply()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new InlineImageMail);
+
+        app(AttachmentStore::class)->forget(EmailAttachment::first(), AttachmentStatus::Evicted);
+
+        $message = EmailMessage::first();
+
+        $this->assertStringContainsString('cid:logo.png', $message->previewBody());
+        $this->assertTrue($message->hasUnresolvedInlineImages());
+    }
+
+    public function testAnEmbeddedImageOverTheInlineCapIsLeftUnresolved()
+    {
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('to@example.com')->send(new InlineImageMail);
+
+        // Same bytes, but recorded as larger than we're willing to inline.
+        EmailAttachment::first()->forceFill(['size' => InlineImages::MAX_INLINE_SIZE + 1])->save();
+
+        $this->assertTrue(EmailMessage::first()->hasUnresolvedInlineImages());
+    }
+
+    public function testTheLongestFilenameIsSubstitutedFirst()
+    {
+        Storage::fake('local');
+
+        // "logo.png" is a prefix of "logo.png.bak": substituting the short one
+        // first would corrupt the longer reference.
+        $email = (new Email)->subject('Branded')
+            ->html('<img src="cid:logo.png"><img src="cid:logo.png.bak">');
+        $email->embed('SHORT', 'logo.png', 'image/png');
+        $email->embed('LONGER', 'logo.png.bak', 'image/png');
+
+        app(AttachmentStore::class)->store($email, 'msg-1', true);
+
+        $message = EmailMessage::create([
+            'provider_message_id' => 'msg-1',
+            'to_address'          => 'to@example.com',
+            'html_body'           => '<img src="cid:logo.png"><img src="cid:logo.png.bak">',
+        ]);
+
+        $preview = $message->previewBody();
+
+        $this->assertStringContainsString('base64,'.base64_encode('SHORT'), $preview);
+        $this->assertStringContainsString('base64,'.base64_encode('LONGER'), $preview);
+        $this->assertFalse($message->hasUnresolvedInlineImages());
     }
 }

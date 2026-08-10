@@ -32,6 +32,11 @@ class WorkbenchServiceProvider extends ServiceProvider
             'postmaster.persistence.enabled'         => true,
             'postmaster.persistence.record_events'   => true,
             'postmaster.persistence.track_addresses' => true,
+            // Both storage switches on, so the seeded attachments are
+            // faithful and anything released or resent from the preview
+            // captures its content and attachment bytes too.
+            'postmaster.persistence.store_content'       => true,
+            'postmaster.persistence.attachments.store'   => true,
             'postmaster.persistence.tenant_model'    => \Workbench\App\Models\Tenant::class,
             'postmaster.dashboard.enabled'           => true,
         ]);

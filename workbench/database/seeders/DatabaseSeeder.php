@@ -3,10 +3,13 @@
 namespace Workbench\Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use STS\Postmaster\Attachments\AttachmentStatus;
+use STS\Postmaster\Attachments\AttachmentStore;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Models\EmailActivity;
+use Symfony\Component\Mime\Email;
 use Workbench\App\Models\Tenant;
 
 /**
@@ -114,6 +117,216 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->seedSandboxed();
+        $this->seedAttachments();
+    }
+
+    /**
+     * Messages carrying attachments, so `composer serve` shows the attachment
+     * card and the embedded-image preview with real bytes behind them.
+     *
+     * These go through AttachmentStore rather than writing rows by hand, so
+     * the demo data lands on the same content-addressed paths real capture
+     * uses — and the pruned / evicted states are produced by the same
+     * forget() the prune command calls, rather than faked.
+     *
+     * Four messages, one per state worth seeing: everything working, an
+     * attachment whose bytes were evicted, one too large to have been stored,
+     * and an embedded image that has since been pruned.
+     */
+    protected function seedAttachments(): void
+    {
+        $store = app(AttachmentStore::class);
+        $logo  = (string) file_get_contents(__DIR__.'/../../../resources/images/postmaster-hat.png');
+
+        // 1. The happy path: two real attachments plus an embedded logo, all
+        //    still stored. Carries a Cc as well, so the "envelope siblings
+        //    share one attachment set" behaviour is visible.
+        $message = $this->demoMessage(
+            'Invoice #10428 — with attachments',
+            $this->bodyWithLogo('Your invoice is attached, along with this month&rsquo;s usage summary.'),
+            'alice@example.com',
+            'billing@acme.test',
+        );
+
+        $email = new Email;
+        $email->attach($this->samplePdf('Invoice 10428'), 'invoice-10428.pdf', 'application/pdf');
+        $email->attach($this->sampleCsv(), 'usage-summary.csv', 'text/csv');
+        $email->embed($logo, 'logo.png', 'image/png');
+
+        $store->store($email, $message->provider_message_id, true);
+
+        // 2. One attachment reclaimed by the disk budget. The row survives, so
+        //    the card still reports what the email carried.
+        $message = $this->demoMessage(
+            'Your statement — attachment evicted',
+            $this->bodyWithLogo('Your November statement was attached to this message.'),
+            'bob@example.com',
+        );
+
+        $email = new Email;
+        $email->attach($this->samplePdf('Statement November'), 'statement-november.pdf', 'application/pdf');
+        $email->attach($this->sampleCsv(), 'transactions.csv', 'text/csv');
+        $email->embed($logo, 'logo.png', 'image/png');
+
+        $store->store($email, $message->provider_message_id, true);
+
+        $store->forget(
+            $message->attachments()->where('filename', 'statement-november.pdf')->first(),
+            AttachmentStatus::Evicted,
+        );
+
+        // 3. Too large to store. Recorded as metadata so the card can say so,
+        //    which is the whole point of keeping the row.
+        $message = $this->demoMessage(
+            'Quarterly report — attachment too large',
+            $this->bodyWithLogo('The full quarterly export is attached.'),
+            'carol@acme.test',
+        );
+
+        // Squeeze the cap so the real oversize path runs — but only around
+        // the zip. Sharing the call with the logo would push that over the
+        // cap too, turning an oversize-attachment demo into a broken-image
+        // one.
+        $email = new Email;
+        $email->attach(str_repeat('.', 64), 'q4-export.zip', 'application/zip');
+
+        $cap = config('postmaster.persistence.attachments.max_size');
+        config(['postmaster.persistence.attachments.max_size' => 32]);
+        $store->store($email, $message->provider_message_id, true);
+        config(['postmaster.persistence.attachments.max_size' => $cap]);
+
+        $email = new Email;
+        $email->embed($logo, 'logo.png', 'image/png');
+
+        $store->store($email, $message->provider_message_id, true);
+
+        // 4. An embedded image whose bytes are gone: the preview says so
+        //    rather than leaving a broken icon.
+        $message = $this->demoMessage(
+            'Acme newsletter — embedded image pruned',
+            $this->bodyWithLogo('Here&rsquo;s what shipped at Acme this month.'),
+            'dave@mail.dev',
+        );
+
+        $email = new Email;
+        $email->embed($logo, 'logo.png', 'image/png');
+
+        $store->store($email, $message->provider_message_id, true);
+
+        $store->forget($message->attachments()->first(), AttachmentStatus::Pruned);
+    }
+
+    /**
+     * One delivered message with a seeded timeline, for the attachment demos.
+     * Returns the primary (To) row.
+     */
+    protected function demoMessage(string $subject, string $body, string $to, ?string $cc = null): EmailMessage
+    {
+        $sentAt     = now()->subHours(rand(2, 60));
+        $providerId = 'wb-att-'.bin2hex(random_bytes(5));
+
+        $shared = [
+            'provider'            => 'SendGrid',
+            'provider_message_id' => $providerId,
+            'subject'             => $subject,
+            'from_address'        => 'hello@acme.test',
+            'status'              => EmailEvent::STATUS_DELIVERED,
+            'sent_at'             => $sentAt,
+            'last_event_at'       => $sentAt->copy()->addMinutes(4),
+            'tags'                => ['billing'],
+            'html_body'           => $body,
+            'created_at'          => $sentAt,
+            'updated_at'          => $sentAt,
+        ];
+
+        $envelope = [['to', $to]];
+
+        if ($cc !== null) {
+            $envelope[] = ['cc', $cc];
+        }
+
+        $primary = null;
+
+        foreach ($envelope as [$role, $address]) {
+            $row = EmailMessage::create($shared + [
+                'to_address'     => $address,
+                'recipient_role' => $role,
+            ]);
+
+            $primary = $primary ?? $row;
+
+            foreach ([[EmailEvent::STATUS_SENT, $sentAt], [EmailEvent::STATUS_DELIVERED, $sentAt->copy()->addMinutes(4)]] as [$status, $at]) {
+                EmailActivity::create([
+                    'email_message_id' => $row->getKey(),
+                    'provider'         => 'SendGrid',
+                    'status'           => $status,
+                    'occurred_at'      => $at,
+                    'created_at'       => $at,
+                ]);
+            }
+        }
+
+        return $primary;
+    }
+
+    /**
+     * A body that embeds the logo by content id — the reference the preview
+     * resolves into an inline data URI.
+     */
+    protected function bodyWithLogo(string $lead): string
+    {
+        return '<div style="font-family:sans-serif;font-size:15px;line-height:1.5;color:#111">'
+            .'<img src="cid:logo.png" alt="Acme" width="56" style="margin-bottom:12px">'
+            .'<p>'.$lead.'</p>'
+            .'<p style="color:#888;font-size:13px;margin-top:24px">Sent with Postmaster.</p>'
+            .'</div>';
+    }
+
+    /**
+     * A genuinely valid one-page PDF, so the dashboard's download actually
+     * opens instead of handing back a file that only looks like one.
+     */
+    protected function samplePdf(string $title): string
+    {
+        $text = 'BT /F1 16 Tf 24 60 Td ('.str_replace(['(', ')'], '', $title).') Tj ET';
+
+        $objects = [
+            '<</Type/Catalog/Pages 2 0 R>>',
+            '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+            '<</Type/Page/Parent 2 0 R/MediaBox[0 0 320 120]/Contents 4 0 R'
+                .'/Resources<</Font<</F1 5 0 R>>>>>>',
+            '<</Length '.strlen($text).">>stream\n".$text."\nendstream",
+            '<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>',
+        ];
+
+        $pdf     = "%PDF-1.4\n";
+        $offsets = [];
+
+        foreach ($objects as $i => $body) {
+            $offsets[] = strlen($pdf);
+            $pdf .= ($i + 1)." 0 obj\n".$body."\nendobj\n";
+        }
+
+        $startXref = strlen($pdf);
+        $pdf .= "xref\n0 ".(count($objects) + 1)."\n0000000000 65535 f \n";
+
+        foreach ($offsets as $offset) {
+            $pdf .= sprintf("%010d 00000 n \n", $offset);
+        }
+
+        return $pdf."trailer\n<</Size ".(count($objects) + 1)."/Root 1 0 R>>\n"
+            ."startxref\n".$startXref."\n%%EOF\n";
+    }
+
+    protected function sampleCsv(): string
+    {
+        $rows = ["date,description,quantity,amount"];
+
+        foreach (['API requests', 'Outbound email', 'Storage (GB-months)', 'Support'] as $n => $item) {
+            $rows[] = now()->subMonth()->format('Y-m-d').",{$item},".(($n + 1) * 1250).','.number_format(($n + 1) * 12.5, 2);
+        }
+
+        return implode("\n", $rows)."\n";
     }
 
     /**

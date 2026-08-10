@@ -22,7 +22,7 @@ class MessageController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = $this->messageQuery()->latest();
+        $query = $this->messageQuery()->withFileAttachmentCount()->latest();
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);

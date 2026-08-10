@@ -54,7 +54,20 @@
                                 <span class="pm-role-tag pm-role-tag--{{ $message->recipient_role }}">{{ $message->recipient_role }}</span>
                             @endif
                         </td>
-                        <td class="pm-truncate pm-cell-title">{{ $message->subject ?? '—' }}</td>
+                        {{-- Paperclip rides with the subject, the way every
+                             mail client puts it, rather than taking a column
+                             of its own that would be empty on most rows. It
+                             sits outside the truncating span so a long subject
+                             can't clip the one mark that says "this came with
+                             something". --}}
+                        <td class="pm-cell-title">
+                            <span class="pm-subject">
+                                <span class="pm-truncate">{{ $message->subject ?? '—' }}</span>
+                                @if ($message->carriesFiles())
+                                    @include('postmaster::partials.paperclip')
+                                @endif
+                            </span>
+                        </td>
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $message->status])</td>
                         <td class="pm-dim">{{ $message->provider ?? '—' }}</td>
                         @if ($hasTenants)

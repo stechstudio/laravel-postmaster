@@ -211,6 +211,34 @@ class EmailMessage extends Model
     }
 
     /**
+     * Whether the recipient would have seen a paperclip on this message.
+     * Embedded images don't count — a logo isn't something you'd say the
+     * email came "with".
+     */
+    public function carriesFiles(): bool
+    {
+        if ($this->legacyAttachmentNames() !== []) {
+            return true;
+        }
+
+        // The list view loads the count as an aggregate so a page of rows
+        // costs one query; the detail view already holds the relation. The
+        // fallback keeps this correct anywhere else it gets called.
+        return ($this->file_attachments_count ?? $this->fileAttachments()->count()) > 0;
+    }
+
+    /**
+     * Counts each message's real attachments in the same query as the rows,
+     * so a listing can flag which ones carried files without a query per row.
+     */
+    public function scopeWithFileAttachmentCount(Builder $query): Builder
+    {
+        return $query->withCount([
+            'attachments as file_attachments_count' => fn (Builder $q) => $q->where('disposition', 'attachment'),
+        ]);
+    }
+
+    /**
      * The real attachments — what the recipient would see paperclipped to the
      * message. Embedded images are excluded: a logo isn't an attachment, it's
      * part of the body, and listing it on every templated email would bury

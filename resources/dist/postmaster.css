@@ -133,7 +133,7 @@ a { color: inherit; text-decoration: none; }
     letter-spacing: -0.015em;
 }
 .pm-brand-mark { height: 24px; width: auto; display: block; }
-.pm-nav { display: flex; flex-direction: column; gap: 1px; }
+.pm-nav { display: flex; flex-direction: column; gap: 3px; }
 .pm-nav a {
     position: relative;
     padding: 7px 10px;
@@ -267,7 +267,7 @@ a { color: inherit; text-decoration: none; }
 .pm-stats {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    margin: 4px 0 2px;
+    margin: 20px 0 2px;
 }
 .pm-stat {
     display: flex;
@@ -355,6 +355,10 @@ a { color: inherit; text-decoration: none; }
 .pm-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
 .pm-dim { color: var(--pm-muted-fg); }
 .pm-truncate { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Subject plus its paperclip. The subject truncates; the clip never does. */
+.pm-subject { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.pm-clip { flex-shrink: 0; color: var(--pm-muted-fg); opacity: 0.75; }
 
 /* Tables scroll sideways rather than squeezing their columns when the
    viewport can't hold them. */
@@ -540,21 +544,37 @@ a { color: inherit; text-decoration: none; }
 }
 .pm-siblings-row--current:hover { background: var(--pm-row-hover, rgba(0,0,0,0.04)); }
 
-/* The message detail's email-style header — subject over participants. */
-.pm-email-head { margin-bottom: 18px; }
+/* One surface holding the whole message: envelope header, attachments, body.
+   Bands inside it are separated by hairlines, not by gaps between cards. */
+/* Specificity deliberately raised past the responsive `.pm-card` padding
+   below: the bands inside have to reach the card's edges at every width, and
+   an inherited padding would inset every divider by its own gutter. */
+.pm-card.pm-message { padding: 0; overflow: hidden; }
+.pm-message-head { padding: 20px 22px; }
+.pm-message .pm-attachments,
+.pm-message .pm-message-body { border-top: 1px solid var(--pm-line); }
+.pm-message .pm-attachments { margin: 0; border-radius: 0; box-shadow: none; border-left: 0; border-right: 0; border-bottom: 0; }
+.pm-message .pm-imgbar { margin: 0; border-radius: 0; border-left: 0; border-right: 0; border-bottom: 0; }
+.pm-message .pm-pre,
+.pm-message .pm-empty { border: 0; border-radius: 0; margin: 0; }
+.pm-message .pm-pre { background: transparent; padding: 22px; }
+
 .pm-email-subject {
-    margin: 0 0 14px;
-    font-size: 19px;
+    margin: 0 0 16px;
+    font-size: 20px;
     font-weight: 600;
     line-height: 1.3;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
 }
 
+/* The rendered email. No border of its own — the surrounding surface already
+   provides the edge, and a second frame around a message that has its own
+   design reads as a picture frame around a picture frame. */
 .pm-frame {
+    display: block;
     width: 100%;
     height: 480px;
-    border: 1px solid var(--pm-border);
-    border-radius: var(--pm-radius);
+    border: 0;
     background: #fff;
 }
 .pm-imgbar {
@@ -799,6 +819,8 @@ a.pm-att-row:hover .pm-att-get { color: var(--pm-fg); }
 
     .pm-detail-grid { grid-template-columns: 1fr; }
     .pm-frame { height: 360px; }
+    .pm-message-head { padding: 16px; }
+    .pm-message .pm-pre { padding: 16px; }
 
     .pm-imgbar { flex-wrap: wrap; }
     .pm-pager { flex-wrap: wrap; gap: 10px; }

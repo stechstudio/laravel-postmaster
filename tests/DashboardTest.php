@@ -618,6 +618,44 @@ class DashboardTest extends TestCase
         $this->assertNotNull(EmailAddress::find($address->getKey())); // suppression row untouched
     }
 
+    public function testTheMessageListFlagsMessagesThatCarriedFiles()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('files@example.com')->send(new FullMail);
+
+        $this->get('/postmaster/messages')
+            ->assertOk()
+            ->assertSee('Has attachments');
+    }
+
+    /**
+     * An embedded logo isn't something the recipient sees paperclipped on, so
+     * flagging it would put a clip on every templated email in the list.
+     */
+    public function testAnEmbeddedImageAloneDoesNotFlagTheMessage()
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+        ]);
+
+        Mail::to('inline@example.com')->send(new InlineImageMail);
+
+        $this->assertSame(1, EmailAttachment::where('disposition', 'inline')->count());
+
+        $this->get('/postmaster/messages')
+            ->assertOk()
+            ->assertDontSee('Has attachments');
+    }
+
     public function testAStoredAttachmentOnALocalDiskIsStreamed()
     {
         Postmaster::auth(fn () => true);

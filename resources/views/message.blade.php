@@ -13,6 +13,22 @@
         $previewCsp = '<meta http-equiv="Content-Security-Policy" '
             ."content=\"default-src 'none'; style-src 'unsafe-inline'; img-src {$imgSrc};\">";
 
+        // The smallest set of defaults a mail client would apply, and no more.
+        // An email that brings its own layout overrides all of it; one that
+        // doesn't would otherwise render against the browser's 8px body margin
+        // and read as raw output rather than as a message.
+        //
+        // Padding rather than margin on <body> is deliberate: the body's own
+        // background still paints under it, so a full-bleed design stays
+        // full-bleed instead of gaining white gutters.
+        $previewReset = '<style>'
+            .'body{margin:0;padding:22px;}'
+            // Wide images and fixed-width tables would otherwise force a
+            // horizontal scrollbar across the whole preview.
+            .'img{max-width:100%;height:auto;}'
+            .'table{max-width:100%;}'
+            .'</style>';
+
         $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
         $recipients = $message->recipients ?: [];
     @endphp
@@ -50,10 +66,12 @@
     </div>
 
     <div class="pm-detail-grid">
-        <div>
-            {{-- The email's own header — subject and participants — sits above
-                 the body, the way an email client presents a message. --}}
-            <div class="pm-card pm-email-head">
+        {{-- Header, attachments and body are one message, not three findings
+             about it — so they're bands inside a single surface rather than a
+             stack of separate cards, each drawing another edge across
+             something the reader is trying to take in as a whole. --}}
+        <div class="pm-card pm-message">
+            <div class="pm-message-head">
                 <h1 class="pm-email-subject">{{ $message->subject ?: '(no subject)' }}</h1>
                 <dl class="pm-meta">
                     @if ($message->from_address)
@@ -92,7 +110,7 @@
             @endphp
 
             @if ($files->isNotEmpty() || $legacy)
-                <div class="pm-card pm-attachments">
+                <div class="pm-attachments">
                     <div class="pm-card-head">
                         <h2 class="pm-section-title">Attachments</h2>
                         <span class="pm-link">{{ $summary }}</span>
@@ -133,11 +151,23 @@
                         <span>Some embedded images are no longer stored, and can't be shown.</span>
                     </div>
                 @endif
-                <iframe class="pm-frame" sandbox srcdoc="{{ $previewCsp.$message->previewBody() }}" title="Message body"></iframe>
+                <div class="pm-message-body">
+                    {{-- allow-same-origin lets the page opposite measure this
+                         document so the frame can grow to its content. It is
+                         safe only because allow-scripts is absent: nothing can
+                         execute in here, so there is no code to make use of the
+                         shared origin. Never add allow-scripts to this
+                         attribute — the two together let framed content strip
+                         its own sandbox and take this page's origin with it. --}}
+                    <iframe class="pm-frame" sandbox="allow-same-origin"
+                            srcdoc="{{ $previewCsp.$previewReset.$message->previewBody() }}" title="Message body"></iframe>
+                </div>
             @elseif ($message->text_body)
-                <div class="pm-pre">{{ $message->text_body }}</div>
+                <div class="pm-message-body">
+                    <div class="pm-pre">{{ $message->text_body }}</div>
+                </div>
             @else
-                <div class="pm-card">
+                <div class="pm-message-body">
                     <div class="pm-empty">
                         Message content was not stored.<br>
                         Enable <span class="pm-mono">POSTMASTER_STORE_CONTENT</span> to capture it.
@@ -239,4 +269,52 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Grow the preview to its content. A fixed height leaves a short email
+        // sitting above a tall run of white, and makes a long one scroll inside
+        // a nested scrollbar that the page's own scroll gesture doesn't reach.
+        //
+        // Reading the framed document is what allow-same-origin on the sandbox
+        // buys. If measuring ever fails the CSS height stands, so the preview
+        // degrades to what it was rather than collapsing.
+        (function () {
+            var frame = document.querySelector('.pm-frame');
+            if (! frame) return;
+
+            function fit() {
+                try {
+                    var doc = frame.contentDocument;
+                    if (! doc || ! doc.documentElement) return;
+                    // The document can never measure shorter than the frame it
+                    // sits in, so a frame that is currently too tall reports
+                    // its own height back. Collapsing it first lets the content
+                    // report its true height; the reassignment below happens in
+                    // the same frame, so nothing is painted at zero.
+                    frame.style.height = '0px';
+                    frame.style.height = Math.max(doc.documentElement.scrollHeight, 80) + 'px';
+                } catch (e) {
+                    // Blocked from reading it — leave the CSS height alone.
+                }
+            }
+
+            frame.addEventListener('load', function () {
+                fit();
+                // Images settle after load and change the height with them.
+                try {
+                    Array.prototype.forEach.call(frame.contentDocument.images, function (img) {
+                        if (! img.complete) img.addEventListener('load', fit);
+                    });
+                } catch (e) { /* nothing to attach to */ }
+            });
+
+            fit();
+
+            // A narrower frame reflows the email taller, so remeasure on
+            // resize — of the container, not the frame, which this changes.
+            if (window.ResizeObserver && frame.parentElement) {
+                new ResizeObserver(fit).observe(frame.parentElement);
+            }
+        })();
+    </script>
 @endsection

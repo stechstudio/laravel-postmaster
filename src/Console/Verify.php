@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Mail;
 use STS\Postmaster\Console\Concerns\ResolvesProvider;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
+use STS\Postmaster\Models\EmailMessage;
 use Throwable;
 
 use function Laravel\Prompts\confirm;
@@ -41,9 +42,7 @@ class Verify extends Command
      */
     protected const TERMINAL_STATUSES = [
         EmailEvent::STATUS_DELIVERED,
-        EmailEvent::STATUS_BOUNCED,
-        EmailEvent::STATUS_DROPPED,
-        EmailEvent::STATUS_COMPLAINED,
+        ...EmailMessage::FAILED_STATUSES,
     ];
 
     public function handle(): int
@@ -287,8 +286,6 @@ class Verify extends Command
         Cache::forget(RelayVerificationEvent::AUTH_FAILED_KEY);
         Cache::put(RelayVerificationEvent::WATCHING_KEY, $messageId, now()->addMinutes(10));
 
-        $frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-
         $start      = microtime(true);
         $lastPoll   = -2.0;
         $frame      = 0;
@@ -304,47 +301,23 @@ class Verify extends Command
             $this->line("  Waiting up to {$timeout}s for a webhook...");
         }
 
-        while (($elapsed = microtime(true) - $start) < $timeout && $terminal === null && $authFailed === null) {
+        while (($elapsed = microtime(true) - $start) < $timeout) {
             if (microtime(true) - $lastPoll >= 1.0) {
                 $lastPoll = microtime(true);
 
-                $events = Cache::get(RelayVerificationEvent::EVENTS_KEY, []);
-                $events = is_array($events) ? $events : [];
-
-                while ($shown < count($events)) {
-                    $entry = $events[$shown++];
-
-                    if (! is_array($entry)) {
-                        continue;
-                    }
-
-                    $this->clearLine();
-                    $this->showEvent($entry);
-
-                    if (in_array($entry['status'] ?? null, self::TERMINAL_STATUSES, true)) {
-                        $terminal = $entry['status'];
-                    }
-                }
-
-                // A webhook arrived but the provider's request failed our auth
-                // check — a far more actionable result than a silent timeout.
-                if ($auth = Cache::get(RelayVerificationEvent::AUTH_FAILED_KEY)) {
-                    $authFailed = is_array($auth) ? $auth : ['provider' => null];
-                }
+                [$shown, $terminal] = $this->showNewEvents($shown);
+                $authFailed = $this->authFailure();
             }
 
-            if ($terminal === null && $authFailed === null) {
-                if ($interactive) {
-                    $this->output->write(sprintf(
-                        "\r %s %s  <fg=gray>%ds</>   ",
-                        $frames[$frame++ % count($frames)],
-                        $shown > 0 ? 'Watching for the delivery webhook...' : 'Waiting for a webhook...',
-                        (int) $elapsed
-                    ));
-                }
-
-                usleep(125000);
+            if ($terminal !== null || $authFailed !== null) {
+                break;
             }
+
+            if ($interactive) {
+                $this->drawSpinner($frame++, $shown, (int) $elapsed);
+            }
+
+            usleep(125000);
         }
 
         $this->clearLine();
@@ -356,6 +329,72 @@ class Verify extends Command
     }
 
     /**
+     * Print whatever webhook events have landed since the last poll.
+     *
+     * The relay appends to one cache entry, so the count already printed is
+     * the read cursor. Returns that cursor moved on, plus the first status
+     * among the new arrivals that ends the watch (if any).
+     *
+     * @return array{0: int, 1: string|null}
+     */
+    protected function showNewEvents(int $shown): array
+    {
+        $events = Cache::get(RelayVerificationEvent::EVENTS_KEY, []);
+        $events = is_array($events) ? $events : [];
+
+        $terminal = null;
+
+        while ($shown < count($events)) {
+            $entry = $events[$shown++];
+
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $this->clearLine();
+            $this->showEvent($entry);
+
+            if ($terminal === null && in_array($entry['status'] ?? null, self::TERMINAL_STATUSES, true)) {
+                $terminal = $entry['status'];
+            }
+        }
+
+        return [$shown, $terminal];
+    }
+
+    /**
+     * The record of a webhook that arrived but failed our auth check — a far
+     * more actionable result than a silent timeout. Null while none has.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function authFailure(): ?array
+    {
+        $auth = Cache::get(RelayVerificationEvent::AUTH_FAILED_KEY);
+
+        if (! $auth) {
+            return null;
+        }
+
+        return is_array($auth) ? $auth : ['provider' => null];
+    }
+
+    /**
+     * Advance the waiting spinner in place, on its own line.
+     */
+    protected function drawSpinner(int $frame, int $shown, int $elapsed): void
+    {
+        $frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+        $this->output->write(sprintf(
+            "\r %s %s  <fg=gray>%ds</>   ",
+            $frames[$frame % count($frames)],
+            $shown > 0 ? 'Watching for the delivery webhook...' : 'Waiting for a webhook...',
+            $elapsed,
+        ));
+    }
+
+    /**
      * Print one received webhook event as a tidy single line: an icon, the
      * status, and a human-readable time — no INFO badge, no blank padding.
      *
@@ -364,11 +403,7 @@ class Verify extends Command
     protected function showEvent(array $entry): void
     {
         $status = (string) ($entry['status'] ?? 'event');
-        $bad    = in_array($status, [
-            EmailEvent::STATUS_BOUNCED,
-            EmailEvent::STATUS_DROPPED,
-            EmailEvent::STATUS_COMPLAINED,
-        ], true);
+        $bad    = in_array($status, EmailMessage::FAILED_STATUSES, true);
 
         $this->line(sprintf(
             '  %s  <fg=%s;options=bold>%s</> <fg=gray>at %s</>',

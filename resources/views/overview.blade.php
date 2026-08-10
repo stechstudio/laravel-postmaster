@@ -114,9 +114,9 @@
     </div>
 
     <div class="pm-grid pm-grid--halves">
-        <div class="pm-card" style="padding: 0;">
+        <div class="pm-card pm-card--flush">
             <div class="pm-card-head">
-                <h2 class="pm-section-title" style="margin: 0;">Recent messages</h2>
+                <h2 class="pm-section-title">Recent messages</h2>
                 <a href="{{ route('postmaster.messages') }}" class="pm-link">View all →</a>
             </div>
             <div class="pm-feed">
@@ -137,9 +137,9 @@
             </div>
         </div>
 
-        <div class="pm-card" style="padding: 0;">
+        <div class="pm-card pm-card--flush">
             <div class="pm-card-head">
-                <h2 class="pm-section-title" style="margin: 0;">Recent activity</h2>
+                <h2 class="pm-section-title">Recent activity</h2>
                 <a href="{{ route('postmaster.activity') }}" class="pm-link">View all →</a>
             </div>
             @include('postmaster::partials.activity-feed', [

@@ -1,24 +1,15 @@
 @extends('postmaster::layout')
+@use('STS\Postmaster\Models\EmailAddress')
 
 @section('title', 'Addresses')
 
 @section('content')
-    @php $filtersActive = collect($filters)->except('page')->filter()->isNotEmpty(); @endphp
-    <div class="pm-well-panel" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
-        @include('postmaster::partials.filters.toggle')
-        <form method="GET" action="{{ route('postmaster.addresses') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
-            <div class="pm-field">
-                <label>Status</label>
-                <select name="status" class="pm-select" onchange="this.form.requestSubmit()">
-                    <option value="">Any</option>
-                    <option value="active" @selected(($filters['status'] ?? '') === 'active')>Active</option>
-                    <option value="suppressed" @selected(($filters['status'] ?? '') === 'suppressed')>Suppressed</option>
-                </select>
-            </div>
-            @include('postmaster::partials.filters.text', ['name' => 'address', 'label' => 'Address'])
-            <a href="{{ route('postmaster.addresses') }}" class="pm-btn pm-btn--ghost">Clear</a>
-        </form>
-    </div>
+    <x-postmaster::filter-panel :action="route('postmaster.addresses')" :filters="$filters">
+        @include('postmaster::partials.filters.status', [
+            'statuses' => [EmailAddress::STATUS_ACTIVE, EmailAddress::STATUS_SUPPRESSED],
+        ])
+        @include('postmaster::partials.filters.text', ['name' => 'address', 'label' => 'Address'])
+    </x-postmaster::filter-panel>
 
     @include('postmaster::partials.pager', ['paginator' => $addresses, 'label' => 'addresses'])
 
@@ -41,24 +32,13 @@
                         <td class="pm-dim pm-cell-sub">{{ $address->reason ?? '—' }}</td>
                         <td class="pm-dim pm-cell-meta">@include('postmaster::partials.datetime', ['when' => $address->suppressed_at])</td>
                         <td class="pm-cell-action">
-                            @if ($address->status === 'suppressed')
-                                @if ($address->canApiUnsuppress())
-                                    <form method="POST" action="{{ route('postmaster.addresses.unsuppress') }}"
-                                          onsubmit="return confirm('Unsuppress {{ $address->address }}? This clears it locally and at every provider that supports it.')">
-                                        @csrf
-                                        <input type="hidden" name="address" value="{{ $address->address }}">
-                                        <button type="submit" class="pm-btn pm-btn--sm pm-btn--ghost">Unsuppress</button>
-                                    </form>
-                                @else
-                                    <span class="pm-dim pm-cell-meta" title="No suppression-list API available for {{ implode(', ', $address->providersWithoutApiUnsuppress()) }}.">
-                                        Manage in {{ implode('/', $address->providersWithoutApiUnsuppress()) }}
-                                    </span>
-                                @endif
+                            @if ($address->isSuppressed())
+                                @include('postmaster::partials.unsuppress', ['address' => $address])
                             @endif
                         </td>
                     </tr>
                 @empty
-                    <tr class="pm-row-empty"><td class="pm-cell-full" colspan="5"><div class="pm-empty">No addresses match these filters.</div></td></tr>
+                    @include('postmaster::partials.table-empty', ['note' => 'No addresses match these filters.'])
                 @endforelse
             </tbody>
         </table>

@@ -342,20 +342,11 @@ class Install extends Command
         }
 
         foreach ($vars as $key => $value) {
-            $written  = false;
-            $rendered = $key.'='.$this->escape($value);
+            // Overwrite the line that already sets this key; append when none
+            // does. count() is the next free index — the array is contiguous.
+            $index = $this->lineSetting($key, $lines) ?? count($lines);
 
-            foreach ($lines as $index => $line) {
-                if (preg_match('/^\s*'.preg_quote($key, '/').'\s*=/', $line)) {
-                    $lines[$index] = $rendered;
-                    $written = true;
-                    break;
-                }
-            }
-
-            if (! $written) {
-                $lines[] = $rendered;
-            }
+            $lines[$index] = $key.'='.$this->escape($value);
         }
 
         file_put_contents($path, implode("\n", $lines));
@@ -383,6 +374,25 @@ class Install extends Command
         }
 
         return $found;
+    }
+
+    /**
+     * The index of the line already setting $key, or null when the file
+     * doesn't set it — in which case the caller appends. Commented-out lines
+     * don't count, so a key the operator disabled is left disabled and the
+     * new value is written fresh below it.
+     *
+     * @param array<int, string> $lines
+     */
+    protected function lineSetting(string $key, array $lines): ?int
+    {
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^\s*'.preg_quote($key, '/').'\s*=/', $line)) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -29,39 +29,48 @@
             .'table{max-width:100%;}'
             .'</style>';
 
-        $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
         $recipients = $message->recipients ?: [];
+
+        // Warn on hover when a replay can't carry everything the original did.
+        $missing = $message->missingAttachmentCount();
+        $incomplete = $missing > 0
+            ? "{$missing} attachment(s) are no longer stored and won't be included."
+            : null;
+
+        // Deleting is the one action people misread, so the prompt spells out
+        // what it does and doesn't do rather than asking "are you sure?".
+        $deleteConfirm = implode("\n\n", [
+            'Delete this message from your stored history?',
+            "This only removes Postmaster's record of the email. It does NOT recall, "
+                ."unsend, or delete the message if it was already sent — a delivered "
+                ."email stays in the recipient's inbox.",
+            'This cannot be undone.',
+        ]);
     @endphp
 
     <div class="pm-detail-bar">
         <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">← Back to messages</a>
         <div class="pm-detail-actions">
             @if ($canRelease)
-                <form method="POST" action="{{ route('postmaster.messages.release', $message) }}"
-                      onsubmit="return confirm('Release this sandboxed email and send it for real to {{ $message->to_address }}? This can\'t be undone.')">
-                    @csrf
-                    <button type="submit" class="pm-btn"
-                            @if ($message->missingAttachmentCount() > 0) title="{{ $message->missingAttachmentCount() }} attachment(s) are no longer stored and won't be included." @endif>
-                        Release
-                    </button>
-                </form>
+                <x-postmaster::confirm-action
+                    :action="route('postmaster.messages.release', $message)"
+                    :confirm="'Release this sandboxed email and send it for real to '.$message->to_address.'? This cannot be undone.'"
+                    :title="$incomplete"
+                    label="Release"/>
             @endif
             @if ($canResend)
-                <form method="POST" action="{{ route('postmaster.messages.resend', $message) }}"
-                      onsubmit="return confirm('Resend this email to {{ $message->to_address }}?')">
-                    @csrf
-                    <button type="submit" class="pm-btn"
-                            @if ($message->missingAttachmentCount() > 0) title="{{ $message->missingAttachmentCount() }} attachment(s) are no longer stored and won't be included." @endif>
-                        Resend
-                    </button>
-                </form>
+                <x-postmaster::confirm-action
+                    :action="route('postmaster.messages.resend', $message)"
+                    :confirm="'Resend this email to '.$message->to_address.'?'"
+                    :title="$incomplete"
+                    label="Resend"/>
             @endif
-            <form method="POST" action="{{ route('postmaster.messages.destroy', $message) }}"
-                  onsubmit="return confirm('Delete this message from your stored history?\n\nThis only removes Postmaster\'s record of the email. It does NOT recall, unsend, or delete the message if it was already sent — a delivered email stays in the recipient\'s inbox.\n\nThis cannot be undone.')">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="pm-btn pm-btn--danger">Delete</button>
-            </form>
+            <x-postmaster::confirm-action
+                :action="route('postmaster.messages.destroy', $message)"
+                method="DELETE"
+                class="pm-btn--danger"
+                label="Delete"
+                :confirm="$deleteConfirm"/>
         </div>
     </div>
 
@@ -100,18 +109,13 @@
                  Real attachments only. Embedded images belong to the body, not
                  to this list — nobody sees them paperclipped on. --}}
             @php
-                $files = $message->fileAttachments();
+                $files  = $message->fileAttachments();
                 $legacy = $message->legacyAttachmentNames();
-                $fileCount = $files->count() + count($legacy);
-                $summary = $fileCount.' '.\Illuminate\Support\Str::plural('file', $fileCount)
-                    .($files->isNotEmpty()
-                        ? ' · '.\STS\Postmaster\Models\EmailAttachment::humanBytes($files->sum('size'))
-                        : '');
             @endphp
 
             @if ($files->isNotEmpty() || $legacy)
                 <div class="pm-attachments">
-                    <div class="pm-att-head">Attachments <span class="pm-dim">· {{ $summary }}</span></div>
+                    <div class="pm-att-head">Attachments <span class="pm-dim">· {{ $message->attachmentSummary() }}</span></div>
                     <div class="pm-att-chips">
                         @foreach ($files as $attachment)
                             @include('postmaster::partials.attachment', ['message' => $message, 'attachment' => $attachment])
@@ -186,9 +190,9 @@
                     @endif
                     <dt>Provider</dt><dd>{{ $message->provider ?? '—' }}</dd>
                     <dt>Message ID</dt><dd class="pm-mono pm-truncate">{{ $message->provider_message_id ?? '—' }}</dd>
-                    @if ($message->{$tenantColumn})
+                    @if ($message->tenantKey())
                         <dt>{{ $tenantTerm }}</dt>
-                        <dd>{{ $tenants[$message->{$tenantColumn}] ?? $message->{$tenantColumn} }}</dd>
+                        <dd>{{ $tenants[$message->tenantKey()] ?? $message->tenantKey() }}</dd>
                     @endif
                     @if ($recipientLabel)
                         <dt>Recipient</dt>
@@ -247,7 +251,7 @@
                 <div class="pm-timeline">
                     @forelse ($activity as $event)
                         <div class="pm-timeline-item">
-                            <div style="flex: 1;">
+                            <div class="pm-timeline-body">
                                 @include('postmaster::partials.badge', ['status' => $event->status])
                                 @if ($event->reason)
                                     <span class="pm-dim">— {{ $event->reason }}</span>

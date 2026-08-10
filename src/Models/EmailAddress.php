@@ -5,6 +5,7 @@ namespace STS\Postmaster\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use STS\Postmaster\Facades\Postmaster;
 
 /**
  * The current deliverability status of a single recipient address.
@@ -95,27 +96,11 @@ class EmailAddress extends Model
      */
     public function canApiUnsuppress(): bool
     {
-        if ($this->reason === self::REASON_MANUAL) {
-            return true;
-        }
+        $providers = collect($this->providers ?? []);
 
-        $providers = $this->providers ?? [];
-
-        if (empty($providers)) {
-            return true;
-        }
-
-        $postmaster = app(\STS\Postmaster\Postmaster::class);
-
-        foreach ($providers as $provider) {
-            $sync = $postmaster->sync($provider);
-
-            if ($sync !== null && $sync->isAvailable()) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->reason === self::REASON_MANUAL
+            || $providers->isEmpty()
+            || $providers->contains(fn (string $provider) => $this->syncCanClear($provider));
     }
 
     /**
@@ -128,19 +113,20 @@ class EmailAddress extends Model
      */
     public function providersWithoutApiUnsuppress(): array
     {
-        $providers = $this->providers ?? [];
+        return collect($this->providers ?? [])
+            ->reject(fn (string $provider) => $this->syncCanClear($provider))
+            ->values()
+            ->all();
+    }
 
-        if (empty($providers)) {
-            return [];
-        }
-
-        $postmaster = app(\STS\Postmaster\Postmaster::class);
-
-        return array_values(array_filter($providers, function ($provider) use ($postmaster) {
-            $sync = $postmaster->sync($provider);
-
-            return $sync === null || ! $sync->isAvailable();
-        }));
+    /**
+     * Whether this provider's suppression sync is wired up and usable — SDK
+     * installed, API key configured. False for a provider with no sync class
+     * at all.
+     */
+    protected function syncCanClear(string $provider): bool
+    {
+        return Postmaster::sync($provider)?->isAvailable() ?? false;
     }
 
     /**

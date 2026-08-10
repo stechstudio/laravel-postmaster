@@ -17,11 +17,8 @@ class AddressController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = $this->addressQuery()->orderByDesc('updated_at');
-
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
-        }
+        $query = $this->addressQuery()->orderByDesc('updated_at')
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')));
 
         $this->applyContains($query, 'address', $request->query('address'));
 

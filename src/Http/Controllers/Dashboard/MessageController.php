@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Http\Controllers\Dashboard;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -9,10 +10,10 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use STS\Postmaster\Facades\Postmaster;
-use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailAttachment;
 use STS\Postmaster\Models\EmailMessage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * The inbox: a filterable, cross-tenant list of recorded messages, and the
@@ -22,25 +23,13 @@ class MessageController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = $this->messageQuery()->withFileAttachmentCount()->latest();
-
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
-        }
-
-        if ($provider = $request->query('provider')) {
-            $query->where('provider', $provider);
-        }
-
-        $tenant = $request->query('tenant');
-
-        if ($tenant !== null && $tenant !== '') {
-            $query->where(EmailMessage::tenantColumn(), $tenant);
-        }
-
-        if ($tag = $request->query('tag')) {
-            $query->taggedWith($tag);
-        }
+        // filled() rather than a truthy check on the value: a tenant keyed "0"
+        // is a real tenant, and so is a tag named "0".
+        $query = $this->messageQuery()->withFileAttachmentCount()->latest()
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')))
+            ->when($request->filled('provider'), fn ($q) => $q->where('provider', $request->query('provider')))
+            ->when($request->filled('tenant'), fn ($q) => $q->where(EmailMessage::tenantColumn(), $request->query('tenant')))
+            ->when($request->filled('tag'), fn ($q) => $q->taggedWith($request->query('tag')));
 
         $this->applyContains($query, 'to_address', $request->query('to'));
         $this->applyContains($query, 'subject', $request->query('subject'));
@@ -87,7 +76,7 @@ class MessageController extends Controller
             'activity'       => $record->activity()->get(),
             'siblings'       => $siblings,
             'chain'          => $chain,
-            'tenants'        => $this->tenantLabels([$record->{EmailMessage::tenantColumn()}]),
+            'tenants'        => $this->tenantLabels([$record->tenantKey()]),
             'tenantTerm'     => $this->tenantTerm(),
             'recipientLabel' => $this->labelForRecipientOnRecord($record),
             'canResend'      => $this->canResend($record),
@@ -101,16 +90,27 @@ class MessageController extends Controller
     }
 
     /**
+     * What Resend and Release both require of a message: content to replay,
+     * somewhere to replay it to, and a recipient we haven't locally
+     * suppressed. The dashboard holds that last line deliberately — an
+     * operator should lift a suppression on purpose rather than around it.
+     * App code can still call EmailMessage::resend() directly; this is the
+     * dashboard's own UX choice.
+     */
+    protected function isReplayable(EmailMessage $record): bool
+    {
+        return $record->hasStoredContent()
+            && $record->to_address
+            && ! $record->recipientIsSuppressed();
+    }
+
+    /**
      * Whether the Resend button should render on this row. Gated on the
-     * message itself, not the global delivery mode. False when:
-     *   - the message is sandboxed (never actually sent — its action is
-     *     Release, which sends this one for real; a resend would instead
-     *     replay it as a separate new message), or
-     *   - there's no stored content to replay, or
-     *   - the recipient is currently suppressed locally (the dashboard
-     *     wants the operator to clear the suppression intentionally before
-     *     re-sending). Operator can still resend via the EmailMessage::resend()
-     *     API from their own code — this is just the dashboard's UX choice.
+     * message itself, not the global delivery mode.
+     *
+     * A sandboxed message is excluded: it was never actually sent, so its
+     * action is Release — which sends this very message — where a resend
+     * would replay it as a separate new one.
      *
      * A message that was released (and so is genuinely sent) is resendable
      * like any other sent message, even while sandbox mode is on globally —
@@ -118,50 +118,18 @@ class MessageController extends Controller
      */
     protected function canResend(EmailMessage $record): bool
     {
-        if ($record->isSandboxed()) {
-            return false;
-        }
-
-        if (! $record->html_body && ! $record->text_body) {
-            return false;
-        }
-
-        if (! $record->to_address) {
-            return false;
-        }
-
-        $address = EmailAddress::model()->newQuery()
-            ->where('address', EmailAddress::normalize($record->to_address))
-            ->first();
-
-        return ! $address || ! $address->isSuppressed();
+        return ! $record->isSandboxed() && $this->isReplayable($record);
     }
 
     /**
      * Whether the Release button should render on this row. True only for a
-     * still-sandboxed message that has stored content to send and whose
-     * recipient isn't locally suppressed. Once released the row is no longer
-     * sandboxed, so the button naturally disappears and can't fire twice.
+     * still-sandboxed message that is otherwise replayable. Once released the
+     * row is no longer sandboxed, so the button naturally disappears and
+     * can't fire twice.
      */
     protected function canRelease(EmailMessage $record): bool
     {
-        if (! $record->isSandboxed()) {
-            return false;
-        }
-
-        if (! $record->html_body && ! $record->text_body) {
-            return false;
-        }
-
-        if (! $record->to_address) {
-            return false;
-        }
-
-        $address = EmailAddress::model()->newQuery()
-            ->where('address', EmailAddress::normalize($record->to_address))
-            ->first();
-
-        return ! $address || ! $address->isSuppressed();
+        return $record->isSandboxed() && $this->isReplayable($record);
     }
 
     /**
@@ -190,60 +158,31 @@ class MessageController extends Controller
      * a "resent" tag of its own. Requires stored content; attachments come
      * along when their bytes are still stored.
      */
-    public function resend(Request $request, int|string $message): RedirectResponse
+    public function resend(int|string $message): RedirectResponse
     {
         $record = $this->messageQuery()->findOrFail($message);
 
         if (! $this->canResend($record)) {
-            return redirect()
-                ->route('postmaster.messages.show', $record)
-                ->with(
-                    'postmasterError',
-                    (! $record->html_body && ! $record->text_body)
-                        ? "Can't resend — no stored content. Enable POSTMASTER_STORE_CONTENT for future messages."
-                        : "Can't resend — {$record->to_address} is suppressed. Unsuppress the address first."
-                );
+            return $this->backToMessage($record, $this->resendBlockedReason($record), failed: true);
         }
 
-        // Rate-limit duplicate resends of the same message — guards against
-        // double-clicks and rapid-fire "oops" scenarios.
-        $throttleSeconds = (int) config('postmaster.dashboard.resend_throttle_seconds', 60);
-        $cacheKey = "postmaster.resend.{$record->getKey()}";
-
-        if ($throttleSeconds > 0 && Cache::has($cacheKey)) {
-            return redirect()
-                ->route('postmaster.messages.show', $record)
-                ->with('postmasterError', "Already resent in the last {$throttleSeconds}s. Try again shortly.");
-        }
-
-        if ($throttleSeconds > 0) {
-            Cache::put($cacheKey, true, now()->addSeconds($throttleSeconds));
-        }
-
-        try {
-            Postmaster::resend($record);
-        } catch (\Throwable $e) {
-            // The send itself failed — e.g. no working mail provider is wired
-            // up. Report it for the logs, clear the throttle so a retry isn't
-            // blocked, and surface a flash rather than a 500.
-            report($e);
-            Cache::forget($cacheKey);
-
-            return redirect()
-                ->route('postmaster.messages.show', $record)
-                ->with('postmasterError', 'Resend failed — the email could not be sent. '.$e->getMessage());
+        if ($this->throttled('resend', $record)) {
+            return $this->backToMessage(
+                $record,
+                "Already resent in the last {$this->throttleSeconds()}s. Try again shortly.",
+                failed: true,
+            );
         }
 
         // Say so when the replay couldn't carry everything the original did —
         // a silently attachment-less resend is exactly the failure this
         // feature exists to fix, so it shouldn't be invisible when it happens.
-        $missing = $record->missingAttachmentCount();
-
-        return redirect()
-            ->route('postmaster.messages.show', $record)
-            ->with('postmasterFlash', 'Message resent.'.($missing > 0
-                ? " Sent without {$missing} ".Str::plural('attachment', $missing).' (no longer stored).'
-                : ''));
+        return $this->send(
+            $record,
+            'resend',
+            fn () => Postmaster::resend($record),
+            'Message resent.'.$this->missingAttachmentNote($record),
+        );
     }
 
     /**
@@ -252,48 +191,97 @@ class MessageController extends Controller
      * this is the deliberate opt-out for a single message. See
      * Postmaster::release() for the mechanics.
      */
-    public function release(Request $request, int|string $message): RedirectResponse
+    public function release(int|string $message): RedirectResponse
     {
         $record = $this->messageQuery()->findOrFail($message);
 
         if (! $this->canRelease($record)) {
-            return redirect()
-                ->route('postmaster.messages.show', $record)
-                ->with('postmasterError', $this->releaseBlockedReason($record));
+            return $this->backToMessage($record, $this->releaseBlockedReason($record), failed: true);
         }
 
-        // Guard against a double-click firing two sends before the first has
-        // flipped the row out of "sandboxed".
-        $throttleSeconds = (int) config('postmaster.dashboard.resend_throttle_seconds', 60);
-        $cacheKey = "postmaster.release.{$record->getKey()}";
-
-        if ($throttleSeconds > 0 && Cache::has($cacheKey)) {
-            return redirect()
-                ->route('postmaster.messages.show', $record)
-                ->with('postmasterError', 'Already releasing this message. Give it a moment.');
+        if ($this->throttled('release', $record)) {
+            return $this->backToMessage($record, 'Already releasing this message. Give it a moment.', failed: true);
         }
 
-        if ($throttleSeconds > 0) {
-            Cache::put($cacheKey, true, now()->addSeconds($throttleSeconds));
-        }
+        return $this->send(
+            $record,
+            'release',
+            fn () => Postmaster::release($record),
+            "Released — {$record->to_address} was sent for real.",
+        );
+    }
 
+    /**
+     * Hand a message to the mailer and turn either outcome into a flash.
+     *
+     * Handing it over is a genuine external boundary — there may be no working
+     * mail provider wired up, or its credentials may be refused — and this
+     * runs after the eligibility gate, so a throw here is the provider's news,
+     * not a bug in the request. Report it, release the throttle so the
+     * operator can retry once mail works, and say what happened instead of
+     * 500ing. Neither action mutates the row itself, so a failure leaves the
+     * message exactly as it was.
+     *
+     * @param Closure(): mixed $send
+     */
+    protected function send(EmailMessage $record, string $action, Closure $send, string $success): RedirectResponse
+    {
         try {
-            Postmaster::release($record);
-        } catch (\Throwable $e) {
-            // The send failed — commonly because sandbox mode is on locally
-            // with no real mail provider configured. The row is untouched
-            // (still sandboxed), so it can be released again once mail works.
+            $send();
+        } catch (Throwable $e) {
             report($e);
-            Cache::forget($cacheKey);
+            $this->clearThrottle($action, $record);
 
-            return redirect()
-                ->route('postmaster.messages.show', $record)
-                ->with('postmasterError', 'Release failed — the email could not be sent. '.$e->getMessage());
+            return $this->backToMessage(
+                $record,
+                ucfirst($action)." failed — the email could not be sent. {$e->getMessage()}",
+                failed: true,
+            );
         }
 
-        return redirect()
-            ->route('postmaster.messages.show', $record)
-            ->with('postmasterFlash', "Released — {$record->to_address} was sent for real.");
+        return $this->backToMessage($record, $success);
+    }
+
+    /**
+     * Claim this message's throttle slot for the action, reporting true when
+     * it was already taken — a double-click, or a rapid-fire "oops".
+     *
+     * Cache::add() claims and tests in one step. Asking first and writing
+     * after leaves a gap two simultaneous clicks can both pass through, which
+     * is precisely the case this guards.
+     */
+    protected function throttled(string $action, EmailMessage $record): bool
+    {
+        $seconds = $this->throttleSeconds();
+
+        return $seconds > 0 && ! Cache::add($this->throttleKey($action, $record), true, $seconds);
+    }
+
+    protected function clearThrottle(string $action, EmailMessage $record): void
+    {
+        Cache::forget($this->throttleKey($action, $record));
+    }
+
+    protected function throttleKey(string $action, EmailMessage $record): string
+    {
+        return "postmaster.{$action}.{$record->getKey()}";
+    }
+
+    protected function throttleSeconds(): int
+    {
+        return (int) config('postmaster.dashboard.resend_throttle_seconds', 60);
+    }
+
+    /**
+     * The reason a resend was refused, for the flash message.
+     */
+    protected function resendBlockedReason(EmailMessage $record): string
+    {
+        return match (true) {
+            $record->isSandboxed()        => "Can't resend — this message was sandboxed and never sent. Release it instead.",
+            ! $record->hasStoredContent() => "Can't resend — no stored content. Enable POSTMASTER_STORE_CONTENT for future messages.",
+            default                       => "Can't resend — {$record->to_address} is suppressed. Unsuppress the address first.",
+        };
     }
 
     /**
@@ -301,15 +289,35 @@ class MessageController extends Controller
      */
     protected function releaseBlockedReason(EmailMessage $record): string
     {
-        if (! $record->isSandboxed()) {
-            return "Can't release — this message isn't sandboxed (it may already have been released).";
-        }
+        return match (true) {
+            ! $record->isSandboxed()      => "Can't release — this message isn't sandboxed (it may already have been released).",
+            ! $record->hasStoredContent() => "Can't release — no stored content to send. Content storage was off when it was sandboxed.",
+            default                       => "Can't release — {$record->to_address} is suppressed. Unsuppress the address first.",
+        };
+    }
 
-        if (! $record->html_body && ! $record->text_body) {
-            return "Can't release — no stored content to send. Content storage was off when it was sandboxed.";
-        }
+    /**
+     * The trailing note naming attachments a replay can no longer carry, or
+     * an empty string when it carried everything.
+     */
+    protected function missingAttachmentNote(EmailMessage $record): string
+    {
+        $missing = $record->missingAttachmentCount();
 
-        return "Can't release — {$record->to_address} is suppressed. Unsuppress the address first.";
+        return $missing > 0
+            ? " Sent without {$missing} ".Str::plural('attachment', $missing).' (no longer stored).'
+            : '';
+    }
+
+    /**
+     * Back to the message with a flash. Every outcome of Resend and Release
+     * lands here, so the two read as one shape rather than as eight redirects.
+     */
+    protected function backToMessage(EmailMessage $record, string $message, bool $failed = false): RedirectResponse
+    {
+        return redirect()
+            ->route('postmaster.messages.show', $record)
+            ->with($failed ? 'postmasterError' : 'postmasterFlash', $message);
     }
 
     /**

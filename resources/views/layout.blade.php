@@ -1,18 +1,20 @@
+@use('STS\Postmaster\Facades\Postmaster')
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Postmaster — @yield('title', 'Dashboard')</title>
-    <link rel="icon" type="image/png" href="{{ \STS\Postmaster\Facades\Postmaster::asset('logo') }}">
-    <link rel="stylesheet" href="{{ \STS\Postmaster\Facades\Postmaster::asset('css') }}">
-    <script defer src="{{ \STS\Postmaster\Facades\Postmaster::asset('alpine') }}"></script>
+    {{-- asset() appends a content hash, so a package upgrade busts the cache. --}}
+    <link rel="icon" type="image/png" href="{{ Postmaster::asset('logo') }}">
+    <link rel="stylesheet" href="{{ Postmaster::asset('css') }}">
+    <script defer src="{{ Postmaster::asset('alpine') }}"></script>
 </head>
 <body class="pm-body">
 <div class="pm-layout">
     <aside class="pm-sidebar" x-data="{ navOpen: false }">
         <div class="pm-brand">
-            <img src="{{ \STS\Postmaster\Facades\Postmaster::asset('logo') }}" alt="" class="pm-brand-mark">
+            <img src="{{ Postmaster::asset('logo') }}" alt="" class="pm-brand-mark">
             Postmaster
         </div>
         <button type="button" class="pm-nav-toggle" @click="navOpen = ! navOpen"
@@ -30,10 +32,12 @@
             </svg>
         </button>
         <nav class="pm-nav" :class="{ 'is-open': navOpen }">
-            <a href="{{ route('postmaster.overview') }}" class="{{ request()->routeIs('postmaster.overview') ? 'is-active' : '' }}">Overview</a>
-            <a href="{{ route('postmaster.messages') }}" class="{{ request()->routeIs('postmaster.messages*') ? 'is-active' : '' }}">Messages</a>
-            <a href="{{ route('postmaster.activity') }}" class="{{ request()->routeIs('postmaster.activity') ? 'is-active' : '' }}">Activity</a>
-            <a href="{{ route('postmaster.addresses') }}" class="{{ request()->routeIs('postmaster.addresses') ? 'is-active' : '' }}">Addresses</a>
+            {{-- Messages matches with a wildcard so the detail and recipient
+                 views keep the section lit. --}}
+            <a href="{{ route('postmaster.overview') }}" @class(['is-active' => request()->routeIs('postmaster.overview')])>Overview</a>
+            <a href="{{ route('postmaster.messages') }}" @class(['is-active' => request()->routeIs('postmaster.messages*')])>Messages</a>
+            <a href="{{ route('postmaster.activity') }}" @class(['is-active' => request()->routeIs('postmaster.activity')])>Activity</a>
+            <a href="{{ route('postmaster.addresses') }}" @class(['is-active' => request()->routeIs('postmaster.addresses')])>Addresses</a>
         </nav>
     </aside>
     <main class="pm-main">

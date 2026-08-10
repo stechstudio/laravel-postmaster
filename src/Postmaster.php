@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Mail\SentMessage;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use RuntimeException;
 use STS\Postmaster\Contracts\ProviderSetup;
 use STS\Postmaster\Contracts\SuppressionSync;
 use STS\Postmaster\Http\Controllers\WebhookController;
@@ -468,12 +469,10 @@ class Postmaster
      */
     public function resend(EmailMessage|int $message): ?SentMessage
     {
-        $record = $message instanceof EmailMessage
-            ? $message
-            : EmailMessage::model()->newQuery()->withoutGlobalScopes()->findOrFail($message);
+        $record = $this->resolveRecord($message);
 
-        if (! $record->html_body && ! $record->text_body) {
-            throw new \RuntimeException(
+        if (! $record->hasStoredContent()) {
+            throw new RuntimeException(
                 "Can't resend email message #{$record->getKey()}: no stored content. "
                 ."Enable POSTMASTER_STORE_CONTENT before the original send so its body is captured."
             );
@@ -501,20 +500,18 @@ class Postmaster
      */
     public function release(EmailMessage|int $message): ?SentMessage
     {
-        $record = $message instanceof EmailMessage
-            ? $message
-            : EmailMessage::model()->newQuery()->withoutGlobalScopes()->findOrFail($message);
+        $record = $this->resolveRecord($message);
 
         if (! $record->isSandboxed()) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "Can't release email message #{$record->getKey()}: it is not sandboxed "
                 ."(status is \"{$record->status}\"). Only a sandboxed message can be released, "
                 ."and only once."
             );
         }
 
-        if (! $record->html_body && ! $record->text_body) {
-            throw new \RuntimeException(
+        if (! $record->hasStoredContent()) {
+            throw new RuntimeException(
                 "Can't release email message #{$record->getKey()}: no stored content to send. "
                 ."Sandboxed messages are only releasable when POSTMASTER_STORE_CONTENT was on "
                 ."at the time they were intercepted."
@@ -533,6 +530,18 @@ class Postmaster
         } finally {
             OutboundMetadata::setReleasing(null);
         }
+    }
+
+    /**
+     * Accept either a loaded record or its key. Global scopes are dropped:
+     * these are operator actions on a specific message, so a tenant scope on
+     * a swapped-in model must not turn "resend #42" into "no such message".
+     */
+    protected function resolveRecord(EmailMessage|int $message): EmailMessage
+    {
+        return $message instanceof EmailMessage
+            ? $message
+            : EmailMessage::model()->newQuery()->withoutGlobalScopes()->findOrFail($message);
     }
 
     /**

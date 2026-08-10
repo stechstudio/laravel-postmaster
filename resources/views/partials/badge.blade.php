@@ -1,22 +1,4 @@
-@php
-    $tones = [
-        'delivered'  => 'ok',
-        'opened'     => 'info',
-        'clicked'    => 'info',
-        'sent'       => 'muted',
-        'accepted'   => 'muted',
-        'sandboxed'    => 'warn',
-        'blocked'      => 'warn',
-        'logged'       => 'muted',
-        'captured'     => 'muted',
-        'deferred'     => 'warn',
-        'bounced'      => 'bad',
-        'dropped'      => 'bad',
-        'complained'   => 'bad',
-        'active'       => 'ok',
-        'suppressed'   => 'bad',
-        'unsuppressed' => 'muted',
-    ];
-    $tone = $tones[$status ?? ''] ?? 'muted';
-@endphp
-<span class="pm-badge pm-badge--{{ $tone }}">{{ $status ?? '—' }}</span>
+{{-- A status pill. The tone map lives in PHP so the live activity feed can
+     colour its rows the same way — see StatusTone. --}}
+@use('STS\Postmaster\Support\StatusTone')
+<span class="pm-badge pm-badge--{{ StatusTone::for($status ?? null) }}">{{ $status ?? '—' }}</span>

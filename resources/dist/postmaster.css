@@ -218,6 +218,11 @@ a { color: inherit; text-decoration: none; }
 /* Grid items space themselves with `gap`; cancel the stacked-card margin. */
 .pm-grid .pm-card + .pm-card { margin-top: 0; }
 
+/* A card whose contents bring their own padding — a header strip over full-
+   bleed rows. Doubled selector so it also beats the narrow-screen padding
+   further down, which is otherwise later in the cascade at equal weight. */
+.pm-card.pm-card--flush { padding: 0; }
+
 /* Card with a titled header strip (title + a "view all" link). */
 .pm-card-head {
     display: flex;
@@ -226,6 +231,7 @@ a { color: inherit; text-decoration: none; }
     padding: 14px 16px;
     border-bottom: 1px solid var(--pm-border);
 }
+.pm-card-head .pm-section-title { margin: 0; }
 .pm-link { font-size: 12.5px; font-weight: 500; color: var(--pm-muted-fg); }
 .pm-link:hover { color: var(--pm-fg); }
 
@@ -300,6 +306,11 @@ a { color: inherit; text-decoration: none; }
 }
 
 .pm-section-title { font-size: 13.5px; font-weight: 600; margin: 0 0 12px; letter-spacing: -0.01em; }
+
+/* A card that names the page rather than a section of it — the recipient
+   view's "Emails for Alice", with the record it stands for underneath. */
+.pm-page-head .pm-section-title { margin: 0; }
+.pm-page-head .pm-dim { margin-top: 4px; }
 
 /* Chart — bars in a stretch-to-fit SVG, labels as HTML so text never
    distorts (the SVG scales non-uniformly; HTML text does not). */
@@ -725,6 +736,10 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
     border-bottom: 1px solid var(--pm-border);
 }
 .pm-timeline-item:last-child { border-bottom: 0; }
+/* min-width lets the clicked-URL line truncate instead of pushing the
+   timestamp off the card — a flex item won't shrink below its content
+   otherwise. */
+.pm-timeline-body { flex: 1; min-width: 0; }
 .pm-timeline-when { color: var(--pm-muted-fg); font-size: 12px; white-space: nowrap; }
 
 /* Pagination + empty states */

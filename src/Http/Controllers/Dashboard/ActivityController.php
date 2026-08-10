@@ -21,29 +21,21 @@ class ActivityController extends Controller
                 'emailMessage' => fn ($q) => $q->withoutGlobalScopes(),
                 'emailAddress',
             ])
-            ->orderByDesc('id');
-
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
-        }
-
-        // "To" search matches the message recipient (lifecycle entries) OR
-        // the address itself (address-only entries) — case-insensitive.
-        if ($to = $request->query('to')) {
-            $query->where(function ($q) use ($to) {
-                $q->whereHas('emailMessage', fn ($mq) => $this->applyContains(
-                    $mq->withoutGlobalScopes(), 'to_address', $to
-                ))->orWhereHas('emailAddress', fn ($aq) => $this->applyContains(
-                    $aq, 'address', $to
-                ));
-            });
-        }
-
-        $tenant = $request->query('tenant');
-
-        if ($tenant !== null && $tenant !== '') {
-            $query->whereHas('emailMessage', fn ($q) => $q->withoutGlobalScopes()->where(EmailMessage::tenantColumn(), $tenant));
-        }
+            ->orderByDesc('id')
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')))
+            // "To" search matches the message recipient (lifecycle entries) OR
+            // the address itself (address-only entries) — case-insensitive.
+            ->when($request->filled('to'), fn ($q) => $q->where(fn ($sub) => $sub
+                ->whereHas('emailMessage', fn ($mq) => $this->applyContains(
+                    $mq->withoutGlobalScopes(), 'to_address', $request->query('to')
+                ))
+                ->orWhereHas('emailAddress', fn ($aq) => $this->applyContains(
+                    $aq, 'address', $request->query('to')
+                ))))
+            ->when($request->filled('tenant'), fn ($q) => $q->whereHas(
+                'emailMessage',
+                fn ($mq) => $mq->withoutGlobalScopes()->where(EmailMessage::tenantColumn(), $request->query('tenant'))
+            ));
 
         $this->applyDateRange($query, 'occurred_at', $request->query('date_from'), $request->query('date_to'));
 

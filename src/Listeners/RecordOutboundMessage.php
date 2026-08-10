@@ -150,7 +150,7 @@ class RecordOutboundMessage
             // Note the address so it's on record as one we send to.
             $this->touchAddress($entry['address']);
 
-            $primary = $primary ?? $record;
+            $primary ??= $record;
         }
 
         return $primary;
@@ -168,9 +168,9 @@ class RecordOutboundMessage
      */
     protected function storeAttachments(Email $message, ?string $messageId, array $metadata): void
     {
-        $storeBytes = $this->resolveFlag($message, $metadata, 'attachments');
+        $storeBytes = $this->shouldStoreAttachments($message, $metadata);
 
-        if (! $storeBytes && ! $this->resolveFlag($message, $metadata, 'content')) {
+        if (! $storeBytes && ! $this->shouldStoreContent($message, $metadata)) {
             return;
         }
 
@@ -215,7 +215,7 @@ class RecordOutboundMessage
                 'occurred_at' => $sentAt,
             ]);
 
-            $primary = $primary ?? $row;
+            $primary ??= $row;
         }
 
         return $primary;
@@ -263,7 +263,7 @@ class RecordOutboundMessage
             $attributes[EmailMessage::tenantColumn()] = $tenant;
         }
 
-        if ($this->resolveFlag($message, $metadata, 'content')) {
+        if ($this->shouldStoreContent($message, $metadata)) {
             $attributes += $this->content($message);
         }
 
@@ -271,22 +271,44 @@ class RecordOutboundMessage
     }
 
     /**
-     * Resolve one of the two storage switches for this message.
+     * Whether to keep this message's subject and bodies.
      *
-     * Precedence, identical for both: a per-message override wins, then the
-     * app-registered resolver, then the config flag. (The resolvers return
-     * null when none is registered, so config is the final fallback.)
-     *
-     * @param  array<string, mixed> $metadata
+     * @param array<string, mixed> $metadata
      */
-    protected function resolveFlag(Email $message, array $metadata, string $which): bool
+    protected function shouldStoreContent(Email $message, array $metadata): bool
     {
-        [$key, $resolved, $config] = $which === 'content'
-            ? ['store_content', $this->events->resolveStoreContent($message), 'postmaster.persistence.store_content']
-            : ['store_attachments', $this->events->resolveStoreAttachments($message), 'postmaster.persistence.attachments.store'];
+        return $this->switch(
+            $metadata['store_content'] ?? null,
+            $this->events->resolveStoreContent($message),
+            'postmaster.persistence.store_content',
+        );
+    }
 
-        return isset($metadata[$key])
-            ? $metadata[$key] === '1'
+    /**
+     * Whether to keep the bytes of this message's attachments. Independent of
+     * the content switch, so an invoice can be kept while the body that
+     * carried a magic-login link is discarded.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    protected function shouldStoreAttachments(Email $message, array $metadata): bool
+    {
+        return $this->switch(
+            $metadata['store_attachments'] ?? null,
+            $this->events->resolveStoreAttachments($message),
+            'postmaster.persistence.attachments.store',
+        );
+    }
+
+    /**
+     * Resolve one storage switch. Precedence is the same for both: the
+     * per-message header wins if the message carried one, then the
+     * app-registered resolver (null when none is registered), then config.
+     */
+    protected function switch(?string $override, ?bool $resolved, string $config): bool
+    {
+        return $override !== null
+            ? $override === '1'
             : ($resolved ?? (bool) config($config, false));
     }
 

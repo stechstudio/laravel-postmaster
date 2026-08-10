@@ -1,3 +1,4 @@
+@use('STS\Postmaster\Support\StatusTone')
 @php $limit = $limit ?? 50; @endphp
 <div class="pm-feed" x-data="pmActivityFeed(@js($events), {{ $lastId }}, {{ $limit }})" x-init="start()">
     <template x-for="event in events" :key="event.id">
@@ -20,11 +21,9 @@
             events: initial,
             lastId: lastId,
             limit: limit,
-            tones: {
-                delivered: 'ok', opened: 'info', clicked: 'info',
-                sent: 'muted', accepted: 'muted', sandboxed: 'warn', blocked: 'warn', deferred: 'warn',
-                bounced: 'bad', dropped: 'bad', complained: 'bad',
-            },
+            // Handed over from PHP rather than restated here, so a row that
+            // arrives live and the same row after a reload never disagree.
+            tones: @js(StatusTone::all()),
             tone(status) {
                 return this.tones[status] || 'muted';
             },

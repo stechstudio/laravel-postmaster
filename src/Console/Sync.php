@@ -2,8 +2,10 @@
 
 namespace STS\Postmaster\Console;
 
+use DateTimeImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 use STS\Postmaster\Contracts\SuppressionSync;
 use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailAddress;
@@ -32,20 +34,19 @@ class Sync extends Command
     public function handle(Postmaster $postmaster): int
     {
         $configured = array_keys(config('postmaster.providers', []));
+        $only       = $this->option('provider') ?: null;
 
-        if ($only = $this->option('provider')) {
-            if (! in_array($only, $configured, true)) {
-                $this->components->error(
-                    "Unknown provider \"{$only}\". Configured: ".(empty($configured) ? 'none' : implode(', ', $configured)).'.'
-                );
+        if ($only !== null && ! in_array($only, $configured, true)) {
+            $this->components->error(
+                "Unknown provider \"{$only}\". Configured: ".($configured === [] ? 'none' : implode(', ', $configured)).'.'
+            );
 
-                return self::FAILURE;
-            }
+            return self::FAILURE;
         }
 
-        $providers = $this->resolveProviders();
+        $providers = $only !== null ? [$only] : $configured;
 
-        if (empty($providers)) {
+        if ($providers === []) {
             $this->components->warn('No providers configured for sync.');
 
             return self::SUCCESS;
@@ -53,30 +54,11 @@ class Sync extends Command
 
         $dryRun = (bool) $this->option('dry-run');
 
-        foreach ($providers as $name) {
-            $this->syncProvider($postmaster, $name, $dryRun);
+        foreach ($providers as $provider) {
+            $this->syncProvider($postmaster, $provider, $dryRun);
         }
 
         return self::SUCCESS;
-    }
-
-    /**
-     * The provider currently being synced — stashed so reconcile() can stamp
-     * it onto each row it adds, without having to plumb the name through
-     * every internal call.
-     */
-    protected ?string $currentProvider = null;
-
-    /**
-     * @return array<int, string>
-     */
-    protected function resolveProviders(): array
-    {
-        if ($only = $this->option('provider')) {
-            return [(string) $only];
-        }
-
-        return array_keys(config('postmaster.providers', []));
     }
 
     protected function syncProvider(Postmaster $postmaster, string $provider, bool $dryRun): void
@@ -96,10 +78,7 @@ class Sync extends Command
         }
 
         try {
-            $this->currentProvider = $provider;
-            $remote   = $this->fetchRemote($sync);
-            $local    = $this->fetchLocal();
-            $written  = $this->reconcile($remote, $local, $dryRun);
+            $written = $this->reconcile($provider, $this->fetchRemote($sync), $this->fetchLocal(), $dryRun);
 
             $this->components->twoColumnDetail(
                 $provider,
@@ -135,7 +114,7 @@ class Sync extends Command
     /**
      * Existing suppression rows in the local table, keyed by address.
      *
-     * @return Collection<int, EmailAddress>
+     * @return Collection<string, EmailAddress>
      */
     protected function fetchLocal(): Collection
     {
@@ -149,11 +128,11 @@ class Sync extends Command
      * Apply the diff between provider and local. Returns counts for the
      * summary line.
      *
-     * @param  array<string, array{address: string, reason: string, suppressed_at: \DateTimeInterface|null}>                       $remote
-     * @param  Collection<int, EmailAddress>|\Illuminate\Support\Collection<string, EmailAddress> $local
+     * @param  array<string, array{address: string, reason: string, suppressed_at: \DateTimeInterface|null}> $remote
+     * @param  Collection<string, EmailAddress>                                                              $local
      * @return array{added: int, cleared: int, unchanged: int}
      */
-    protected function reconcile(array $remote, $local, bool $dryRun): array
+    protected function reconcile(string $provider, array $remote, Collection $local, bool $dryRun): array
     {
         $stats = ['added' => 0, 'cleared' => 0, 'unchanged' => 0];
 
@@ -173,10 +152,10 @@ class Sync extends Command
                 // cast handles either at write time, but the typed property
                 // narrows the in-memory value.
                 $row->suppressed_at = $entry['suppressed_at']
-                    ? \Illuminate\Support\Carbon::instance(\DateTimeImmutable::createFromInterface($entry['suppressed_at']))
+                    ? Carbon::instance(DateTimeImmutable::createFromInterface($entry['suppressed_at']))
                     : now();
                 $row->status        = EmailAddress::STATUS_SUPPRESSED;
-                $row->recordProvider($this->currentProvider);
+                $row->recordProvider($provider);
                 $row->save();
 
                 // Sync mutates the row in place to preserve the provider's
@@ -187,7 +166,7 @@ class Sync extends Command
                 $row->logActivity([
                     'status'   => EmailActivity::STATUS_SUPPRESSED,
                     'reason'   => $entry['reason'],
-                    'provider' => $this->currentProvider,
+                    'provider' => $provider,
                     'source'   => 'sync',
                 ]);
             }
@@ -213,8 +192,8 @@ class Sync extends Command
                 // (the provider's authoritative list no longer holds the
                 // address, so we mirror that locally).
                 $row->unsuppress(source: 'sync', activity: [
-                    'provider' => $this->currentProvider,
-                    'response' => "Cleared locally: {$this->currentProvider} no longer holds the suppression.",
+                    'provider' => $provider,
+                    'response' => "Cleared locally: {$provider} no longer holds the suppression.",
                 ]);
             }
 

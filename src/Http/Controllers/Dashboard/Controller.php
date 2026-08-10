@@ -52,19 +52,15 @@ abstract class Controller
      */
     protected function recentActivity(int $after = 0, int $limit = 100): Collection
     {
-        $query = $this->activityQuery()
+        return $this->activityQuery()
             ->with([
                 'emailMessage' => fn ($q) => $q->withoutGlobalScopes(),
                 'emailAddress',
             ])
             ->orderByDesc('id')
-            ->limit($limit);
-
-        if ($after > 0) {
-            $query->where('id', '>', $after);
-        }
-
-        return $query->get();
+            ->limit($limit)
+            ->when($after > 0, fn (Builder $q) => $q->where('id', '>', $after))
+            ->get();
     }
 
     /**
@@ -203,13 +199,9 @@ abstract class Controller
      */
     protected function applyDateRange(Builder $query, string $column, mixed $from, mixed $to): void
     {
-        if ($from !== null && $from !== '') {
-            $query->where($column, '>=', $from);
-        }
-
-        if ($to !== null && $to !== '') {
-            $query->where($column, '<=', $to.' 23:59:59');
-        }
+        $query
+            ->when(filled($from), fn (Builder $q) => $q->where($column, '>=', $from))
+            ->when(filled($to), fn (Builder $q) => $q->where($column, '<=', $to.' 23:59:59'));
     }
 
     /**

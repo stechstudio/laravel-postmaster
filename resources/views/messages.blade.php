@@ -3,31 +3,17 @@
 @section('title', 'Messages')
 
 @section('content')
-    @php
-        $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
-        $hasTenants = ! empty($tenants);
-        $columns = $hasTenants ? 6 : 5;
-        // Collapsed by default on mobile, but open straight away when a
-        // filter is already applied so it isn't hidden.
-        $filtersActive = collect($filters)->except('page')->filter()->isNotEmpty();
-    @endphp
+    @php $hasTenants = ! empty($tenants); @endphp
 
-    {{-- The filters are secondary to the data, so they sit in a recessed well
-         rather than a card of equal weight to the table. --}}
-    <div class="pm-well-panel" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
-        @include('postmaster::partials.filters.toggle')
-        {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
-        <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
-            @include('postmaster::partials.filters.status')
-            @include('postmaster::partials.filters.options', ['name' => 'provider', 'label' => 'Provider', 'options' => $providers, 'min' => 2])
-            @include('postmaster::partials.filters.options', ['name' => 'tag', 'label' => 'Tag', 'options' => $tags])
-            @include('postmaster::partials.filters.text', ['name' => 'to', 'label' => 'To'])
-            @include('postmaster::partials.filters.text', ['name' => 'subject', 'label' => 'Subject'])
-            @include('postmaster::partials.filters.tenant')
-            @include('postmaster::partials.filters.dates')
-            <a href="{{ route('postmaster.messages') }}" class="pm-btn pm-btn--ghost">Clear</a>
-        </form>
-    </div>
+    <x-postmaster::filter-panel :action="route('postmaster.messages')" :filters="$filters">
+        @include('postmaster::partials.filters.status')
+        @include('postmaster::partials.filters.options', ['name' => 'provider', 'label' => 'Provider', 'options' => $providers, 'min' => 2])
+        @include('postmaster::partials.filters.options', ['name' => 'tag', 'label' => 'Tag', 'options' => $tags])
+        @include('postmaster::partials.filters.text', ['name' => 'to', 'label' => 'To'])
+        @include('postmaster::partials.filters.text', ['name' => 'subject', 'label' => 'Subject'])
+        @include('postmaster::partials.filters.tenant')
+        @include('postmaster::partials.filters.dates')
+    </x-postmaster::filter-panel>
 
     @include('postmaster::partials.pager', ['paginator' => $messages, 'label' => 'messages'])
 
@@ -71,12 +57,12 @@
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $message->status])</td>
                         <td class="pm-dim">{{ $message->provider ?? '—' }}</td>
                         @if ($hasTenants)
-                            <td class="pm-dim">{{ $tenants[$message->{$tenantColumn}] ?? '—' }}</td>
+                            <td class="pm-dim">{{ $tenants[$message->tenantKey()] ?? '—' }}</td>
                         @endif
                         <td class="pm-dim pm-cell-meta">@include('postmaster::partials.datetime', ['when' => $message->sent_at])</td>
                     </tr>
                 @empty
-                    <tr class="pm-row-empty"><td class="pm-cell-full" colspan="{{ $columns }}"><div class="pm-empty">No messages match these filters.</div></td></tr>
+                    @include('postmaster::partials.table-empty', ['note' => 'No messages match these filters.'])
                 @endforelse
             </tbody>
         </table>

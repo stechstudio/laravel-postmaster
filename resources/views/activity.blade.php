@@ -3,11 +3,7 @@
 @section('title', 'Activity')
 
 @section('content')
-    @php
-        $tenantColumn = config('postmaster.persistence.tenant_column', 'tenant_id');
-        $hasTenants = ! empty($tenants);
-        $columns = $hasTenants ? 6 : 5;
-    @endphp
+    @php $hasTenants = ! empty($tenants); @endphp
 
     @unless ($enabled)
         <div class="pm-card">
@@ -18,17 +14,12 @@
         </div>
     @endunless
 
-    @php $filtersActive = collect($filters)->except('page')->filter()->isNotEmpty(); @endphp
-    <div class="pm-well-panel" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
-        @include('postmaster::partials.filters.toggle')
-        <form method="GET" action="{{ route('postmaster.activity') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
-            @include('postmaster::partials.filters.status')
-            @include('postmaster::partials.filters.text', ['name' => 'to', 'label' => 'To'])
-            @include('postmaster::partials.filters.tenant')
-            @include('postmaster::partials.filters.dates')
-            <a href="{{ route('postmaster.activity') }}" class="pm-btn pm-btn--ghost">Clear</a>
-        </form>
-    </div>
+    <x-postmaster::filter-panel :action="route('postmaster.activity')" :filters="$filters">
+        @include('postmaster::partials.filters.status')
+        @include('postmaster::partials.filters.text', ['name' => 'to', 'label' => 'To'])
+        @include('postmaster::partials.filters.tenant')
+        @include('postmaster::partials.filters.dates')
+    </x-postmaster::filter-panel>
 
     @include('postmaster::partials.pager', ['paginator' => $entries, 'label' => 'entries'])
 
@@ -62,11 +53,11 @@
                         <td class="pm-cell-badge">@include('postmaster::partials.badge', ['status' => $entry->status])</td>
                         <td class="pm-dim">{{ $entry->provider ?? '—' }}</td>
                         @if ($hasTenants)
-                            <td class="pm-dim">{{ $tenants[$entry->emailMessage?->{$tenantColumn}] ?? '—' }}</td>
+                            <td class="pm-dim">{{ $tenants[$entry->emailMessage?->tenantKey()] ?? '—' }}</td>
                         @endif
                     </tr>
                 @empty
-                    <tr class="pm-row-empty"><td class="pm-cell-full" colspan="{{ $columns }}"><div class="pm-empty">No activity matches these filters.</div></td></tr>
+                    @include('postmaster::partials.table-empty', ['note' => 'No activity matches these filters.'])
                 @endforelse
             </tbody>
         </table>

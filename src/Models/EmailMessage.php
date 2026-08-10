@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Str;
 use RuntimeException;
 use STS\Postmaster\Attachments\InlineImages;
 use STS\Postmaster\Concerns\HasStatusPredicates;
@@ -132,6 +133,38 @@ class EmailMessage extends Model
     }
 
     /**
+     * This row's tenant key. Saves every caller from spelling out
+     * `$message->{EmailMessage::tenantColumn()}` — which the dashboard views
+     * were doing by re-reading the config themselves, so the "single source
+     * of truth" above had four copies.
+     */
+    public function tenantKey(): int|string|null
+    {
+        return $this->getAttribute(static::tenantColumn());
+    }
+
+    /**
+     * Whether the row still holds a body to replay. Resending and releasing
+     * both need one; pruning clears the content columns but keeps the row,
+     * so a message can outlive its own content.
+     */
+    public function hasStoredContent(): bool
+    {
+        return (bool) ($this->html_body ?: $this->text_body);
+    }
+
+    /**
+     * Whether this message's recipient is on the local suppression list.
+     * False when there's no recipient recorded at all — callers asking this
+     * are gating a send, and a row with no address is unsendable for its own
+     * reason, which they report separately.
+     */
+    public function recipientIsSuppressed(): bool
+    {
+        return $this->to_address !== null && Postmaster::isSuppressed($this->to_address);
+    }
+
+    /**
      * The application model this email was sent for, if any.
      */
     public function related(): MorphTo
@@ -249,6 +282,21 @@ class EmailMessage extends Model
     public function fileAttachments(): Collection
     {
         return $this->attachments->where('disposition', 'attachment')->values();
+    }
+
+    /**
+     * A one-line summary of what the message carried — "2 files · 727 B".
+     * Pre-upgrade rows are counted but contribute no bytes (only their names
+     * were ever kept), so a legacy-only message reads "1 file" rather than
+     * claiming a total of zero.
+     */
+    public function attachmentSummary(): string
+    {
+        $files = $this->fileAttachments();
+        $count = $files->count() + count($this->legacyAttachmentNames());
+
+        return $count.' '.Str::plural('file', $count)
+            .($files->isEmpty() ? '' : ' · '.EmailAttachment::humanBytes((int) $files->sum('size')));
     }
 
     /**

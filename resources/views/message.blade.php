@@ -108,29 +108,14 @@
 
                  Real attachments only. Embedded images belong to the body, not
                  to this list — nobody sees them paperclipped on. --}}
-            @php
-                $files  = $message->fileAttachments();
-                $legacy = $message->legacyAttachmentNames();
-            @endphp
+            @php $files = $message->fileAttachments(); @endphp
 
-            @if ($files->isNotEmpty() || $legacy)
+            @if ($files->isNotEmpty())
                 <div class="pm-attachments">
                     <div class="pm-att-head">Attachments <span class="pm-dim">· {{ $message->attachmentSummary() }}</span></div>
                     <div class="pm-att-chips">
                         @foreach ($files as $attachment)
                             @include('postmaster::partials.attachment', ['message' => $message, 'attachment' => $attachment])
-                        @endforeach
-
-                        {{-- Recorded before the attachments table existed: we
-                             have the name and nothing else. --}}
-                        @foreach ($legacy as $name)
-                            <div class="pm-att-chip is-gone">
-                                <span class="pm-att-icon">@include('postmaster::partials.att-icon', ['image' => false])</span>
-                                <span class="pm-att-main">
-                                    <span class="pm-att-name">{{ $name }}</span>
-                                    <span class="pm-att-sub">not stored</span>
-                                </span>
-                            </div>
                         @endforeach
                     </div>
                 </div>

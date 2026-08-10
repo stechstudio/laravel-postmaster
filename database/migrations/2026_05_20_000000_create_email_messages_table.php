@@ -35,7 +35,6 @@ return new class extends Migration
             $table->json('recipients')->nullable();
             $table->longText('html_body')->nullable();
             $table->longText('text_body')->nullable();
-            $table->json('attachments')->nullable();
             // Optional polymorphic link to one of the consuming app's models
             // (an Order, User, etc.), set via a Mailable's relatedTo() call.
             // Apps using UUID/ULID primary keys should change related_id to

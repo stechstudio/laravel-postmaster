@@ -33,7 +33,6 @@ use STS\Postmaster\Facades\Postmaster;
  * @property array|null $recipients
  * @property string|null $html_body
  * @property string|null $text_body
- * @property array|null $legacy_attachment_names
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EmailAttachment> $attachments
  * @property array|null $tags
  * @property string|null $status
@@ -68,8 +67,7 @@ class EmailMessage extends Model
     protected bool $previewBodyResolved = false;
 
     protected $casts = [
-        'recipients'              => 'array',
-        'legacy_attachment_names' => 'array',
+        'recipients'    => 'array',
         'tags'          => 'array',
         'sent_at'       => 'datetime',
         'last_event_at' => 'datetime',
@@ -210,18 +208,6 @@ class EmailMessage extends Model
     }
 
     /**
-     * Attachment filenames recorded before the email_attachments table
-     * existed. Pre-upgrade rows kept only names in a JSON column; the
-     * dashboard falls back to this when the relation is empty.
-     *
-     * @return array<int, string>
-     */
-    public function legacyAttachmentNames(): array
-    {
-        return $this->legacy_attachment_names ?? [];
-    }
-
-    /**
      * The attachments whose bytes are still on disk. Resend and release
      * reattach these; the rest survive as metadata only.
      *
@@ -250,10 +236,6 @@ class EmailMessage extends Model
      */
     public function carriesFiles(): bool
     {
-        if ($this->legacyAttachmentNames() !== []) {
-            return true;
-        }
-
         // The list view loads the count as an aggregate so a page of rows
         // costs one query; the detail view already holds the relation. The
         // fallback keeps this correct anywhere else it gets called.
@@ -286,17 +268,15 @@ class EmailMessage extends Model
 
     /**
      * A one-line summary of what the message carried — "2 files · 727 B".
-     * Pre-upgrade rows are counted but contribute no bytes (only their names
-     * were ever kept), so a legacy-only message reads "1 file" rather than
-     * claiming a total of zero.
+     * The total covers every file listed, including those whose bytes have
+     * since gone: the size is recorded on capture and outlives them.
      */
     public function attachmentSummary(): string
     {
         $files = $this->fileAttachments();
-        $count = $files->count() + count($this->legacyAttachmentNames());
 
-        return $count.' '.Str::plural('file', $count)
-            .($files->isEmpty() ? '' : ' · '.EmailAttachment::humanBytes((int) $files->sum('size')));
+        return $files->count().' '.Str::plural('file', $files->count())
+            .' · '.EmailAttachment::humanBytes((int) $files->sum('size'));
     }
 
     /**

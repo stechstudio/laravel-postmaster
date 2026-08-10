@@ -9,7 +9,9 @@ use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
 use STS\Postmaster\Attachments\AttachmentStatus;
 use STS\Postmaster\Attachments\AttachmentStore;
 use STS\Postmaster\Attachments\InlineImages;
@@ -75,16 +77,54 @@ class AttachmentStorageTest extends TestCase
         $this->assertSame(AttachmentStatus::Oversize, $attachment->status);
     }
 
-    public function testLegacyAttachmentNamesAreStillReadable()
+    public function testAttachmentsLiveOnTheirOwnTableAndNowhereElse()
     {
-        $message = EmailMessage::create([
-            'provider_message_id'     => 'legacy',
-            'to_address'              => 'to@example.com',
-            'legacy_attachment_names' => ['old.pdf'],
-        ]);
+        // Filenames used to be a JSON column on email_messages too. Two places
+        // to look is the thing that was wrong with it, so assert the column is
+        // gone under either name it ever had.
+        $this->assertFalse(Schema::hasColumn('email_messages', 'attachments'));
+        $this->assertFalse(Schema::hasColumn('email_messages', 'legacy_attachment_names'));
+    }
 
-        $this->assertSame(['old.pdf'], $message->fresh()->legacyAttachmentNames());
-        $this->assertCount(0, $message->attachments);
+    /**
+     * The column reaches the drop under two different names depending on where
+     * an install is upgrading from, and a fresh install never has it at all.
+     * A migration run always starts from the current schema, so none of those
+     * three states is exercised by simply running the suite.
+     */
+    #[DataProvider('upgradeStates')]
+    public function testTheOldAttachmentColumnIsDroppedFromWhicheverStateAnInstallIsIn(?string $column)
+    {
+        if ($column !== null) {
+            Schema::table('email_messages', fn ($table) => $table->json($column)->nullable());
+            $this->assertTrue(Schema::hasColumn('email_messages', $column));
+        }
+
+        // Both steps, in the order a real `migrate` would run them: the rename
+        // that an install predating the attachments table still has to make,
+        // then the drop.
+        $this->runMigration('2026_08_09_000001_rename_attachments_on_email_messages_table');
+        $this->runMigration('2026_08_10_000000_drop_legacy_attachment_names_from_email_messages_table');
+
+        $this->assertFalse(Schema::hasColumn('email_messages', 'attachments'));
+        $this->assertFalse(Schema::hasColumn('email_messages', 'legacy_attachment_names'));
+
+        // The table is otherwise untouched — the drop is guarded, not a rebuild.
+        $this->assertTrue(Schema::hasColumn('email_messages', 'provider_message_id'));
+    }
+
+    public static function upgradeStates(): array
+    {
+        return [
+            'upgrading from v2.24.0'            => ['legacy_attachment_names'],
+            'upgrading from before that table'  => ['attachments'],
+            'a fresh install, which never had it' => [null],
+        ];
+    }
+
+    protected function runMigration(string $name): void
+    {
+        (require __DIR__."/../database/migrations/{$name}.php")->up();
     }
 
     public function testAttachmentStorageIsOffByDefault()

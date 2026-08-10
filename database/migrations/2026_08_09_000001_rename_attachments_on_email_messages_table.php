@@ -5,12 +5,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Frees the `attachments` name for the email_attachments relation. Eloquent
- * resolves attributes before relations, so a column of that name would make
- * $message->attachments permanently unreachable as a HasMany.
+ * Historical. Attachments used to be a JSON array of filenames on this table;
+ * they now live in email_attachments, and the column that held them is dropped
+ * by the migration that follows this one.
  *
- * The old column keeps its data for pre-upgrade rows, read through
- * EmailMessage::legacyAttachmentNames().
+ * This step survives only so an install that already ran it can still roll
+ * back, and so an install upgrading from before the attachments table lands on
+ * the same column name the drop looks for. Fresh installs never create the
+ * column, so both directions are guarded and do nothing.
  */
 return new class extends Migration
 {
@@ -21,6 +23,10 @@ return new class extends Migration
 
     public function up(): void
     {
+        if (! Schema::hasColumn($this->table(), 'attachments')) {
+            return;
+        }
+
         Schema::table($this->table(), function (Blueprint $table) {
             $table->renameColumn('attachments', 'legacy_attachment_names');
         });
@@ -28,6 +34,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn($this->table(), 'legacy_attachment_names')) {
+            return;
+        }
+
         Schema::table($this->table(), function (Blueprint $table) {
             $table->renameColumn('legacy_attachment_names', 'attachments');
         });

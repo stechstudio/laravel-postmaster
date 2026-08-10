@@ -40,6 +40,9 @@ support dashboard to browse it all.
   sync reconciles the list against each provider's own.
 - **Emails linked to your models.** Tie a send to an `Order` or a `User` and
   read its delivery state straight off the model.
+- **The attachments too, optionally.** Keep what an email carried on any
+  filesystem disk, download it from the dashboard, and send it again with a
+  resend. Content-addressed, so the logo on every send costs one file.
 - **A support dashboard.** A gated, cross-tenant UI for searching messages,
   watching events arrive live, and inspecting any stored email.
 - **Sandbox delivery.** Intercept every outbound email in staging — recorded
@@ -717,6 +720,8 @@ deduplication follows the same record: content already stored on the old disk
 keeps being referenced there, so the old disk stays in use until those rows
 prune out.
 
+#### Choosing what gets stored
+
 This is independent of `POSTMASTER_STORE_CONTENT`, which is the point: an
 invoice PDF is often worth keeping when the body that carried a magic-login
 link is not. Both switches take the same three-tier control, per-message
@@ -736,11 +741,13 @@ Postmaster::storeAttachmentsWhen(
 );
 ```
 
+#### Keeping the disk in hand
+
 Bytes are content-addressed by sha256, so a logo embedded on every send costs
 one file no matter how many messages carry it, and a file is only removed once
 every message referencing it has released it.
 
-Three limits keep the disk in hand:
+Three limits keep it bounded:
 
 ```
 POSTMASTER_ATTACHMENTS_MAX_SIZE=10485760          # per file; larger ones record metadata only
@@ -756,9 +763,107 @@ php artisan postmaster:prune --attachments
 php artisan postmaster:prune --attachments --dry-run
 ```
 
-> An attachment whose bytes are gone — never stored, oversize, pruned, or
-> evicted — is listed with its status instead of a download link. Resend and
-> Release send without it rather than refusing, and say how many were left off.
+Every row records what became of its bytes, and only `stored` means there's a
+file behind it:
+
+| Status | Meaning |
+| --- | --- |
+| `stored` | On disk, downloadable, replayable. |
+| `not_stored` | Attachment storage was off for this message. Metadata only. |
+| `oversize` | Larger than `max_size`. Metadata only. |
+| `pruned` | Removed by the retention window. |
+| `evicted` | Removed to stay under the disk ceiling. |
+| `failed` | The disk write threw, or reported failure by returning false. A thrown exception reaches your handler. |
+
+> An attachment whose bytes are gone is listed with its status instead of a
+> download link. Resend and Release send without it rather than refusing, and
+> say how many were left off.
+
+#### Running on S3
+
+Files are written under one prefix, fanned out two levels by checksum so no
+single directory ends up holding millions of entries:
+
+```
+postmaster/attachments/3f/8a/3f8a9c…   # <prefix>/<aa>/<bb>/<sha256>
+```
+
+That prefix is the `persistence.attachments.path` config key (publish the
+config to change it) — worth knowing if you're writing a lifecycle rule or
+scoping a bucket policy to it. Nothing else of Postmaster's lives there.
+
+Postmaster sets no ACL on what it writes, so a bucket using S3's **Bucket
+owner enforced** ownership setting — the default for buckets created since
+2023, which rejects ACL headers outright — works without special handling.
+Objects inherit whatever your bucket policy says. Keep the bucket private:
+the signed URL above is the intended way in, and it only works because the
+objects aren't public.
+
+If a write fails — the bucket is unreachable, credentials are wrong, a volume
+is full — the email is unaffected. Capture runs alongside the record, not in
+front of the send, so a storage outage can't cost you mail. The row is
+recorded `failed` instead of `stored`, and a thrown exception reaches your
+normal handler.
+
+That distinction matters more than it looks. Because paths are
+content-addressed, recording `stored` against a write that never landed would
+make every later message carrying that same file dedupe onto a path with
+nothing behind it — turning one transient outage into a permanent hole.
+
+#### Embedded images aren't attachments
+
+An email that references an image as `cid:logo` carries it as an *inline* part
+rather than as a real attachment, and Postmaster keeps the distinction. Inline
+parts are stored and deduplicated the same way, but they're excluded from the
+attachment list — nobody sees a templated email's logo paperclipped on, and
+listing it on every send would bury the invoice.
+
+What they're used for instead is the dashboard preview, where their `cid:`
+references are resolved back into the rendered message. When one can't be —
+never captured, or since pruned or evicted — the preview says so rather than
+leaving a broken image icon that reads as a broken email.
+
+#### Reading them from code
+
+The attachments of a message are a relation, keyed to the submission rather
+than to one envelope recipient — so the To, Cc, and Bcc rows of a single send
+resolve the same set rather than three copies of it.
+
+```php
+$message->attachments;              // everything recorded, inline parts included
+$message->fileAttachments();        // real attachments only — what a recipient would see
+$message->availableAttachments();   // just those whose bytes are still on disk
+$message->missingAttachmentCount(); // how many a replay can no longer carry
+$message->carriesFiles();           // did this email go out with anything attached?
+```
+
+And on an individual attachment:
+
+```php
+$file->isAvailable();   // are the bytes still there?
+$file->humanSize();     // "2.1 MB"
+$file->status;          // an AttachmentStatus enum — see the table above
+$file->contents();      // the raw bytes; only call this when isAvailable()
+```
+
+To list what's in hand across the whole history, query the model directly:
+
+```php
+use STS\Postmaster\Attachments\AttachmentStatus;
+use STS\Postmaster\Models\EmailAttachment;
+
+EmailAttachment::model()->newQuery()
+    ->where('status', AttachmentStatus::Stored)
+    ->sum('size');
+```
+
+> Sizes there count each *reference*. Because identical content is stored once,
+> the actual disk footprint is the sum over distinct checksums — which is what
+> the eviction ceiling measures, and why 400,000 emails carrying one logo don't
+> look like 400,000 copies of it.
+
+Both the table and the model are swappable, alongside the other persistence
+models, under `persistence.attachments_table` and `persistence.attachment_model`.
 
 ### Resending a recorded email
 
@@ -1112,9 +1217,17 @@ environment**, so the dashboard is never unguarded in production by accident.
 - **Overview.** Headline counts and an activity chart over a selectable
   timeframe, plus recent-messages and live recent-activity cards.
 - **Messages.** A filterable inbox (status, provider, tag, tenant, recipient,
-  subject, date range). Each message opens to its delivery timeline and stored
-  content, rendered in a sandboxed, CSP-restricted frame. Click events show
-  the URL the recipient clicked, inline on the timeline.
+  subject, date range). A paperclip beside a subject means that email went out
+  with something attached. Each message opens to its delivery timeline and
+  stored content, rendered in a sandboxed, CSP-restricted frame. Click events
+  show the URL the recipient clicked, inline on the timeline.
+- **Attachments.** The message detail page lists what the email carried,
+  between the envelope details and the body — where a mail client puts them,
+  and where they can't be missed under a body that takes the scroll gesture
+  first. Each is a download; the request goes through the dashboard's own
+  gated endpoint either way. Files whose bytes are gone stay listed with the
+  reason (pruned, evicted, oversize) instead of a dead link. Embedded images
+  aren't listed — they're resolved into the preview instead.
 - **Person view.** Click the Recipient row on a message detail page to land
   on a page listing every email recorded against that recipient model. The
   "all the email a user has received" view.

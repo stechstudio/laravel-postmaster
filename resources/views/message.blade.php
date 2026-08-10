@@ -71,37 +71,16 @@
                 </dl>
             </div>
 
-            @if ($message->html_body)
-                @if ($hasRemoteImages && ! $showImages)
-                    <div class="pm-imgbar">
-                        <span>Remote images aren't shown in this preview.</span>
-                        <a href="{{ route('postmaster.messages.show', ['message' => $message, 'images' => 1]) }}"
-                           class="pm-btn pm-btn--sm">Show images</a>
-                    </div>
-                @endif
-                {{-- Embedded images are substituted in as data URIs by
-                     previewBody(). When one can't be — never captured, or
-                     since pruned or evicted — say so, rather than leaving a
-                     broken icon that reads as a broken email. --}}
-                @if ($message->hasUnresolvedInlineImages())
-                    <div class="pm-imgbar">
-                        <span>Some embedded images are no longer stored, and can't be shown.</span>
-                    </div>
-                @endif
-                <iframe class="pm-frame" sandbox srcdoc="{{ $previewCsp.$message->previewBody() }}" title="Message body"></iframe>
-            @elseif ($message->text_body)
-                <div class="pm-pre">{{ $message->text_body }}</div>
-            @else
-                <div class="pm-card">
-                    <div class="pm-empty">
-                        Message content was not stored.<br>
-                        Enable <span class="pm-mono">POSTMASTER_STORE_CONTENT</span> to capture it.
-                    </div>
-                </div>
-            @endif
+            {{-- Above the body, not below it. What went out attached is a fact
+                 about the message — the same class of thing as From and Date —
+                 and this is an audit view, not an inbox: nobody opens it to
+                 read the email. Gmail can afford to put attachments under the
+                 body because the body flows in the page and you scroll past it
+                 to get there; ours is a fixed-height iframe that takes the
+                 scroll gesture first, so down there they'd go unnoticed.
 
-            {{-- Real attachments only. Embedded images are part of the body
-                 above, not something the recipient sees paperclipped on. --}}
+                 Real attachments only. Embedded images belong to the body, not
+                 to this list — nobody sees them paperclipped on. --}}
             @php
                 $files = $message->fileAttachments();
                 $legacy = $message->legacyAttachmentNames();
@@ -136,6 +115,36 @@
                     @endforeach
                 </div>
             @endif
+
+            @if ($message->html_body)
+                @if ($hasRemoteImages && ! $showImages)
+                    <div class="pm-imgbar">
+                        <span>Remote images aren't shown in this preview.</span>
+                        <a href="{{ route('postmaster.messages.show', ['message' => $message, 'images' => 1]) }}"
+                           class="pm-btn pm-btn--sm">Show images</a>
+                    </div>
+                @endif
+                {{-- Embedded images are substituted in as data URIs by
+                     previewBody(). When one can't be — never captured, or
+                     since pruned or evicted — say so, rather than leaving a
+                     broken icon that reads as a broken email. --}}
+                @if ($message->hasUnresolvedInlineImages())
+                    <div class="pm-imgbar">
+                        <span>Some embedded images are no longer stored, and can't be shown.</span>
+                    </div>
+                @endif
+                <iframe class="pm-frame" sandbox srcdoc="{{ $previewCsp.$message->previewBody() }}" title="Message body"></iframe>
+            @elseif ($message->text_body)
+                <div class="pm-pre">{{ $message->text_body }}</div>
+            @else
+                <div class="pm-card">
+                    <div class="pm-empty">
+                        Message content was not stored.<br>
+                        Enable <span class="pm-mono">POSTMASTER_STORE_CONTENT</span> to capture it.
+                    </div>
+                </div>
+            @endif
+
         </div>
 
         <div>

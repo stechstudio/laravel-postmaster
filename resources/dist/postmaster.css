@@ -303,19 +303,41 @@ a { color: inherit; text-decoration: none; }
 
 /* Chart — bars in a stretch-to-fit SVG, labels as HTML so text never
    distorts (the SVG scales non-uniformly; HTML text does not). */
+.pm-chart { position: relative; }
 .pm-chart-bars { width: 100%; height: 148px; display: block; }
-.pm-chart-bars rect {
+.pm-chart-bar {
     /* Solid black bars fight the text for attention and turn a quiet trend
        into the loudest thing on the page. A softened fill still reads as one
        series, and the hover state supplies the emphasis on demand. */
     fill: var(--pm-fg);
     opacity: 0.7;
 }
-.pm-chart-bars rect:hover { opacity: 1; }
+.pm-chart-bar.is-hovered { opacity: 1; }
 /* Days with nothing sent draw a faint stub rather than a full-strength tick,
    so an empty stretch reads as a flat run instead of a row of debris. */
-.pm-chart-bars rect.is-empty { opacity: 0.11; }
-.pm-chart-base { stroke: var(--pm-line); stroke-width: 1; }
+.pm-chart-bar.is-empty { opacity: 0.11; }
+.pm-chart-bar.is-empty.is-hovered { opacity: 0.3; }
+
+/* The hover targets. Transparent until pointed at, when the whole column
+   lights faintly — which is also the cue that the column, not the bar, is
+   what you're aiming for. */
+.pm-chart-hit { fill: var(--pm-fg); opacity: 0; }
+.pm-chart-hit:hover { opacity: 0.045; }
+
+.pm-chart-tip {
+    position: absolute;
+    z-index: 2;
+    padding: 4px 9px;
+    background: var(--pm-fg);
+    color: var(--pm-bg);
+    border-radius: var(--pm-radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: var(--pm-shadow-lg);
+}
 .pm-chart-labels { display: flex; margin-top: 8px; }
 .pm-chart-labels span {
     flex: 1 1 0;
@@ -601,42 +623,51 @@ a { color: inherit; text-decoration: none; }
     white-space: pre-wrap;
 }
 
-/* Attachments — a header strip plus one row per file, sharing the shape of
-   the overview's feed cards. The whole row is the download link when the
-   bytes are still held; rows whose bytes are gone are inert and say why. */
-.pm-attachments { padding: 0; margin: 18px 0; }
-.pm-attachments .pm-card-head .pm-section-title { margin: 0; }
+/* Attachments — a quiet label over a wrapping row of compact chips, the way
+   a mail client shows them. A full-width row per file gave one PDF the same
+   width as the message itself, which read as though the files were the point
+   of the email rather than something it carried. */
+.pm-attachments { padding: 16px 22px 18px; }
+.pm-att-head {
+    font-size: 12.5px;
+    font-weight: 500;
+    margin-bottom: 10px;
+}
+.pm-att-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.pm-att-row {
+.pm-att-chip {
     display: flex;
     align-items: center;
-    gap: 11px;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--pm-border);
+    gap: 10px;
+    min-width: 0;
+    /* Wide enough for a normal filename, capped so one long name can't take
+       the whole row and make the chips read as rows again. */
+    flex: 0 1 240px;
+    max-width: 300px;
+    padding: 8px 12px 8px 8px;
+    border: 1px solid var(--pm-line);
+    border-radius: var(--pm-radius-sm);
+    background: var(--pm-card);
 }
-.pm-att-row:last-child { border-bottom: 0; }
-a.pm-att-row:hover { background: var(--pm-muted); }
-a.pm-att-row:focus-visible {
-    outline: 2px solid var(--pm-ring);
-    outline-offset: -2px;
-}
+a.pm-att-chip:hover { background: var(--pm-hover); border-color: var(--pm-line-strong); }
 
 .pm-att-icon {
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
     display: grid;
     place-items: center;
-    background: var(--pm-muted);
+    background: var(--pm-well);
     color: var(--pm-muted-fg);
 }
-a.pm-att-row:hover .pm-att-icon { background: var(--pm-accent); color: var(--pm-fg); }
-.pm-att-icon svg { width: 16px; height: 16px; }
+a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
+.pm-att-icon svg { width: 15px; height: 15px; }
 
-.pm-att-main { flex: 1; min-width: 0; }
+.pm-att-main { min-width: 0; }
 .pm-att-name {
     display: block;
+    font-size: 13px;
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -645,17 +676,16 @@ a.pm-att-row:hover .pm-att-icon { background: var(--pm-accent); color: var(--pm-
 .pm-att-sub {
     display: block;
     color: var(--pm-muted-fg);
-    font-size: 12px;
+    font-size: 11.5px;
+    text-transform: capitalize;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* Always visible, not hover-revealed — a hover-only affordance is invisible
-   to touch and unreachable by keyboard. */
-.pm-att-get { flex-shrink: 0; color: var(--pm-muted-fg); }
-a.pm-att-row:hover .pm-att-get { color: var(--pm-fg); }
-.pm-att-get svg { width: 16px; height: 16px; display: block; }
-
-.pm-att-row.is-gone .pm-att-icon { opacity: 0.55; }
-.pm-att-row.is-gone .pm-att-name { font-weight: 400; color: var(--pm-muted-fg); }
+.pm-att-chip.is-gone { background: var(--pm-well); }
+.pm-att-chip.is-gone .pm-att-icon { opacity: 0.5; }
+.pm-att-chip.is-gone .pm-att-name { font-weight: 400; color: var(--pm-muted-fg); }
 
 /* Timeframe pills — a segmented control sitting in its own well, so the four
    options read as one choice rather than four loose links. */

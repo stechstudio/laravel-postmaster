@@ -1,36 +1,30 @@
-{{-- One attachment row. When the bytes are still held the whole row is the
-     download link — the glyph stays visible rather than appearing on hover,
-     which touch and keyboard users never get. When they're gone the row isn't
-     a link at all, and carries the reason instead of a dead target. --}}
+{{-- One attachment, as a compact card rather than a full-width row. Mail
+     clients show attachments as chips for a reason: a row per file gives one
+     PDF the same width as the message itself, so a two-attachment email reads
+     as though the files were the point of it.
+
+     The whole chip is the download link when the bytes are still held. When
+     they're gone it isn't a link at all, and carries the reason instead of a
+     dead target. --}}
 @php
     $isImage = str_starts_with((string) $attachment->mime_type, 'image/');
 @endphp
 
 @if ($attachment->isAvailable())
-    <a class="pm-att-row" href="{{ route('postmaster.messages.attachment', [$message, $attachment]) }}">
+    <a class="pm-att-chip" href="{{ route('postmaster.messages.attachment', [$message, $attachment]) }}"
+       title="Download {{ $attachment->filename }}">
         <span class="pm-att-icon">@include('postmaster::partials.att-icon', ['image' => $isImage])</span>
         <span class="pm-att-main">
             <span class="pm-att-name">{{ $attachment->filename }}</span>
             <span class="pm-att-sub">{{ $attachment->humanSize() }}</span>
         </span>
-        <span class="pm-att-get" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <path d="M7 10l5 5 5-5"/>
-                <path d="M12 15V3"/>
-            </svg>
-        </span>
     </a>
 @else
-    <div class="pm-att-row is-gone">
+    <div class="pm-att-chip is-gone">
         <span class="pm-att-icon">@include('postmaster::partials.att-icon', ['image' => $isImage])</span>
         <span class="pm-att-main">
             <span class="pm-att-name">{{ $attachment->filename }}</span>
-            <span class="pm-att-sub">
-                {{ $attachment->humanSize() }}
-                · <span class="pm-badge pm-badge--muted">{{ str_replace('_', ' ', $attachment->status->value) }}</span>
-            </span>
+            <span class="pm-att-sub">{{ $attachment->humanSize() }} · {{ str_replace('_', ' ', $attachment->status->value) }}</span>
         </span>
     </div>
 @endif

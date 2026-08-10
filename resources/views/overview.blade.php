@@ -48,18 +48,69 @@
                         $h = max(round($bar['count'] / $max * $plotH, 1), 2);
                         $x = $i * $slot + ($slot - $barW) / 2;
                     @endphp
-                    <rect class="{{ $bar['count'] === 0 ? 'is-empty' : '' }}"
-                          x="{{ $x }}" y="{{ $plotH - $h }}" width="{{ $barW }}" height="{{ $h }}" rx="3">
-                        <title>{{ $bar['date']->format('M j') }} — {{ $bar['count'] }}</title>
-                    </rect>
+                    <rect class="pm-chart-bar {{ $bar['count'] === 0 ? 'is-empty' : '' }}"
+                          x="{{ $x }}" y="{{ $plotH - $h }}" width="{{ $barW }}" height="{{ $h }}" rx="3"/>
+                @endforeach
+
+                {{-- Full-height transparent columns carry the hover, drawn over
+                     the bars. Aiming at the bars themselves would mean asking
+                     for a 2px target on a quiet day — the days you most want to
+                     check are the ones hardest to hit. --}}
+                @foreach ($chart as $i => $bar)
+                    <rect class="pm-chart-hit" x="{{ $i * $slot }}" y="0"
+                          width="{{ $slot }}" height="{{ $plotH }}"
+                          data-label="{{ $bar['date']->format('M j') }}"
+                          data-count="{{ number_format($bar['count']) }}"
+                          role="img"
+                          aria-label="{{ $bar['date']->format('M j') }}: {{ number_format($bar['count']) }} sent"/>
                 @endforeach
             </svg>
+            <div class="pm-chart-tip" hidden></div>
             <div class="pm-chart-labels">
                 @foreach ($chart as $bar)
                     <span>{{ $bar['interval'] === 1 ? $bar['date']->format('j') : $bar['date']->format('M j') }}</span>
                 @endforeach
             </div>
         </div>
+
+        <script>
+            // The bars had only a native <title>, which appears after a delay
+            // and says nothing until it does — the chart read as decoration.
+            // A real tooltip, anchored to the top of the hovered bar.
+            (function () {
+                var chart = document.querySelector('.pm-chart');
+                if (! chart) return;
+
+                var tip  = chart.querySelector('.pm-chart-tip');
+                var bars = chart.querySelectorAll('.pm-chart-bar');
+
+                chart.querySelectorAll('.pm-chart-hit').forEach(function (hit, i) {
+                    hit.addEventListener('mouseenter', function () {
+                        var bar = bars[i];
+                        if (! bar) return;
+
+                        bar.classList.add('is-hovered');
+                        tip.textContent = hit.dataset.label + ' · ' + hit.dataset.count;
+                        tip.hidden = false;
+
+                        // Measured rather than computed: the SVG scales
+                        // non-uniformly, so a bar's drawn position isn't its
+                        // position in viewBox units.
+                        var box  = chart.getBoundingClientRect();
+                        var rect = bar.getBoundingClientRect();
+                        var left = rect.left - box.left + rect.width / 2 - tip.offsetWidth / 2;
+
+                        tip.style.left = Math.max(0, Math.min(left, box.width - tip.offsetWidth)) + 'px';
+                        tip.style.top  = (rect.top - box.top - tip.offsetHeight - 8) + 'px';
+                    });
+
+                    hit.addEventListener('mouseleave', function () {
+                        if (bars[i]) bars[i].classList.remove('is-hovered');
+                        tip.hidden = true;
+                    });
+                });
+            })();
+        </script>
     </div>
 
     <div class="pm-grid pm-grid--halves">

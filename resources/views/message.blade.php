@@ -111,26 +111,24 @@
 
             @if ($files->isNotEmpty() || $legacy)
                 <div class="pm-attachments">
-                    <div class="pm-card-head">
-                        <h2 class="pm-section-title">Attachments</h2>
-                        <span class="pm-link">{{ $summary }}</span>
+                    <div class="pm-att-head">Attachments <span class="pm-dim">· {{ $summary }}</span></div>
+                    <div class="pm-att-chips">
+                        @foreach ($files as $attachment)
+                            @include('postmaster::partials.attachment', ['message' => $message, 'attachment' => $attachment])
+                        @endforeach
+
+                        {{-- Recorded before the attachments table existed: we
+                             have the name and nothing else. --}}
+                        @foreach ($legacy as $name)
+                            <div class="pm-att-chip is-gone">
+                                <span class="pm-att-icon">@include('postmaster::partials.att-icon', ['image' => false])</span>
+                                <span class="pm-att-main">
+                                    <span class="pm-att-name">{{ $name }}</span>
+                                    <span class="pm-att-sub">not stored</span>
+                                </span>
+                            </div>
+                        @endforeach
                     </div>
-
-                    @foreach ($files as $attachment)
-                        @include('postmaster::partials.attachment', ['message' => $message, 'attachment' => $attachment])
-                    @endforeach
-
-                    {{-- Recorded before the attachments table existed: we have
-                         the name and nothing else. --}}
-                    @foreach ($legacy as $name)
-                        <div class="pm-att-row is-gone">
-                            <span class="pm-att-icon">@include('postmaster::partials.att-icon', ['image' => false])</span>
-                            <span class="pm-att-main">
-                                <span class="pm-att-name">{{ $name }}</span>
-                                <span class="pm-att-sub">not stored</span>
-                            </span>
-                        </div>
-                    @endforeach
                 </div>
             @endif
 

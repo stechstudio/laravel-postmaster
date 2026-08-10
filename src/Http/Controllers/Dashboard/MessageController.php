@@ -171,7 +171,7 @@ class MessageController extends Controller
      * authority to read it, so an id from another message 404s rather than
      * leaking across records.
      */
-    public function attachment(int|string $message, int|string $attachment): StreamedResponse
+    public function attachment(int|string $message, int|string $attachment): StreamedResponse|RedirectResponse
     {
         $record = $this->messageQuery()->findOrFail($message);
 

@@ -228,6 +228,15 @@ return [
          *   prune_after_days Retention for the bytes. The metadata row
          *                    survives so the record of what was sent stays
          *                    intact. 0 or null disables pruning.
+         *   signed_url_ttl   Seconds a temporary download URL stays valid.
+         *
+         * Downloads always go through the dashboard's own endpoint, which
+         * authorizes the request first. On a disk that can mint a temporary
+         * URL that endpoint then redirects to one, so the bytes come from the
+         * bucket rather than through a PHP worker; disks that can't stream
+         * through the app instead. The signed link is bearer authority until
+         * it expires, so the TTL is deliberately short — set it to 0 to always
+         * stream and never mint one.
          */
         'attachments' => [
             'store'            => env('POSTMASTER_STORE_ATTACHMENTS', false),
@@ -236,6 +245,7 @@ return [
             'max_size'         => env('POSTMASTER_ATTACHMENTS_MAX_SIZE', 10 * 1024 * 1024),
             'max_disk_usage'   => env('POSTMASTER_ATTACHMENTS_MAX_DISK_USAGE'),
             'prune_after_days' => env('POSTMASTER_PRUNE_ATTACHMENTS_AFTER_DAYS', 30),
+            'signed_url_ttl'   => env('POSTMASTER_ATTACHMENTS_SIGNED_URL_TTL', 300),
         ],
 
         /*

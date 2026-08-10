@@ -2,6 +2,7 @@
 
 namespace STS\Postmaster\Tests;
 
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
@@ -617,7 +618,7 @@ class DashboardTest extends TestCase
         $this->assertNotNull(EmailAddress::find($address->getKey())); // suppression row untouched
     }
 
-    public function testAStoredAttachmentCanBeDownloaded()
+    public function testAStoredAttachmentOnALocalDiskIsStreamed()
     {
         Postmaster::auth(fn () => true);
         Storage::fake('local');
@@ -636,6 +637,108 @@ class DashboardTest extends TestCase
         $response->assertOk();
         $response->assertDownload('invoice.pdf');
         $this->assertSame('PDF DATA', $response->streamedContent());
+    }
+
+    /**
+     * Stands a stored attachment up on a disk shaped like S3, and hands back
+     * the mock so the call it receives can be asserted on.
+     */
+    protected function attachmentOnCloudDisk(callable $expectations): array
+    {
+        Postmaster::auth(fn () => true);
+        Storage::fake('local');
+        config([
+            'postmaster.persistence.store_content'     => true,
+            'postmaster.persistence.attachments.store' => true,
+            'filesystems.disks.cloud.driver'           => 's3',
+        ]);
+
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $message    = EmailMessage::first();
+        $attachment = $message->attachments->first();
+        $attachment->forceFill(['disk' => 'cloud'])->save();
+
+        $disk = \Mockery::mock(FilesystemAdapter::class);
+        $disk->shouldReceive('providesTemporaryUrls')->andReturn(true);
+        $expectations($disk, $attachment);
+
+        Storage::set('cloud', $disk);
+
+        return [$message, $attachment];
+    }
+
+    /**
+     * The endpoint authorizes first and only then mints a URL, so the gate and
+     * the ownership check still run on every download — the redirect is how
+     * the bytes travel, not a second way in.
+     */
+    public function testACloudDiskGetsARedirectToASignedUrl()
+    {
+        [$message, $attachment] = $this->attachmentOnCloudDisk(function ($disk) {
+            $disk->shouldReceive('temporaryUrl')->once()->andReturn('https://bucket.example.test/signed');
+        });
+
+        $this->get("/postmaster/messages/{$message->getKey()}/attachments/{$attachment->getKey()}")
+            ->assertRedirect('https://bucket.example.test/signed');
+    }
+
+    /**
+     * Paths are content-addressed, so a bare signed URL would deliver the file
+     * named after its sha256 with no type. The original name and mime type
+     * have to ride along on the URL for the download to be usable.
+     */
+    public function testASignedUrlCarriesTheOriginalFilenameAndType()
+    {
+        [$message, $attachment] = $this->attachmentOnCloudDisk(function ($disk, $attachment) {
+            $disk->shouldReceive('temporaryUrl')->once()->with(
+                $attachment->path,
+                \Mockery::type(\DateTimeInterface::class),
+                \Mockery::on(fn (array $options) => str_contains($options['ResponseContentDisposition'], 'invoice.pdf')
+                    && $options['ResponseContentType'] === 'application/pdf'),
+            )->andReturn('https://bucket.example.test/signed');
+        });
+
+        $this->get("/postmaster/messages/{$message->getKey()}/attachments/{$attachment->getKey()}")
+            ->assertRedirect('https://bucket.example.test/signed');
+    }
+
+    /**
+     * A signed link is bearer authority until it expires, so the window is a
+     * knob rather than a constant.
+     */
+    public function testTheSignedUrlLifetimeIsConfigurable()
+    {
+        config(['postmaster.persistence.attachments.signed_url_ttl' => 60]);
+
+        [$message, $attachment] = $this->attachmentOnCloudDisk(function ($disk) {
+            $disk->shouldReceive('temporaryUrl')->once()->with(
+                \Mockery::any(),
+                \Mockery::on(fn (\DateTimeInterface $expires) => abs($expires->getTimestamp() - now()->addSeconds(60)->timestamp) <= 5),
+                \Mockery::any(),
+            )->andReturn('https://bucket.example.test/signed');
+        });
+
+        $this->get("/postmaster/messages/{$message->getKey()}/attachments/{$attachment->getKey()}")
+            ->assertRedirect('https://bucket.example.test/signed');
+    }
+
+    /**
+     * Turning the lifetime off keeps every download flowing through the app,
+     * for a deployment that would rather no link exist at all.
+     */
+    public function testASignedUrlIsNeverMintedWhenTheLifetimeIsZero()
+    {
+        config(['postmaster.persistence.attachments.signed_url_ttl' => 0]);
+
+        [$message, $attachment] = $this->attachmentOnCloudDisk(function ($disk) {
+            $disk->shouldReceive('temporaryUrl')->never();
+            $disk->shouldReceive('download')->once()->andReturn(response()->streamDownload(fn () => print 'PDF DATA', 'invoice.pdf'));
+        });
+
+        $this->get("/postmaster/messages/{$message->getKey()}/attachments/{$attachment->getKey()}")
+            ->assertOk()
+            ->assertDownload('invoice.pdf');
     }
 
     public function testDownloadingAnUnavailableAttachmentIsNotFound()

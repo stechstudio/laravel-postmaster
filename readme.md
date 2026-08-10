@@ -696,6 +696,27 @@ POSTMASTER_ATTACHMENTS_DISK=s3
 With it on, Resend and Release replay a message with its attachments intact,
 and the dashboard offers each one as a download.
 
+Any configured disk works — an `s3` disk needs `league/flysystem-aws-s3-v3` in
+your app, as usual. Downloads always go through Postmaster's own endpoint,
+which authorizes the request before handing anything out. From there a cloud
+disk gets a redirect to a short-lived signed URL, so the bytes travel from the
+bucket rather than through a PHP worker; a local disk streams through the app,
+where a redirect would save nothing:
+
+```
+POSTMASTER_ATTACHMENTS_SIGNED_URL_TTL=300   # seconds; 0 always streams
+```
+
+That link is bearer authority until it expires — anyone holding it can fetch
+the file without passing the dashboard gate — which is why the window is short
+and adjustable.
+
+Each attachment records the disk it landed on, so changing
+`POSTMASTER_ATTACHMENTS_DISK` never orphans what you already have. Note that
+deduplication follows the same record: content already stored on the old disk
+keeps being referenced there, so the old disk stays in use until those rows
+prune out.
+
 This is independent of `POSTMASTER_STORE_CONTENT`, which is the point: an
 invoice PDF is often worth keeping when the body that carried a magic-login
 link is not. Both switches take the same three-tier control, per-message

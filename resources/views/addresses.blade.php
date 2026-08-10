@@ -4,7 +4,7 @@
 
 @section('content')
     @php $filtersActive = collect($filters)->except('page')->filter()->isNotEmpty(); @endphp
-    <div class="pm-card" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
+    <div class="pm-well-panel" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
         @include('postmaster::partials.filters.toggle')
         <form method="GET" action="{{ route('postmaster.addresses') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
             <div class="pm-field">
@@ -22,7 +22,7 @@
 
     @include('postmaster::partials.pager', ['paginator' => $addresses, 'label' => 'addresses'])
 
-    <div class="pm-card" style="padding: 0;">
+    <div class="pm-table-wrap">
         <table class="pm-table">
             <thead>
                 <tr>

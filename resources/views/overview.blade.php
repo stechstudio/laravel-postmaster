@@ -11,7 +11,9 @@
         @endforeach
     </div>
 
-    <div class="pm-grid pm-grid--stats">
+    {{-- Siblings in one context, so they take dividers on the page rather
+         than five cards. See .pm-stats. --}}
+    <div class="pm-stats">
         @php
             $tiles = [
                 ['Messages sent', $total],
@@ -22,7 +24,7 @@
             ];
         @endphp
         @foreach ($tiles as [$label, $value])
-            <div class="pm-card pm-stat">
+            <div class="pm-stat">
                 <div class="pm-stat-label">{{ $label }}</div>
                 <div class="pm-stat-value">{{ number_format($value) }}</div>
             </div>
@@ -41,10 +43,13 @@
             <svg class="pm-chart-bars" viewBox="0 0 {{ $width }} {{ $plotH }}" preserveAspectRatio="none">
                 @foreach ($chart as $i => $bar)
                     @php
-                        $h = max(round($bar['count'] / $max * $plotH, 1), 1);
+                        // An empty day still draws a stub so the axis stays
+                        // legible, but it's dimmed rather than a full tick.
+                        $h = max(round($bar['count'] / $max * $plotH, 1), 2);
                         $x = $i * $slot + ($slot - $barW) / 2;
                     @endphp
-                    <rect x="{{ $x }}" y="{{ $plotH - $h }}" width="{{ $barW }}" height="{{ $h }}" rx="3">
+                    <rect class="{{ $bar['count'] === 0 ? 'is-empty' : '' }}"
+                          x="{{ $x }}" y="{{ $plotH - $h }}" width="{{ $barW }}" height="{{ $h }}" rx="3">
                         <title>{{ $bar['date']->format('M j') }} — {{ $bar['count'] }}</title>
                     </rect>
                 @endforeach

@@ -12,7 +12,9 @@
         $filtersActive = collect($filters)->except('page')->filter()->isNotEmpty();
     @endphp
 
-    <div class="pm-card" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
+    {{-- The filters are secondary to the data, so they sit in a recessed well
+         rather than a card of equal weight to the table. --}}
+    <div class="pm-well-panel" x-data="{ filtersOpen: {{ $filtersActive ? 'true' : 'false' }} }">
         @include('postmaster::partials.filters.toggle')
         {{-- Filters apply instantly: selects on change, text after a short debounce. --}}
         <form method="GET" action="{{ route('postmaster.messages') }}" class="pm-filters" :class="{ 'is-open': filtersOpen }">
@@ -29,7 +31,9 @@
 
     @include('postmaster::partials.pager', ['paginator' => $messages, 'label' => 'messages'])
 
-    <div class="pm-card" style="padding: 0;">
+    {{-- No card around the table: row rules alone are enough separation, and
+         a frame would only add an edge to cross before reaching the data. --}}
+    <div class="pm-table-wrap">
         <table class="pm-table">
             <thead>
                 <tr>

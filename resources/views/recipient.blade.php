@@ -20,7 +20,7 @@
 
     @include('postmaster::partials.pager', ['paginator' => $messages, 'label' => 'messages'])
 
-    <div class="pm-card" style="padding: 0;">
+    <div class="pm-table-wrap">
         <table class="pm-table">
             <thead>
                 <tr>

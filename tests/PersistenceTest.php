@@ -1572,4 +1572,42 @@ class PersistenceTest extends TestCase
         $this->assertCount(1, $relayed);
         $this->assertSame(EmailEvent::STATUS_DELIVERED, $relayed[0]['status']);
     }
+    public function testEarlyWebhookIsEnrichedByTheSendInsteadOfDuplicated(): void
+    {
+        event(EmailEvent::create(new Postmark([
+            'RecordType' => 'Delivery', 'MessageID' => 'early-message',
+            'Recipient' => 'recipient@example.com', 'DeliveredAt' => '2026-09-13T12:00:00.900000Z',
+        ])));
+        $first = EmailMessage::sole();
+        $mail = (new Email)->from('sender@example.com')->to('recipient@example.com')->subject('Reviewed payment request')->text('Message body');
+        $recorder = app(\STS\Postmaster\Listeners\RecordOutboundMessage::class);
+        $record = $recorder->record($mail, 'early-message');
+        $this->assertSame($first->id, $record->id);
+        $this->assertSame('delivered', $record->status);
+        $this->assertSame('Reviewed payment request', $record->subject);
+        $this->assertNotNull($record->sent_at);
+        $this->assertSame('900000', $record->last_event_at->format('u'));
+        $this->assertDatabaseCount('email_messages', 1);
+        $this->assertDatabaseCount('email_activity', 2);
+    }
+
+    public function testPreciseAndRepeatedCallbacksCannotRegressDelivery(): void
+    {
+        config(['postmaster.persistence.track_addresses' => false]);
+        $bounce = ['RecordType' => 'Bounce', 'Type' => 'HardBounce', 'MessageID' => 'precise-message',
+            'Email' => 'recipient@example.com', 'BouncedAt' => '2026-09-13T08:00:00.900000-04:00'];
+        event(EmailEvent::create(new Postmark($bounce)));
+        event(EmailEvent::create(new Postmark($bounce)));
+        foreach (['2026-09-13T12:00:00.100000Z', '2026-09-13T12:00:00.900000Z'] as $at) {
+            event(EmailEvent::create(new Postmark(['RecordType' => 'Delivery', 'MessageID' => 'precise-message',
+                'Recipient' => 'recipient@example.com', 'DeliveredAt' => $at])));
+        }
+        event(EmailEvent::create(new Postmark(array_replace($bounce, ['Type' => 'Transient', 'BouncedAt' => '2026-09-13T12:00:01Z']))));
+        $record = EmailMessage::sole();
+        $this->assertSame('bounced', $record->status);
+        $this->assertSame('2026-09-13 12:00:00.900000', $record->last_event_at->format('Y-m-d H:i:s.u'));
+        $this->assertSame(1, $record->activity()->where('status', 'bounced')->count());
+        $this->assertDatabaseCount('email_activity', 4);
+    }
+
 }

@@ -57,6 +57,12 @@ class EmailActivity extends Model
         'occurred_at' => 'datetime',
     ];
 
+    /** Retain the provider's timestamp precision without changing other dates. */
+    public function setOccurredAtAttribute(mixed $value): void
+    {
+        $this->attributes['occurred_at'] = $value === null ? null : \Carbon\CarbonImmutable::parse($value)->utc()->format('Y-m-d H:i:s.u');
+    }
+
     /**
      * A fresh instance of the configured (swappable) email activity model.
      * Use this anywhere a query starts from — `EmailActivity::model()->newQuery()…`

@@ -73,6 +73,12 @@ class EmailMessage extends Model
         'last_event_at' => 'datetime',
     ];
 
+    /** Retain the provider's timestamp precision without changing other dates. */
+    public function setLastEventAtAttribute(mixed $value): void
+    {
+        $this->attributes['last_event_at'] = $value === null ? null : \Carbon\CarbonImmutable::parse($value)->utc()->format('Y-m-d H:i:s.u');
+    }
+
     /**
      * Deleting a message takes its timeline with it — the activity rows have
      * no database-level foreign key (email_message_id is a plain column), so

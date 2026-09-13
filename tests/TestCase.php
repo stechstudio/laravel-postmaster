@@ -7,6 +7,13 @@ use STS\Postmaster\Facades\Postmaster;
 
 abstract class TestCase extends \Orchestra\Testbench\TestCase
 {
+    protected function setUp(): void
+    {
+        // Each test app can select different persistence tables and connections.
+        \Illuminate\Foundation\Testing\RefreshDatabaseState::$migrated = false;
+        parent::setUp();
+    }
+
     protected function defineEnvironment($app)
     {
         // Pin cache and session to the in-memory driver so the suite does not

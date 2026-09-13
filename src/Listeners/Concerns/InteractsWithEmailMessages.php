@@ -3,11 +3,22 @@
 namespace STS\Postmaster\Listeners\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
+use Closure;
+use Illuminate\Support\Facades\Cache;
+use STS\Postmaster\Models\EmailMessage;
+use Carbon\CarbonImmutable;
 use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailAddress;
 
 trait InteractsWithEmailMessages
 {
+    /** Serialize a submission across its send response and provider callbacks. */
+    protected function withMessageLock(string $messageId, Closure $callback): mixed
+    {
+        return Cache::lock('postmaster:message:'.hash('sha256', $messageId), 60)->block(10,
+            fn () => EmailMessage::model()->getConnection()->transaction($callback));
+    }
+
     /**
      * Append an activity entry for a message-level event (a send, a
      * delivery/bounce/open webhook, …). Sets both email_message_id and
@@ -30,6 +41,9 @@ trait InteractsWithEmailMessages
         }
 
         $model = EmailActivity::model();
+        if (isset($attributes['occurred_at'])) {
+            $attributes['occurred_at'] = CarbonImmutable::parse($attributes['occurred_at'])->utc()->format('Y-m-d H:i:s.u');
+        }
 
         $exists = $model->newQuery()
             ->where('email_message_id', $message->getKey())

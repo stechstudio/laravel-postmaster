@@ -30,34 +30,36 @@ class UpdateMessageFromEvent
             return;
         }
 
-        $address = $event->toAddress() === null ? null : EmailAddress::normalize($event->toAddress());
-        $record  = $this->findOrCreateMessage($event, $messageId, $address);
+        $this->withMessageLock($messageId, function () use ($event, $messageId): void {
+            $address = $event->toAddress() === null ? null : EmailAddress::normalize($event->toAddress());
+            $record  = $this->findOrCreateMessage($event, $messageId, $address);
 
-        // Hand the correlated record to the event so any later listener can
-        // reach the originating message — and, via related(), the app model
-        // behind it — without repeating the message-id lookup.
-        $event->setEmailMessage($record);
+            // Hand the correlated record to the event so any later listener can
+            // reach the originating message — and, via related(), the app model
+            // behind it — without repeating the message-id lookup.
+            $event->setEmailMessage($record);
 
-        $this->refreshSummary($record, $event);
+            $this->refreshSummary($record, $event);
 
-        // Record the message-level activity before touching the address,
-        // so that the address-level activity entry for an auto-clear
-        // (written inside applyEventToAddress when a delivery flips a
-        // bounce-suppressed address back to active) lands *after* the
-        // delivered activity. Reads of the address's activity feed then
-        // tell the story in causal order: …bounced → delivered → unsuppressed.
-        $this->recordActivity($record, [
-            'provider'    => $event->provider(),
-            'status'      => $event->status(),
-            'bounce_type' => $event->bounceType(),
-            'response'    => $this->flatten($event->response()),
-            'reason'      => $this->flatten($event->reason()),
-            'code'        => $this->flatten($event->code()),
-            'url'         => $event->clickedUrl(),
-            'occurred_at' => $event->occurredAt() ?? now(),
-        ]);
+            // Record the message-level activity before touching the address,
+            // so that the address-level activity entry for an auto-clear
+            // (written inside applyEventToAddress when a delivery flips a
+            // bounce-suppressed address back to active) lands *after* the
+            // delivered activity. Reads of the address's activity feed then
+            // tell the story in causal order: …bounced → delivered → unsuppressed.
+            $this->recordActivity($record, [
+                'provider'    => $event->provider(),
+                'status'      => $event->status(),
+                'bounce_type' => $event->bounceType(),
+                'response'    => $this->flatten($event->response()),
+                'reason'      => $this->flatten($event->reason()),
+                'code'        => $this->flatten($event->code()),
+                'url'         => $event->clickedUrl(),
+                'occurred_at' => $event->occurredAt() ?? now(),
+            ]);
 
-        $this->applyEventToAddress($event);
+            $this->applyEventToAddress($event);
+        });
     }
 
     /**
@@ -113,7 +115,14 @@ class UpdateMessageFromEvent
 
         $occurredAt = $event->occurredAt() ?? now();
 
-        if ($record->last_event_at === null || $occurredAt >= $record->last_event_at) {
+        $priority = fn (?string $status): int => match ($status) {
+            EmailEvent::STATUS_COMPLAINED, EmailEvent::STATUS_BOUNCED, EmailEvent::STATUS_DROPPED => 3,
+            EmailEvent::STATUS_DELIVERED, EmailEvent::STATUS_OPENED, EmailEvent::STATUS_CLICKED => 2,
+            default => 1,
+        };
+        $regressiveDelay = $event->status() === EmailEvent::STATUS_DEFERRED && $priority($record->status) > 1;
+        if (! $regressiveDelay && ($record->last_event_at === null || $occurredAt > $record->last_event_at
+            || ($occurredAt == $record->last_event_at && $priority($event->status()) > $priority($record->status)))) {
             $record->status = $event->status();
             $record->last_event_at = $occurredAt;
 

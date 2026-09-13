@@ -3,6 +3,8 @@
 namespace STS\Postmaster\Providers\Postmark;
 
 use DateTimeImmutable;
+use DateTimeZone;
+use DateMalformedStringException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use STS\Postmaster\EmailEvent;
@@ -51,9 +53,15 @@ class Adapter extends AbstractAdapter
     {
         foreach (["DeliveredAt", "ReceivedAt", "BouncedAt"] as $dateField) {
             if (Arr::has($this->payload, $dateField)) {
-                $parsed = strtotime($this->payload[$dateField]);
-
-                return static::dateFromUnix($parsed === false ? null : $parsed);
+                $value = $this->payload[$dateField];
+                if (! is_string($value) || trim($value) === '') {
+                    return null;
+                }
+                try {
+                    return (new DateTimeImmutable($value))->setTimezone(new DateTimeZone('UTC'));
+                } catch (DateMalformedStringException) {
+                    return null;
+                }
             }
         }
 

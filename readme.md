@@ -446,6 +446,12 @@ registered first, so it is populated for any listener of your own. It is null
 when persistence is disabled or the webhook carries no message id to correlate
 on.
 
+Message updates use a per-submission cache lock so a send response and its
+webhooks cannot create competing records. Use a shared cache store across web
+and queue processes in a multi-instance deployment. Keep the cache prefix unique
+to the application. An early webhook is enriched with the send's content and
+relationships when the send finishes; its delivery status is preserved.
+
 ### Recording the full timeline
 
 The summary record above keeps only a message's *latest* status. That's enough

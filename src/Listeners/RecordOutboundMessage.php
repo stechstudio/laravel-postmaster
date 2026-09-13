@@ -138,17 +138,33 @@ class RecordOutboundMessage
                 $row['recipient_id']   = $model['id'];
             }
 
-            $record = EmailMessage::model()->newQuery()->create($row);
+            $record = $this->withMessageLock((string) $messageId, function () use ($messageId, $entry, $row, $status, $shared) {
+                $record = $messageId ? EmailMessage::model()->newQuery()->withoutGlobalScopes()
+                    ->where('provider_message_id', $messageId)->where('to_address', $entry['address'])->latest('id')->first() : null;
+                // A webhook may have recorded delivery before MessageSent fires.
+                // Fill in the send's context, preserving the provider observation.
+                if ($record) {
+                    unset($row['status']);
+                    if ($record->sent_at !== null) {
+                        unset($row['sent_at']);
+                    }
+                    $record->fill($row)->save();
+                } else {
+                    $record = EmailMessage::model()->newQuery()->create($row);
+                }
 
-            // Seed the timeline with the send itself, so the history is
-            // complete rather than starting at the first webhook event.
-            $this->recordActivity($record, [
-                'status'      => $status,
-                'occurred_at' => $shared['sent_at'],
-            ]);
+                // Seed the timeline with the send itself, so the history is
+                // complete rather than starting at the first webhook event.
+                $this->recordActivity($record, [
+                    'status'      => $status,
+                    'occurred_at' => $shared['sent_at'],
+                ]);
 
-            // Note the address so it's on record as one we send to.
-            $this->touchAddress($entry['address']);
+                // Note the address so it's on record as one we send to.
+                $this->touchAddress($entry['address']);
+
+                return $record;
+            });
 
             $primary ??= $record;
         }

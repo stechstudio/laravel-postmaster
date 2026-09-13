@@ -66,7 +66,7 @@ class StashOutboundMetadata
         }
 
         if ($stashed !== []) {
-            OutboundMetadata::remember(spl_object_id($event->message), $stashed);
+            OutboundMetadata::remember($event->message, $stashed);
         }
     }
 }

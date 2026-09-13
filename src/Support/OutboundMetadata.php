@@ -2,6 +2,9 @@
 
 namespace STS\Postmaster\Support;
 
+use Symfony\Component\Mime\Email;
+use WeakMap;
+
 /**
  * In-process bridge that carries metadata about an outbound email — the
  * related model and/or the owning tenant — from the MessageSending event,
@@ -9,9 +12,8 @@ namespace STS\Postmaster\Support;
  * stripped, to the MessageSent event, where the email_messages row is
  * written.
  *
- * Keyed by the message object's identity (spl_object_id), which is stable
- * across both events within a single send and never travels on the wire,
- * so none of this metadata is ever exposed in the outbound email.
+ * Uses weak references so failed sends do not leak metadata into later sends.
+ * The standard Message-ID matches transport clones; tracking data stays local.
  */
 class OutboundMetadata
 {
@@ -43,6 +45,9 @@ class OutboundMetadata
     /** @var array<int, array<string, mixed>> */
     protected static array $pending = [];
 
+    /** @var WeakMap<Email, array<string, mixed>>|null */
+    protected static ?WeakMap $messages = null;
+
     /**
      * The id of the sandboxed EmailMessage currently being released, or null.
      *
@@ -60,23 +65,39 @@ class OutboundMetadata
     /**
      * @param array<string, mixed> $attributes
      */
-    public static function remember(int $objectId, array $attributes): void
+    public static function remember(Email|int $message, array $attributes): void
     {
-        static::$pending[$objectId] = $attributes;
+        if (is_int($message)) {
+            static::$pending[$message] = $attributes;
+            return;
+        }
+        if (! $message->getHeaders()->has('Message-ID')) {
+            $message->getHeaders()->addIdHeader('Message-ID', $message->generateMessageId());
+        }
+        static::$messages ??= new WeakMap;
+        static::$messages[$message] = $attributes;
     }
 
     /**
-     * Retrieve and forget the metadata stashed for the given message.
+     * Retrieve and forget metadata, including when the transport cloned the email.
      *
      * @return array<string, mixed>
      */
-    public static function pull(int $objectId): array
+    public static function pull(Email|int $message): array
     {
-        $attributes = static::$pending[$objectId] ?? [];
-
-        unset(static::$pending[$objectId]);
-
-        return $attributes;
+        if (is_int($message)) {
+            $attributes = static::$pending[$message] ?? [];
+            unset(static::$pending[$message]);
+            return $attributes;
+        }
+        $id = $message->getHeaders()->get('Message-ID')?->getBodyAsString();
+        foreach (static::$messages ?? [] as $original => $attributes) {
+            if ($original === $message || ($id !== null && $id === $original->getHeaders()->get('Message-ID')?->getBodyAsString())) {
+                unset(static::$messages[$original]);
+                return $attributes;
+            }
+        }
+        return [];
     }
 
     /**

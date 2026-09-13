@@ -159,7 +159,7 @@ class AttachmentStorageTest extends TestCase
 
     public function testThePerMessageOverrideTravelsAsAStashedHeader()
     {
-        $message = new Email;
+        $message = (new Email)->from('sender@example.com');
 
         (app(PostmasterManager::class)->storeAttachments(false))($message);
 
@@ -169,7 +169,7 @@ class AttachmentStorageTest extends TestCase
 
         // Stripped from the wire, and readable from the in-process stash.
         $this->assertFalse($message->getHeaders()->has(OutboundMetadata::HEADER_STORE_ATTACHMENTS));
-        $this->assertSame('0', OutboundMetadata::pull(spl_object_id($message))['store_attachments']);
+        $this->assertSame('0', OutboundMetadata::pull($message)['store_attachments']);
     }
 
     public function testTrackingDeclaresAttachmentStorageOnAMailable()

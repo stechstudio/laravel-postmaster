@@ -106,7 +106,7 @@ class RecordOutboundMessage
      */
     public function record(Email $message, ?string $messageId, string $status = EmailEvent::STATUS_SENT): ?EmailMessage
     {
-        $metadata = OutboundMetadata::pull(spl_object_id($message));
+        $metadata = OutboundMetadata::pull($message);
 
         // A release of a previously sandboxed message: the send just went out
         // for real, so reconcile the original row(s) instead of writing new

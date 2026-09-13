@@ -91,7 +91,7 @@ class SandboxReleaseTest extends TestCase
         // reconcile in place, because it's flagged out-of-band, not on the
         // message.
         Event::listen(MessageSending::class, function ($event) {
-            OutboundMetadata::pull(spl_object_id($event->message));
+            OutboundMetadata::pull($event->message);
         });
 
         $record = $this->sandboxOne();

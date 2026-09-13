@@ -47,6 +47,40 @@ class PersistenceTest extends TestCase
         $app['config']->set('mail.default', 'array');
     }
 
+    public function testTransportClonesRetainTrackingWithoutSendingInternalHeaders(): void
+    {
+        $transport = new class extends \Symfony\Component\Mailer\Transport\AbstractTransport {
+            public function __toString(): string { return 'test-cloning-transport'; }
+            protected function doSend(\Symfony\Component\Mailer\SentMessage $message): void
+            {
+                foreach ($message->getOriginalMessage()->getHeaders()->all() as $header) {
+                    if (str_starts_with(strtolower($header->getName()), 'x-postmaster-')) {
+                        throw new \RuntimeException('Internal tracking leaked to transport.');
+                    }
+                }
+            }
+        };
+        Mail::mailer()->setSymfonyTransport($transport);
+        Schema::create('orders', fn ($table) => $table->id());
+        Schema::create('users', fn ($table) => $table->id());
+        $order = Order::create();
+        $user = User::create();
+        Mail::to('recipient@example.com')->send(new DeclaredMail(order: $order, user: $user, store: true));
+        $record = EmailMessage::sole();
+        $this->assertTrue($record->related->is($order));
+        $this->assertTrue($record->recipient->is($user));
+        $this->assertSame('<p>declared</p>', $record->html_body);
+    }
+
+    public function testUnfinishedSendMetadataExpiresWithTheOriginalMessage(): void
+    {
+        $original = (new Email)->from('sender@example.com')->to('recipient@example.com');
+        \STS\Postmaster\Support\OutboundMetadata::remember($original, ['store_content' => '1']);
+        $copy = clone $original;
+        unset($original);
+        $this->assertSame([], \STS\Postmaster\Support\OutboundMetadata::pull($copy));
+    }
+
     public function testOutboundMailIsRecorded()
     {
         Mail::raw('Hello there', function ($message) {

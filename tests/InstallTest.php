@@ -30,11 +30,13 @@ class InstallTest extends TestCase
         $this->assertSame('resend', $this->detectFor(['transport' => 'resend']));
         $this->assertSame('helo', $this->detectFor(['transport' => 'helo']));
         $this->assertSame('ses', $this->detectFor(['transport' => 'ses-v2']));
+        $this->assertSame('mailersend', $this->detectFor(['transport' => 'mailersend']));
     }
 
     public function testDetectsProviderFromSmtpHost()
     {
         $this->assertSame('helo', $this->detectFor(['transport' => 'smtp', 'host' => 'smtp.helohq.com']));
+        $this->assertSame('mailersend', $this->detectFor(['transport' => 'smtp', 'host' => 'smtp.mailersend.net']));
         $this->assertSame('sendgrid', $this->detectFor(['transport' => 'smtp', 'host' => 'smtp.sendgrid.net']));
         $this->assertSame('postmark', $this->detectFor(['transport' => 'smtp', 'host' => 'smtp.postmarkapp.com']));
         $this->assertSame('mailgun', $this->detectFor(['transport' => 'smtp', 'host' => 'smtp.mailgun.org']));

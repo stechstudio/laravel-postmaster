@@ -27,7 +27,7 @@ use Throwable;
 class Sync extends Command
 {
     protected $signature = 'postmaster:sync
-                            {--provider= : Sync only one provider (sendgrid, postmark, mailgun, ses, resend, helo)}
+                            {--provider= : Sync only one provider (sendgrid, postmark, mailgun, ses, resend, helo, mailersend)}
                             {--dry-run   : Report what would change without writing anything}';
 
     protected $description = 'Mirror each provider\'s suppression list into the local table';

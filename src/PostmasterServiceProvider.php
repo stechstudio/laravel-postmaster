@@ -22,6 +22,7 @@ use STS\Postmaster\Listeners\StashOutboundMetadata;
 use STS\Postmaster\Listeners\StripTrackingHeaders;
 use STS\Postmaster\Listeners\UpdateMessageFromEvent;
 use STS\Postmaster\Providers\Helo\SignatureAuth as HeloSignatureAuth;
+use STS\Postmaster\Providers\MailerSend\SignatureAuth as MailerSendSignatureAuth;
 use STS\Postmaster\Providers\Helo\RecordSendResult as RecordHeloSendResult;
 use STS\Postmaster\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
 use STS\Postmaster\Providers\Resend\SignatureAuth as ResendSignatureAuth;
@@ -172,6 +173,12 @@ class PostmasterServiceProvider extends ServiceProvider
         $this->app->bind(HeloSignatureAuth::class, function ($app) {
             return new HeloSignatureAuth(
                 $app['config']->get('postmaster.providers.helo.signing_key')
+            );
+        });
+
+        $this->app->bind(MailerSendSignatureAuth::class, function ($app) {
+            return new MailerSendSignatureAuth(
+                $app['config']->get('postmaster.providers.mailersend.signing_secret')
             );
         });
 

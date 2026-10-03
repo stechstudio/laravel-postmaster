@@ -162,6 +162,20 @@ return [
             // config/helo.php (HELO_API_KEY, HELO_CHANNEL_ID, HELO_MAIL_TYPE).
         ],
 
+        'mailersend' => [
+            'adapter' => \STS\Postmaster\Providers\MailerSend\Adapter::class,
+            'auth' => env('POSTMASTER_MAILERSEND_AUTH', \STS\Postmaster\Providers\MailerSend\SignatureAuth::class),
+            'sync' => \STS\Postmaster\Providers\MailerSend\SuppressionSync::class,
+            'setup' => \STS\Postmaster\Providers\MailerSend\Setup::class,
+            // One secret per domain webhook; separate several with commas.
+            'signing_secret' => env('POSTMASTER_MAILERSEND_SIGNING_SECRET'),
+            // Falls back to mailersend/laravel-driver's key. Sync needs full
+            // access to Suppressions.
+            'api_key' => env('POSTMASTER_MAILERSEND_API_KEY', env('MAILERSEND_API_KEY')),
+            // Limits sync to one domain. Empty syncs the whole account.
+            'domain_id' => env('POSTMASTER_MAILERSEND_DOMAIN_ID'),
+        ],
+
     ],
 
     /*

@@ -1,0 +1,20 @@
+{
+    "type": "activity.hard_bounced",
+    "created_at": "2026-10-03T22:33:57.000000Z",
+    "data": {
+        "id": "6ac182ef570470ebeaafc415",
+        "domain_id": "51ndgwr6wp54zqx8",
+        "message_id": "6ac182d50fa4fc88da8f022a",
+        "email_id": "6ac182d54e5ce20c0161e5de",
+        "type": "hard_bounced",
+        "subject": "Postmaster MailerSend bounce test",
+        "recipient": "missing@example.com",
+        "tags": null,
+        "meta": {
+            "bounce_reason": "The email account that you tried to reach does not exist. Please try double-checking the recipient's email address for typos or unnecessary spaces.",
+            "bounce_code": 34,
+            "bounce_type": "hard"
+        }
+    },
+    "webhook_id": "7dnvo4dxj3g5r86y"
+}

@@ -1,0 +1,16 @@
+{
+    "type": "activity.sent",
+    "created_at": "2026-10-03T22:33:00.000000Z",
+    "data": {
+        "id": "6ac1829c292af1ecb1ea6a9d",
+        "domain_id": "51ndgwr6wp54zqx8",
+        "message_id": "6ac1829c865a26bfa1396c46",
+        "email_id": "6ac1829c408be4a663580b1e",
+        "type": "sent",
+        "subject": "Postmaster MailerSend API test",
+        "recipient": "recipient@example.com",
+        "tags": null,
+        "meta": []
+    },
+    "webhook_id": "7dnvo4dxj3g5r86y"
+}

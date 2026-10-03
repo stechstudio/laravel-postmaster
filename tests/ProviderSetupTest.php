@@ -96,4 +96,37 @@ class ProviderSetupTest extends TestCase
         config(['helo.channel_id' => 'channel-id']);
         $this->assertTrue((new \STS\Postmaster\Providers\Helo\SuppressionSync([]))->isAvailable());
     }
+
+    public function testMailerSendExplainsWebhookSecretsAndSyncScope(): void
+    {
+        config(['postmaster.providers.mailersend.signing_secret' => null]);
+        $guidance = implode("\n", $this->resolve('mailersend')->webhookAuthGuidance());
+        $this->assertStringContainsString('POSTMASTER_MAILERSEND_SIGNING_SECRET is NOT set', $guidance);
+        $this->assertStringContainsString('version 2', $guidance);
+        $this->assertTrue($this->resolve('mailersend')->supportsSuppressionSync());
+    }
+
+    public function testMailerSendAsksForTheSigningSecretTokenAndDomain(): void
+    {
+        (fn () => static::$shouldFallback = false)->bindTo(null, \Laravel\Prompts\Prompt::class)();
+        config(['postmaster.providers.mailersend.api_key' => null, 'postmaster.providers.mailersend.domain_id' => null]);
+        $setup = $this->resolve('mailersend');
+
+        \Laravel\Prompts\Prompt::fake(['s', 'e', 'c', \Laravel\Prompts\Key::ENTER]);
+        $this->assertSame(['POSTMASTER_MAILERSEND_SIGNING_SECRET' => 'sec'], $setup->askWebhookAuth());
+
+        \Laravel\Prompts\Prompt::fake(['k', 'e', 'y', \Laravel\Prompts\Key::ENTER, 'd', 'o', 'm', \Laravel\Prompts\Key::ENTER]);
+        $this->assertSame(['POSTMASTER_MAILERSEND_API_KEY' => 'key', 'POSTMASTER_MAILERSEND_DOMAIN_ID' => 'dom'], $setup->askSuppressionSync());
+    }
+
+    public function testMailerSendReusesTheDriversTokenAndAllowsEveryDomain(): void
+    {
+        (fn () => static::$shouldFallback = false)->bindTo(null, \Laravel\Prompts\Prompt::class)();
+        config(['postmaster.providers.mailersend.api_key' => 'mlsn.key', 'postmaster.providers.mailersend.domain_id' => null]);
+
+        \Laravel\Prompts\Prompt::fake([\Laravel\Prompts\Key::ENTER]);
+
+        $this->assertSame([], $this->resolve('mailersend')->askSuppressionSync());
+        \Laravel\Prompts\Prompt::assertOutputContains('Found a MailerSend API token');
+    }
 }

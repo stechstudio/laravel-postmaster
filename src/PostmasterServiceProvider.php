@@ -19,6 +19,7 @@ use STS\Postmaster\Listeners\InterceptSuppressedRecipient;
 use STS\Postmaster\Listeners\RecordOutboundMessage;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Listeners\StashOutboundMetadata;
+use STS\Postmaster\Listeners\StripTrackingHeaders;
 use STS\Postmaster\Listeners\UpdateMessageFromEvent;
 use STS\Postmaster\Providers\Helo\Client as HeloClient;
 use STS\Postmaster\Providers\Helo\SignatureAuth as HeloSignatureAuth;
@@ -116,6 +117,10 @@ class PostmasterServiceProvider extends ServiceProvider
                 );
             }
         }
+
+        // Last, so every listener above that reads X-Postmaster-* headers has
+        // run before they're removed from the outgoing message.
+        $this->app['events']->listen(MessageSending::class, StripTrackingHeaders::class);
     }
 
     /**

@@ -3,26 +3,26 @@
 namespace STS\Postmaster\Providers\Helo;
 
 use Illuminate\Mail\Events\MessageSent;
+use STS\HeloEmail\HeloResult;
 use STS\Postmaster\Provider;
 
 class RecordSendResult
 {
     public function handle(MessageSent $event): void
     {
-        $header = $event->message->getHeaders()->get(Transport::RESULT_HEADER);
-        if ($header === null) {
+        if (! class_exists(HeloResult::class) || ! $result = HeloResult::from($event->sent)) {
             return;
         }
 
-        $result = json_decode($header->getBodyAsString(), true, flags: JSON_THROW_ON_ERROR);
-        $event->message->getHeaders()->remove(Transport::RESULT_HEADER);
         $payloads = [];
-        $suppressed = array_map('strtolower', $result['suppressions'] ?? []);
+        $suppressed = array_map('strtolower', $result->suppressions);
+
         foreach ($event->sent->getEnvelope()->getRecipients() as $recipient) {
-            if ($result['status'] !== 'delayed' && ! in_array(strtolower($recipient->getAddress()), $suppressed, true)) {
+            if (! $result->isDelayed() && ! in_array(strtolower($recipient->getAddress()), $suppressed, true)) {
                 continue;
             }
-            $payloads[] = $result + [
+
+            $payloads[] = $result->toArray() + [
                 'recipient' => $recipient->getAddress(),
                 'timestamp' => now()->toISOString(),
             ];

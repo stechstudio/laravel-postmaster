@@ -67,4 +67,33 @@ class ProviderSetupTest extends TestCase
         config(['postmaster.providers.postmark.auth' => 'basic']);
         $this->assertStringContainsString('basic auth', implode("\n", $this->resolve('postmark')->webhookAuthGuidance()));
     }
+
+    public function testHeloNamesThePackageOnEveryInteractiveSetup(): void
+    {
+        // askWebhookAuth runs whether or not the operator sets up sync.
+        // An earlier artisan test leaves Prompts falling back to its mocked
+        // console, and fallbackWhen() can only turn that on.
+        (fn () => static::$shouldFallback = false)->bindTo(null, \Laravel\Prompts\Prompt::class)();
+        \Laravel\Prompts\Prompt::fake(['k', 'e', 'y', \Laravel\Prompts\Key::ENTER]);
+
+        $values = $this->resolve('helo')->askWebhookAuth();
+
+        $this->assertSame(['POSTMASTER_HELO_SIGNING_KEY' => 'key'], $values);
+        \Laravel\Prompts\Prompt::assertOutputContains('stechstudio/laravel-helo-email');
+    }
+
+    public function testHeloNamesThePackageInTheSetupReport(): void
+    {
+        $this->artisan('postmaster:install', ['--no-interaction' => true, '--provider' => 'helo'])
+            ->expectsOutputToContain('stechstudio/laravel-helo-email');
+    }
+
+    public function testHeloSyncReadsThePackageConfig(): void
+    {
+        config(['helo.key' => 'api-key', 'helo.channel_id' => null]);
+        $this->assertFalse((new \STS\Postmaster\Providers\Helo\SuppressionSync([]))->isAvailable());
+
+        config(['helo.channel_id' => 'channel-id']);
+        $this->assertTrue((new \STS\Postmaster\Providers\Helo\SuppressionSync([]))->isAvailable());
+    }
 }

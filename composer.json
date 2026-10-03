@@ -39,14 +39,19 @@
         "orchestra/testbench": "^10.0|^11.0",
         "larastan/larastan": "^3.0",
         "wildbit/postmark-php": "^7.0",
-        "resend/resend-php": "^1.3"
+        "resend/resend-php": "^1.3",
+        "stechstudio/laravel-helo-email": "@dev"
     },
     "suggest": {
         "sendgrid/sendgrid":    "Required to sync SendGrid's suppression list (postmaster:sync).",
         "wildbit/postmark-php": "Required to sync Postmark's suppression list.",
         "mailgun/mailgun-php":  "Required to sync Mailgun's suppression list.",
-        "aws/aws-sdk-php":      "Required to sync Amazon SES's suppression list."
+        "aws/aws-sdk-php":      "Required to sync Amazon SES's suppression list.",
+        "stechstudio/laravel-helo-email": "Required to send through Helo's API and to sync Helo's suppression list."
     },
+    "repositories": [
+        {"type": "path", "url": "../laravel-helo-email", "options": {"symlink": true}}
+    ],
     "autoload": {
         "psr-4": {
             "STS\\Postmaster\\": "src/"

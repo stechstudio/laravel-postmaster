@@ -21,9 +21,7 @@ use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Listeners\StashOutboundMetadata;
 use STS\Postmaster\Listeners\StripTrackingHeaders;
 use STS\Postmaster\Listeners\UpdateMessageFromEvent;
-use STS\Postmaster\Providers\Helo\Client as HeloClient;
 use STS\Postmaster\Providers\Helo\SignatureAuth as HeloSignatureAuth;
-use STS\Postmaster\Providers\Helo\Transport as HeloTransport;
 use STS\Postmaster\Providers\Helo\RecordSendResult as RecordHeloSendResult;
 use STS\Postmaster\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
 use STS\Postmaster\Providers\Resend\SignatureAuth as ResendSignatureAuth;
@@ -79,20 +77,6 @@ class PostmasterServiceProvider extends ServiceProvider
         }
 
         $this->app['events']->listen(MessageSent::class, RecordHeloSendResult::class);
-
-        $this->callAfterResolving('mail.manager', function ($manager) {
-            $manager->extend('helo', function (array $config) {
-                $provider = $this->app['config']->get('postmaster.providers.helo', []);
-
-                return new HeloTransport(
-                    new HeloClient(
-                        $config['key'] ?? $provider['api_key'] ?? '',
-                        $config['channel_id'] ?? $provider['channel_id'] ?? null,
-                    ),
-                    $config['mail_type'] ?? $provider['mail_type'] ?? 'transactional',
-                );
-            });
-        });
 
         // Block-suppressed delivery: refuse to send to suppression-listed
         // addresses. Registered before InterceptSandboxMail so a deliberate

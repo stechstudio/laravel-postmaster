@@ -1,0 +1,14 @@
+{
+  "channelId": "01a0ff53-0000-7000-8000-000000000000",
+  "details": {
+    "ip": ""
+  },
+  "eventType": "email-opened",
+  "mailType": "broadcast",
+  "messageId": "01a0ff73-aced-7bc8-b8de-3db09daf9a80",
+  "metadata": {},
+  "recipient": "recipient@example.com",
+  "subject": "Helo live test 2 — broadcast: open, click, then unsubscribe",
+  "tags": null,
+  "timestamp": "2026-10-03T01:50:42.2677713+00:00"
+}

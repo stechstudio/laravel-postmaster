@@ -38,6 +38,8 @@ final class StatusTone
         'dropped'      => 'bad',
         'complained'   => 'bad',
         'suppressed'   => 'bad',
+        'unsubscribed' => 'warn',
+        'resubscribed' => 'info',
     ];
 
     public static function for(?string $status): string

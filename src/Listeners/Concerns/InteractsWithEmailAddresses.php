@@ -53,12 +53,20 @@ trait InteractsWithEmailAddresses
         ]);
 
         $occurredAt = $event->occurredAt() ?? now();
-        $record->last_event_at = $occurredAt;
+        $previousEventAt = $record->last_event_at;
+        $record->last_event_at = $previousEventAt !== null && $previousEventAt > $occurredAt ? $previousEventAt : $occurredAt;
         $record->recordProvider($event->provider());
 
         $reason = $this->suppressionReason($event);
 
-        if ($reason !== null && ! $record->isSuppressed()) {
+        $current = $previousEventAt === null || $occurredAt >= $previousEventAt;
+        $canReplaceReason = $current && match ($reason) {
+            EmailAddress::REASON_UNSUBSCRIBED => in_array($record->reason, [EmailAddress::REASON_BOUNCED, EmailAddress::REASON_DROPPED], true),
+            EmailAddress::REASON_COMPLAINED => $record->reason === EmailAddress::REASON_UNSUBSCRIBED,
+            default => false,
+        };
+        if ($reason !== null && (! $record->isSuppressed() || $canReplaceReason)
+            && (! $event->isUnsubscribed() || $current)) {
             $record->status = EmailAddress::STATUS_SUPPRESSED;
             $record->reason = $reason;
             $record->suppressed_at = $occurredAt;
@@ -77,7 +85,7 @@ trait InteractsWithEmailAddresses
                 'status'      => EmailActivity::STATUS_UNSUPPRESSED,
                 'provider'    => $event->provider(),
                 'reason'      => null,
-                'response'    => 'Auto-cleared after a delivery proved the address works.',
+                'response'    => $event->isResubscribed() ? 'Cleared after the recipient resubscribed.' : 'Auto-cleared after a delivery proved the address works.',
                 'source'      => 'webhook',
                 'occurred_at' => $occurredAt,
             ]);
@@ -85,17 +93,24 @@ trait InteractsWithEmailAddresses
     }
 
     /**
-     * If a delivered event lands on an automatically-suppressed address,
-     * flip it back to active. Returns true when the row transitioned —
-     * the caller logs the activity entry after save().
+     * Delivery clears delivery failures; a current resubscribe clears only
+     * an unsubscribe. Manual decisions always require an explicit action.
+     * The caller logs the transition after saving the address.
      */
     protected function maybeAutoClear(EmailAddress $record, EmailEvent $event, $occurredAt): bool
     {
-        if (! $event->isDelivered() || ! $record->isSuppressed()) {
+        if (! $record->isSuppressed()) {
             return false;
         }
 
-        if ($record->reason === EmailAddress::REASON_MANUAL) {
+        $canClear = match (true) {
+            $event->isResubscribed() => $record->reason === EmailAddress::REASON_UNSUBSCRIBED
+                && ($record->last_event_at === null || $occurredAt >= $record->last_event_at)
+                && ($record->suppressed_at === null || $occurredAt >= $record->suppressed_at),
+            $event->isDelivered() => ! in_array($record->reason, [EmailAddress::REASON_MANUAL, EmailAddress::REASON_UNSUBSCRIBED], true),
+            default => false,
+        };
+        if (! $canClear) {
             return false;
         }
 
@@ -114,6 +129,7 @@ trait InteractsWithEmailAddresses
     protected function suppressionReason(EmailEvent $event): ?string
     {
         return match (true) {
+            $event->isUnsubscribed() => EmailAddress::REASON_UNSUBSCRIBED,
             $event->status() === EmailEvent::STATUS_COMPLAINED => EmailEvent::STATUS_COMPLAINED,
             $event->status() === EmailEvent::STATUS_DROPPED    => EmailEvent::STATUS_DROPPED,
             $event->status() === EmailEvent::STATUS_BOUNCED && $event->isPermanent() => EmailEvent::STATUS_BOUNCED,

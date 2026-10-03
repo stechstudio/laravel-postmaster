@@ -1503,7 +1503,7 @@ class PersistenceTest extends TestCase
         config(['cache.default' => 'array']);
 
         $this->artisan('postmaster:verify')
-            ->expectsChoice('Which provider are you verifying?', 'postmark', ['sendgrid', 'postmark', 'mailgun', 'ses', 'resend'])
+            ->expectsChoice('Which provider are you verifying?', 'postmark', ['sendgrid', 'postmark', 'mailgun', 'ses', 'resend', 'helo'])
             ->expectsConfirmation('Have you set that webhook URL in your postmark dashboard?', 'yes')
             ->expectsQuestion('Send the test email to which address?', 'tester@example.com')
             ->expectsOutputToContain('per-process')

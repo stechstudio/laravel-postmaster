@@ -225,6 +225,8 @@ abstract class Controller
             EmailEvent::STATUS_COMPLAINED,
             EmailEvent::STATUS_OPENED,
             EmailEvent::STATUS_CLICKED,
+            EmailEvent::STATUS_UNSUBSCRIBED,
+            EmailEvent::STATUS_RESUBSCRIBED,
         ];
     }
 

@@ -42,6 +42,9 @@ class EmailEvent
     const string STATUS_OPENED     = "opened";
     const string STATUS_CLICKED    = "clicked";
 
+    const string STATUS_UNSUBSCRIBED = 'unsubscribed';
+    const string STATUS_RESUBSCRIBED = 'resubscribed';
+
     const string BOUNCE_HARD  = "hard";  // permanent — safe to suppress
     const string BOUNCE_SOFT  = "soft";  // transient — retry later
     const string BOUNCE_BLOCK = "block"; // blocked by reputation/policy
@@ -138,6 +141,8 @@ class EmailEvent
             self::STATUS_DROPPED    => EmailDropped::class,
             self::STATUS_OPENED     => EmailOpened::class,
             self::STATUS_CLICKED    => EmailClicked::class,
+            self::STATUS_UNSUBSCRIBED => EmailUnsubscribed::class,
+            self::STATUS_RESUBSCRIBED => EmailResubscribed::class,
             default                 => null,
         };
     }

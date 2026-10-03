@@ -10,6 +10,7 @@ use STS\Postmaster\Contracts\SuppressionSync;
 use STS\Postmaster\Models\EmailActivity;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Postmaster;
+use ReflectionClass;
 use Throwable;
 
 /**
@@ -26,7 +27,7 @@ use Throwable;
 class Sync extends Command
 {
     protected $signature = 'postmaster:sync
-                            {--provider= : Sync only one provider (sendgrid, postmark, mailgun, ses, resend)}
+                            {--provider= : Sync only one provider (sendgrid, postmark, mailgun, ses, resend, helo)}
                             {--dry-run   : Report what would change without writing anything}';
 
     protected $description = 'Mirror each provider\'s suppression list into the local table';
@@ -54,44 +55,62 @@ class Sync extends Command
 
         $dryRun = (bool) $this->option('dry-run');
 
+        $successful = true;
         foreach ($providers as $provider) {
-            $this->syncProvider($postmaster, $provider, $dryRun);
+            $successful = $this->syncProvider($postmaster, $provider, $dryRun) && $successful;
         }
 
-        return self::SUCCESS;
+        return $successful ? self::SUCCESS : self::FAILURE;
     }
 
-    protected function syncProvider(Postmaster $postmaster, string $provider, bool $dryRun): void
+    protected function syncProvider(Postmaster $postmaster, string $provider, bool $dryRun): bool
     {
         $sync = $postmaster->sync($provider);
 
         if ($sync === null) {
             $this->components->twoColumnDetail($provider, '<fg=gray>no sync class</>');
 
-            return;
+            return true;
         }
 
         if (! $sync->isAvailable()) {
-            $this->components->twoColumnDetail($provider, '<fg=gray>SDK or API key not configured — skipped</>');
+            $this->components->twoColumnDetail($provider, '<fg=gray>API credentials, scope, or optional SDK not configured — skipped</>');
 
-            return;
+            return true;
         }
 
         try {
-            $written = $this->reconcile($provider, $this->fetchRemote($sync), $this->fetchLocal(), $dryRun);
-
-            $this->components->twoColumnDetail(
-                $provider,
-                sprintf(
-                    '<fg=green>%d added</>, <fg=yellow>%d cleared</>, <fg=gray>%d unchanged</>',
-                    $written['added'],
-                    $written['cleared'],
-                    $written['unchanged'],
-                ).($dryRun ? ' <fg=gray>(dry run)</>' : '')
-            );
+            $remote = $this->fetchRemote($sync);
         } catch (Throwable $e) {
             $this->components->twoColumnDetail($provider, '<fg=red>'.$e->getMessage().'</>');
+
+            return false;
         }
+
+        $written = $this->reconcile($provider, $remote, $this->fetchLocal(), $dryRun);
+        $this->components->twoColumnDetail(
+            $provider,
+            sprintf(
+                '<fg=green>%d added</>, <fg=yellow>%d cleared</>, <fg=gray>%d unchanged</>',
+                $written['added'], $written['cleared'], $written['unchanged'],
+            ).($dryRun ? ' <fg=gray>(dry run)</>' : '')
+        );
+
+        return true;
+    }
+
+    /**
+     * The product name webhooks record ("SendGrid", "SES"), so sync and
+     * webhooks attribute a suppression to the same provider.
+     */
+    protected function providerName(string $provider): string
+    {
+        $adapter = config("postmaster.providers.{$provider}.adapter");
+
+        // Skip the constructor: Mailgun's and SES's unwrap a webhook payload.
+        return is_string($adapter) && class_exists($adapter)
+            ? (new ReflectionClass($adapter))->newInstanceWithoutConstructor()->provider()
+            : $provider;
     }
 
     /**
@@ -132,14 +151,28 @@ class Sync extends Command
      * @param  Collection<string, EmailAddress>                                                              $local
      * @return array{added: int, cleared: int, unchanged: int}
      */
-    protected function reconcile(string $provider, array $remote, Collection $local, bool $dryRun): array
+    protected function reconcile(string $key, array $remote, Collection $local, bool $dryRun): array
     {
         $stats = ['added' => 0, 'cleared' => 0, 'unchanged' => 0];
+        $provider = $this->providerName($key);
 
         // Provider → local: suppress any addresses the provider holds that
         // aren't suppressed locally.
         foreach ($remote as $address => $entry) {
             if (isset($local[$address])) {
+                if (! $dryRun) {
+                    $row = $local[$address];
+                    $row->recordProvider($provider);
+                    // An opt-out must survive delivery-based auto-clearing.
+                    // Manual decisions and complaints remain stronger reasons.
+                    if ($entry['reason'] === EmailAddress::REASON_UNSUBSCRIBED
+                        && in_array($row->reason, [EmailAddress::REASON_BOUNCED, EmailAddress::REASON_DROPPED], true)) {
+                        $row->reason = $entry['reason'];
+                    }
+                    if ($row->isDirty()) {
+                        $row->save();
+                    }
+                }
                 $stats['unchanged']++;
                 continue;
             }
@@ -179,6 +212,18 @@ class Sync extends Command
         // should be cleared. Manual suppressions are never auto-cleared.
         foreach ($local as $address => $row) {
             if (isset($remote[$address])) {
+                continue;
+            }
+
+            // A provider's empty list says nothing about other providers.
+            // With several recorded sources, retain the global suppression
+            // until an operator reconciles them explicitly.
+            // Older syncs recorded the config key rather than the product name.
+            $sources = array_unique(array_map(
+                fn ($source) => strcasecmp($source, $key) === 0 ? strtolower($provider) : strtolower($source),
+                $row->providers ?? [],
+            ));
+            if ($sources !== [] && $sources !== [strtolower($provider)]) {
                 continue;
             }
 

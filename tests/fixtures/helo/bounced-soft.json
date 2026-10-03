@@ -1,0 +1,18 @@
+{
+  "channelId": "01a0ff53-0000-7000-8000-000000000000",
+  "details": {
+    "code": "simulated bounce",
+    "subType": "MailboxFull",
+    "type": "Soft"
+  },
+  "eventType": "email-bounced",
+  "mailType": "transactional",
+  "messageId": "01a0ff66-5a60-7718-81a4-3bcd6e5e5ba2",
+  "metadata": {},
+  "recipient": "soft+mailboxfull@bounce-test.helohq.com",
+  "subject": "Helo live test — send 013452",
+  "tags": [
+    "helo-live"
+  ],
+  "timestamp": "2026-10-03T01:34:58.3709512+00:00"
+}

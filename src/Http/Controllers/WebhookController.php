@@ -38,7 +38,7 @@ class WebhookController
 
             // 202 Accepted — the request is queued for processing; events
             // will dispatch from the worker, not before this response.
-            return response('', 202);
+            return response('', config("postmaster.providers.{$provider}.queued_response_status", 202));
         }
 
         $this->events->provider($provider)

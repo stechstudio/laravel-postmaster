@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Listeners;
 
 use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Mail\SentMessage;
 use STS\Postmaster\Attachments\AttachmentStore;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Postmaster;
@@ -12,6 +13,7 @@ use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Message;
 
 /**
  * Records every outbound email when persistence is enabled. One row per
@@ -52,12 +54,25 @@ class RecordOutboundMessage
 
     protected function resolveProviderMessageId(MessageSent $event): ?string
     {
-        $headers = $event->message->getHeaders();
+        return $this->providerMessageId($event->sent);
+    }
+
+    /** Also used by postmaster:verify, which must watch for the same id. */
+    public function providerMessageId(SentMessage $sent): string
+    {
+        $original = $sent->getOriginalMessage();
 
         foreach (self::PROVIDER_MESSAGE_ID_HEADERS as $name) {
-            if ($header = $headers->get($name)) {
+            if ($original instanceof Message && $header = $original->getHeaders()->get($name)) {
                 return $header->getBodyAsString();
             }
+        }
+
+        // Helo's SMTP server answers DATA with a bare "250 <uuid>", the id
+        // its webhooks carry. Symfony only parses "250 Ok ..." replies, so
+        // read the uuid from the transcript; other servers never match.
+        if (preg_match_all('/< 250 ([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\s*$/mi', $sent->getDebug(), $matches)) {
+            return end($matches[1]);
         }
 
         // Symfony's Mailgun transport returns the Message-ID with angle
@@ -67,7 +82,7 @@ class RecordOutboundMessage
         // (For SMTP sends, Symfony's transport returns the queue id from
         // the 250 OK response, which matches the prefix of SendGrid's
         // sg_message_id — the SendGrid adapter handles that side.)
-        return trim((string) $event->sent->getMessageId(), '<>');
+        return trim((string) $sent->getMessageId(), '<>');
     }
 
     /**

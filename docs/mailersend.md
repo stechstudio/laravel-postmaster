@@ -25,7 +25,8 @@ creates no message at all, so no webhook ever arrives.
 MailerSend's API response lists the skipped recipients, but none of the three
 ways to send passes that list on to Postmaster. The Laravel driver tries to,
 in an `X-MailerSend-Body` header, but the header is always empty: MailerSend's
-SDK reads the response body before the driver does.
+SDK reads the response body before the driver does
+([mailersend-laravel-driver#95](https://github.com/mailersend/mailersend-laravel-driver/issues/95)).
 
 To keep Postmaster from sending to a suppressed address at all, run suppression
 sync and turn on `POSTMASTER_BLOCK_SUPPRESSED`.
@@ -109,7 +110,8 @@ requests a day, so a large list can use up the trial's quota.
 
 ## Live test results
 
-Tested on a trial account through the Laravel driver and SMTP.
+Tested on a trial account through both the Laravel driver and SMTP. Each
+covered a To and Cc delivery and a hard bounce.
 
 **Works as documented:**
 

@@ -66,11 +66,13 @@ class ResentMessage extends Mailable
 
         $this->withSymfonyMessage($this->propagateContext());
 
-        foreach ((array) $this->record->tags as $tag) {
+        // A resend of a resend already carries "resent"; one is enough, since
+        // resent_from_id records the depth.
+        foreach (array_unique([...(array) $this->record->tags, 'resent']) as $tag) {
             $this->tag($tag);
         }
 
-        return $this->tag('resent');
+        return $this;
     }
 
     /**

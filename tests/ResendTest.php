@@ -131,6 +131,20 @@ class ResendTest extends TestCase
         $this->assertSame($original->id, $chain[0]->id);
     }
 
+    public function testResendingAResendKeepsASingleResentTag()
+    {
+        Mail::send(new class extends \Illuminate\Mail\Mailable {
+            public function build(): static
+            {
+                return $this->to('r@example.com')->subject('Hi')->html('<p>Hi</p>')->tag('receipt')->tag('receipt');
+            }
+        });
+        Postmaster::resend(EmailMessage::first());
+        Postmaster::resend(EmailMessage::latest('id')->first());
+
+        $this->assertSame(['receipt', 'resent'], EmailMessage::latest('id')->first()->tags);
+    }
+
     public function testTrackingResentFromIsRespected()
     {
         Mail::raw('first send', function ($m) {

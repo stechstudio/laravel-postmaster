@@ -96,4 +96,13 @@ class ProviderSetupTest extends TestCase
         config(['helo.channel_id' => 'channel-id']);
         $this->assertTrue((new \STS\Postmaster\Providers\Helo\SuppressionSync([]))->isAvailable());
     }
+
+    public function testMailerSendExplainsWebhookSecretsAndSyncScope(): void
+    {
+        config(['postmaster.providers.mailersend.signing_secret' => null]);
+        $guidance = implode("\n", $this->resolve('mailersend')->webhookAuthGuidance());
+        $this->assertStringContainsString('POSTMASTER_MAILERSEND_SIGNING_SECRET is NOT set', $guidance);
+        $this->assertStringContainsString('version 2', $guidance);
+        $this->assertTrue($this->resolve('mailersend')->supportsSuppressionSync());
+    }
 }

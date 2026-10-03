@@ -50,6 +50,7 @@ class RecordOutboundMessage
     protected const PROVIDER_MESSAGE_ID_HEADERS = [
         'X-Resend-Email-ID',   // Laravel's ResendTransport
         'X-SES-Message-ID',    // Laravel's SesTransport
+        'X-MailerSend-Message-Id', // mailersend/laravel-driver
     ];
 
     protected function resolveProviderMessageId(MessageSent $event): ?string
@@ -72,6 +73,11 @@ class RecordOutboundMessage
         // its webhooks carry. Symfony only parses "250 Ok ..." replies, so
         // read the uuid from the transcript; other servers never match.
         if (preg_match_all('/< 250 ([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\s*$/mi', $sent->getDebug(), $matches)) {
+            return end($matches[1]);
+        }
+
+        // MailerSend's SMTP relay answers "250 Message queued as <id>".
+        if (preg_match_all('/< 250 Message queued as ([0-9a-f]{24})\s*$/mi', $sent->getDebug(), $matches)) {
             return end($matches[1]);
         }
 

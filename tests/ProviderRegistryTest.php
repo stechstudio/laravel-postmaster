@@ -32,7 +32,7 @@ class ProviderRegistryTest extends TestCase
         $this->assertTrue($registry->has('postmark'));
         $this->assertFalse($registry->has('does-not-exist'));
         $this->assertEqualsCanonicalizing(
-            ['sendgrid', 'postmark', 'mailgun', 'ses', 'resend', 'helo'],
+            ['sendgrid', 'postmark', 'mailgun', 'ses', 'resend', 'helo', 'mailersend'],
             $registry->names()
         );
     }

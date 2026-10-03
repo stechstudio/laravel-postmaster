@@ -7,11 +7,11 @@
 
 **Provider-agnostic email delivery tracking for Laravel.**
 
-Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, Resend, or
-Helo. Postmaster handles everything those providers send back. It verifies
-each inbound webhook and normalizes them into one event your app listens for —
-so switching providers, running several at once, or failing over between them
-never touches your code.
+Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, Resend,
+Helo, or MailerSend. Postmaster handles everything those providers send back.
+It verifies each inbound webhook and normalizes them into one event your app
+listens for — so switching providers, running several at once, or failing over
+between them never touches your code.
 
 Run the migrations and it does more than dispatch events. It records every
 outbound email into a queryable delivery history and keeps each record current
@@ -117,7 +117,7 @@ provider's dashboard, set the webhook URL to:
 https://your-app.com/webhooks/postmaster/{provider}
 ```
 
-…where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, or `helo`.
+…where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, `helo`, or `mailersend`.
 
 ### 2. Listen for the event
 
@@ -233,6 +233,20 @@ Queued Helo requests return HTTP 200 after the job is dispatched.
 See [Helo setup and live testing](docs/helo.md) for API sending, SMTP,
 channel configuration, and suppression sync.
 
+### MailerSend
+
+```
+POSTMASTER_MAILERSEND_SIGNING_SECRET=...
+```
+
+Create a webhook in MailerSend that sends to `/webhooks/postmaster/mailersend`,
+choose payload version 2, and copy its signing secret. Each domain's webhook
+has its own secret; separate several with commas. MailerSend's signature has no
+timestamp, so there is no clock check.
+
+See [MailerSend](docs/mailersend.md) for sending, suppression sync, and what
+still needs a live check.
+
 ### Postmark
 
 Postmark does not sign webhook payloads. Use HTTP basic auth (the default) or a
@@ -297,7 +311,7 @@ Every webhook becomes an `EmailEvent` with a normalized API. The methods are
 the same whatever the provider:
 
 ```php
-$event->provider();           // "SendGrid", "Postmark", "Mailgun", "SES", "Resend", "Helo"
+$event->provider();           // "SendGrid", "Postmark", "Mailgun", "SES", "Resend", "Helo", "MailerSend"
 $event->status();             // one of the EmailEvent::STATUS_* constants
 $event->toAddress();          // the recipient email address
 $event->providerMessageId();  // the provider's message id
@@ -315,7 +329,7 @@ $event->toArray();            // everything above as an array
 ```
 
 > **A note on provider casing.** Config keys are lowercase identifiers
-> (`sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, `helo`). Stored and surfaced
+> (`sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, `helo`, `mailersend`). Stored and surfaced
 > values are the canonical product name (`SendGrid`, `Postmark`, …). The
 > `provider()` method, the `provider` column, and the dashboard all use the
 > latter.
@@ -620,6 +634,7 @@ missing credentials, channel configuration, or required SDKs are skipped:
 | Mailgun  | `composer require mailgun/mailgun-php` | `POSTMASTER_MAILGUN_API_KEY` (or `MAILGUN_SECRET`) + `POSTMASTER_MAILGUN_DOMAIN` |
 | Amazon SES | `composer require aws/aws-sdk-php` | Uses the standard AWS credential chain |
 | Helo | `composer require stechstudio/laravel-helo-email` | `HELO_API_KEY`, `HELO_CHANNEL_ID`, and `HELO_MAIL_TYPE` (defaults to `transactional`) |
+| MailerSend | — | `POSTMASTER_MAILERSEND_API_KEY` (or `MAILERSEND_API_KEY`), and optionally `POSTMASTER_MAILERSEND_DOMAIN_ID` |
 | Resend | — | Resend has a full API but no suppression-list resource (suppressions are dashboard-only); sync is a no-op for Resend, and the local table is fed entirely by the webhook stream |
 
 Sync retains suppressions associated with another provider or several

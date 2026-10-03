@@ -42,8 +42,10 @@ class FixtureTest extends TestCase
             'helo clicked'       => [Helo::class, 'helo/clicked.json', EmailEvent::STATUS_CLICKED, null],
             'helo unsubscribed'  => [Helo::class, 'helo/unsubscribed.json', EmailEvent::STATUS_UNSUBSCRIBED, null],
             'helo resubscribed'  => [Helo::class, 'helo/resubscribed.json', EmailEvent::STATUS_RESUBSCRIBED, null],
-            // MailerSend fixtures copy its documented payloads; none are live yet.
+            // MailerSend: live payloads first, then documented ones.
+            'mailersend sent'         => [MailerSend::class, 'mailersend/sent.json', EmailEvent::STATUS_ACCEPTED, null],
             'mailersend delivered'    => [MailerSend::class, 'mailersend/delivered.json', EmailEvent::STATUS_DELIVERED, null],
+            'mailersend delivered cc' => [MailerSend::class, 'mailersend/delivered-cc.json', EmailEvent::STATUS_DELIVERED, null],
             'mailersend hard bounce'  => [MailerSend::class, 'mailersend/hard-bounced.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
             'mailersend soft bounce'  => [MailerSend::class, 'mailersend/soft-bounced.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_SOFT],
             'mailersend opened'       => [MailerSend::class, 'mailersend/opened.json', EmailEvent::STATUS_OPENED, null],

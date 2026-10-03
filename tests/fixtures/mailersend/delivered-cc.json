@@ -1,14 +1,14 @@
 {
     "type": "activity.delivered",
-    "created_at": "2026-10-03T22:33:03.000000Z",
+    "created_at": "2026-10-03T22:33:06.000000Z",
     "data": {
-        "id": "6ac182b37ecd8b9af361ab83",
+        "id": "6ac182b39e9a9a450a252bd2",
         "domain_id": "51ndgwr6wp54zqx8",
         "message_id": "6ac1829c865a26bfa1396c46",
-        "email_id": "6ac1829c408be4a663580b1e",
+        "email_id": "6ac1829ca22c5fd5667b5d20",
         "type": "delivered",
         "subject": "Postmaster MailerSend API test",
-        "recipient": "recipient@example.com",
+        "recipient": "cc@example.com",
         "tags": null,
         "meta": []
     },

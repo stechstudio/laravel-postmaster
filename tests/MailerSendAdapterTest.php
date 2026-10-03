@@ -9,8 +9,8 @@ use STS\Postmaster\Provider;
 use STS\Postmaster\Providers\MailerSend\Adapter;
 
 /**
- * MailerSend's fixtures are copied from its documented payloads, not from a
- * live account. See docs/mailersend.md for what still needs a live check.
+ * ping, sent, delivered, delivered-cc, and hard-bounced are redacted live
+ * payloads. The other fixtures copy MailerSend's documented payloads.
  */
 class MailerSendAdapterTest extends TestCase
 {
@@ -64,6 +64,20 @@ class MailerSendAdapterTest extends TestCase
         $this->assertSame(['receipt'], $adapter->tags()->all());
     }
 
+    public function testReadsLivePayloadsForEachRecipient(): void
+    {
+        $sent = $this->fixture('sent');
+        $this->assertSame(EmailEvent::STATUS_ACCEPTED, $sent->status());
+        $this->assertSame('recipient@example.com', $sent->toAddress());
+
+        // A Cc recipient gets its own events under the same message id.
+        $to = $this->fixture('delivered');
+        $cc = $this->fixture('delivered-cc');
+        $this->assertSame([EmailEvent::STATUS_DELIVERED, 'cc@example.com'], [$cc->status(), $cc->toAddress()]);
+        $this->assertSame($to->providerMessageId(), $cc->providerMessageId());
+        $this->assertSame('2026-10-03 22:33:03', $to->occurredAt()->format('Y-m-d H:i:s'));
+    }
+
     public function testReadsTheRecipientFromEitherV2Key(): void
     {
         // The current docs send data.recipient; the setup guide sends data.email.
@@ -79,9 +93,11 @@ class MailerSendAdapterTest extends TestCase
         $hard = $this->fixture('hard-bounced');
         $this->assertSame(EmailEvent::BOUNCE_HARD, $hard->bounceType());
         $this->assertTrue($hard->isPermanent());
-        $this->assertSame('Host or domain name not found', $hard->reason());
-        $this->assertSame('Host or domain name not found', $hard->response());
-        $this->assertSame('550', $hard->code());
+        $this->assertStringStartsWith('The email account that you tried to reach does not exist', $hard->reason());
+        $this->assertSame($hard->reason(), $hard->response());
+        // A MailerSend code, not an SMTP reply code.
+        $this->assertSame('34', $hard->code());
+        $this->assertSame([], $hard->tags()->all());
 
         $soft = $this->fixture('soft-bounced');
         $this->assertSame(EmailEvent::BOUNCE_SOFT, $soft->bounceType());

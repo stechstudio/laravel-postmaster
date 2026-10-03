@@ -75,6 +75,16 @@ class MailerSendSuppressionSyncTest extends TestCase
         Http::assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer api-key') && $request['limit'] === 100);
     }
 
+    public function testReadsALiveHardBounceList(): void
+    {
+        $this->lists(['hard-bounces' => json_decode(file_get_contents(__DIR__.'/fixtures/mailersend/suppressions-hard-bounces.json'), true)]);
+
+        $rows = iterator_to_array($this->sync()->pull(), false);
+
+        $this->assertSame([['missing@example.com', 'bounced', '2026-10-03 22:34:23']], array_map(
+            fn ($row) => [$row['address'], $row['reason'], $row['suppressed_at']->format('Y-m-d H:i:s')], $rows));
+    }
+
     public function testFollowsTheNextLinkUntilTheLastPage(): void
     {
         Http::fake([

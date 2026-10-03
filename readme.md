@@ -244,8 +244,8 @@ choose payload version 2, and copy its signing secret. Each domain's webhook
 has its own secret; separate several with commas. MailerSend's signature has no
 timestamp, so there is no clock check.
 
-See [MailerSend](docs/mailersend.md) for sending, suppression sync, and what
-still needs a live check.
+See [MailerSend](docs/mailersend.md) for sending, suppression sync, and live
+test results.
 
 ### Postmark
 

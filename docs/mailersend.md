@@ -3,10 +3,8 @@
 Postmaster supports MailerSend's activity webhooks, suppression sync, and the
 dashboard, tracking, resend, and sandbox features. It needs no MailerSend SDK.
 
-**Status:** built from MailerSend's documentation without a live account. The
-tests use MailerSend's documented payloads. See
-[Check against a live account](#check-against-a-live-account) before you rely
-on it.
+**Status:** tested against a live trial account on 2026-10-03. See
+[Live test results](#live-test-results) for what was and wasn't covered.
 
 ## Send
 
@@ -19,11 +17,18 @@ the three ways to send:
 | Symfony's `mailersend+api` transport | The sent message's ID |
 | SMTP through `smtp.mailersend.net` | The `250 Message queued as <id>` reply |
 
-MailerSend accepts a send but skips any recipient on a suppression list. With
-the Laravel driver, Postmaster marks those recipients as dropped right away,
-using the response the driver keeps in the `X-MailerSend-Body` header. With
-the other two, a dropped recipient shows up only through the
-`activity.suppressed` webhook, which needs a paid plan.
+MailerSend accepts a send but skips any recipient on a suppression list, and
+its webhooks may never mention that recipient. Postmaster then leaves the
+recipient's row at "sent". If every recipient is suppressed, MailerSend
+creates no message at all, so no webhook ever arrives.
+
+MailerSend's API response lists the skipped recipients, but none of the three
+ways to send passes that list on to Postmaster. The Laravel driver tries to,
+in an `X-MailerSend-Body` header, but the header is always empty: MailerSend's
+SDK reads the response body before the driver does.
+
+To keep Postmaster from sending to a suppressed address at all, run suppression
+sync and turn on `POSTMASTER_BLOCK_SUPPRESSED`.
 
 The Laravel driver doesn't send Laravel's `tag()` or `metadata()`. Use its
 `mailersend()` helper for tags. MailerSend's webhooks never return metadata, so
@@ -102,24 +107,43 @@ matching entries.
 Each page of each list is one API request. A trial account allows 100 API
 requests a day, so a large list can use up the trial's quota.
 
-## Check against a live account
+## Live test results
 
-These come from conflicting or missing documentation. Check each one with a
-real account:
+Tested on a trial account through the Laravel driver and SMTP.
 
-1. **Recipient field.** The webhook docs put the address in `data.recipient`;
-   the setup guide uses `data.email`. Postmaster reads both.
-2. **Signature header.** Every source says `Signature`, except the Node SDK's
-   readme, which says `X-MailerSend-Signature`. Postmaster reads both.
-3. **Default payload version.** Whether a webhook created without a version
-   sends version 1 or 2.
-4. **Suppression paging.** The docs show only `data`. The SDKs page with
-   `links.next`. Without `links`, Postmaster keeps paging while pages are
-   full.
-5. **Copy and blind-copy recipients.** Whether each gets its own webhooks.
-6. **The test request.** That saving a webhook sends `webhook.test` signed
-   with the published secret, and that Postmaster's 200 lets the save finish.
-7. **Send-time suppressions.** The shape of `X-MailerSend-Body` with the
-   Laravel driver, for some and for all recipients suppressed.
-8. **SMTP reply.** That the relay replies `250 Message queued as <id>` and
-   that the ID matches the webhooks' `message_id`.
+**Works as documented:**
+
+- Webhooks put the address in `data.recipient`, sign with a `Signature`
+  header, and arrive about 20 seconds after the event. `created_at` is the
+  event time.
+- Saving a webhook sends `webhook.test` signed with the published test
+  secret. Postmaster's response lets the save finish.
+- A Cc recipient gets its own `activity.sent` and `activity.delivered` events
+  under the message's ID.
+- The SMTP relay replies `250 Message queued as <id>`, and the ID matches the
+  webhooks' `message_id`.
+- A hard bounce suppresses the address locally, and sync finds it on
+  MailerSend's hard-bounce list.
+- Sync reads the blocklist as manual suppressions, and unsuppress removes the
+  blocklist entry.
+- Suppression lists page with `links.next`.
+
+**Differs from the docs:**
+
+- `bounce_code` is MailerSend's own code, such as `34`, not an SMTP reply
+  code. `$event->code()` returns it as is. The reason is readable text, not
+  the receiving server's reply.
+- `tags` is `null`, not an empty list, when a message has no tags.
+- Webhook payloads also carry a top-level `webhook_id`.
+- The create-webhook response returns the signing secret as `secret`.
+- A trial account allows only one To address per message.
+
+**Not tested:**
+
+- Opens and clicks. The trial domain doesn't allow tracking.
+- Soft bounces, deferrals, unsubscribes, and spam complaints.
+- Bcc recipients.
+- `activity.suppressed`. The trial account sent none, even with a
+  blocklisted Cc.
+- Symfony's `mailersend+api` transport.
+- Version 1 payloads, and which version a webhook gets when none is chosen.

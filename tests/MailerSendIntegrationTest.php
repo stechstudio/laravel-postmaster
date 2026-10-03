@@ -4,11 +4,9 @@ namespace STS\Postmaster\Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use STS\Postmaster\EmailDropped;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
@@ -25,11 +23,7 @@ class MailerSendIntegrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected const ID = '6892766ae78995a317577aa1';
-
-    public static ?string $responseBody = null;
-
-    public static ?string $messageId = self::ID;
+    public const ID = '6892766ae78995a317577aa1';
 
     protected function defineEnvironment($app)
     {
@@ -47,18 +41,13 @@ class MailerSendIntegrationTest extends TestCase
     {
         parent::setUp();
         Http::preventStrayRequests();
-        self::$responseBody = null;
-        self::$messageId = self::ID;
 
         app('mail.manager')->extend('mailersend', fn () => new class extends AbstractTransport {
             protected function doSend(SentMessage $message): void
             {
                 $original = $message->getOriginalMessage();
-                if ($original instanceof Message && MailerSendIntegrationTest::$messageId) {
-                    $original->getHeaders()->addTextHeader('X-MailerSend-Message-Id', MailerSendIntegrationTest::$messageId);
-                }
-                if ($original instanceof Message && MailerSendIntegrationTest::$responseBody) {
-                    $original->getHeaders()->addTextHeader('X-MailerSend-Body', MailerSendIntegrationTest::$responseBody);
+                if ($original instanceof Message) {
+                    $original->getHeaders()->addTextHeader('X-MailerSend-Message-Id', MailerSendIntegrationTest::ID);
                 }
             }
 
@@ -107,38 +96,10 @@ class MailerSendIntegrationTest extends TestCase
     public function testAnswersThePingSentWhileCreatingTheWebhook(): void
     {
         Log::spy();
-        $this->webhook(['type' => 'webhook.test', 'message' => 'This is a ping test message', 'created_at' => '2026-03-27T07:24:20.577080Z'], SignatureAuth::TEST_SECRET)
+        // Captured from a live webhook save.
+        $this->webhook(json_decode(file_get_contents(__DIR__.'/fixtures/mailersend/ping.json'), true), SignatureAuth::TEST_SECRET)
             ->assertSuccessful();
         Log::shouldNotHaveReceived('warning');
-    }
-
-    public function testRecordsRecipientsMailerSendSuppressedAtSend(): void
-    {
-        self::$responseBody = json_encode(['message' => 'There are some warnings for your request.', 'warnings' => [[
-            'type' => 'SOME_SUPPRESSED', 'warning' => 'Some of the recipients have been suppressed.',
-            'recipients' => [['email' => 'Copy@Example.com', 'name' => 'Copy', 'reasons' => ['blocklisted']]],
-        ]]]);
-        Event::fake([EmailDropped::class]);
-
-        $this->send();
-
-        $this->assertSame('dropped', EmailMessage::where('to_address', 'copy@example.com')->sole()->status);
-        $this->assertSame('sent', EmailMessage::where('to_address', 'recipient@example.com')->sole()->status);
-        Event::assertDispatched(EmailDropped::class, fn ($event) => $event->reason() === 'blocklisted');
-    }
-
-    public function testRecordsAMessageMailerSendDroppedEntirely(): void
-    {
-        // MailerSend returns no message id when every recipient is suppressed.
-        self::$messageId = null;
-        self::$responseBody = json_encode(['message' => 'There are some warnings for your request.', 'warnings' => [[
-            'type' => 'ALL_SUPPRESSED', 'message' => 'All of the recipients provided have been suppressed.',
-            'recipients' => [['email' => 'recipient@example.com', 'reasons' => ['hard_bounced']], ['email' => 'copy@example.com', 'reasons' => ['unsubscribed']]],
-        ]]]);
-
-        $this->send();
-
-        $this->assertSame(['dropped'], EmailMessage::pluck('status')->unique()->all());
     }
 
     public function testSyncsAndUnsuppressesThroughTheApi(): void

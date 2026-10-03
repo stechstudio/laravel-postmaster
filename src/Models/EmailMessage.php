@@ -158,6 +158,23 @@ class EmailMessage extends Model
     }
 
     /**
+     * Every To, Cc, and Bcc address of the original send, in that order.
+     * Falls back to this row's own address when no envelope was stored.
+     *
+     * @return list<string>
+     */
+    public function envelopeAddresses(): array
+    {
+        $recipients = $this->recipients ?? [];
+
+        if ($recipients === []) {
+            return array_filter([$this->to_address]);
+        }
+
+        return array_column([...$recipients['to'] ?? [], ...$recipients['cc'] ?? [], ...$recipients['bcc'] ?? []], 'address');
+    }
+
+    /**
      * Whether this message's recipient is on the local suppression list.
      * False when there's no recipient recorded at all — callers asking this
      * are gating a send, and a row with no address is unsendable for its own
@@ -450,9 +467,9 @@ class EmailMessage extends Model
     }
 
     /**
-     * Replay this message through the configured mailer, preserving its
-     * sender, recipients, subject, bodies, and tracking context (plus a
-     * `resent` tag of its own). The new row links back to this one via
+     * Replay this message to this row's recipient alone, preserving its
+     * sender, subject, bodies, and tracking context (plus a `resent` tag
+     * of its own). The new row links back to this one via
      * resent_from_id. Requires stored content; attachments come along when
      * their bytes are still stored.
      *

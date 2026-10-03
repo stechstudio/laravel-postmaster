@@ -131,6 +131,30 @@ class ResendTest extends TestCase
         $this->assertSame($original->id, $chain[0]->id);
     }
 
+    /**
+     * The dashboard asks "Resend this email to {address}?" on one
+     * recipient's row, so only that recipient should get it again.
+     */
+    public function testResendGoesOnlyToTheRecipientWhoseRowWasResent()
+    {
+        Mail::html('<p>Hello all</p>', function ($m) {
+            $m->to('to@example.com')->cc('cc@example.com')->bcc('bcc@example.com')->subject('Team update');
+        });
+
+        foreach (['to', 'cc', 'bcc'] as $role) {
+            Postmaster::resend(EmailMessage::where('recipient_role', $role)->whereNull('resent_from_id')->firstOrFail());
+
+            $sent = Mail::mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
+            $this->assertSame(["$role@example.com"], array_map(fn ($a) => $a->getAddress(), $sent->getTo()), $role);
+            $this->assertSame([], $sent->getCc(), $role);
+            $this->assertSame([], $sent->getBcc(), $role);
+        }
+
+        $resends = EmailMessage::whereNotNull('resent_from_id')->get();
+        $this->assertSame(['to@example.com', 'cc@example.com', 'bcc@example.com'], $resends->pluck('to_address')->all());
+        $this->assertSame(['to', 'to', 'to'], $resends->pluck('recipient_role')->all());
+    }
+
     public function testTrackingResentFromIsRespected()
     {
         Mail::raw('first send', function ($m) {

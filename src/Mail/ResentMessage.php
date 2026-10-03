@@ -34,17 +34,10 @@ class ResentMessage extends Mailable
             $this->from($this->record->from_address);
         }
 
+        // A resend starts from one recipient's row, so it goes to that
+        // recipient alone. Copying the original Cc/Bcc would send it again
+        // to people nobody asked to resend to, past their suppression checks.
         $this->to($this->record->to_address);
-
-        $recipients = $this->record->recipients ?? [];
-
-        foreach ($recipients['cc'] ?? [] as $cc) {
-            $this->cc($cc['address']);
-        }
-
-        foreach ($recipients['bcc'] ?? [] as $bcc) {
-            $this->bcc($bcc['address']);
-        }
 
         if ($this->record->subject) {
             $this->subject($this->record->subject);

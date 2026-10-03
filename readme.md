@@ -909,9 +909,11 @@ Postmaster::resend($message);
 Postmaster::resend($messageId);
 ```
 
-The new send carries over everything we can reconstruct from the recorded
-row — sender, To/Cc/Bcc envelope, subject, html and text bodies, related /
-recipient / tenant context, tags — and gets a `resent` tag of its own. The
+The new send goes only to the recipient on that row, in To. Other recipients of
+the original are not sent it again, so resend a Cc or Bcc row to reach that
+person alone. It carries over everything else we can reconstruct from the
+recorded row — sender, subject, html and text bodies, related / recipient /
+tenant context, tags — and gets a `resent` tag of its own. The
 new row's `resent_from_id` points back to the original so the chain is
 queryable:
 

@@ -37,9 +37,18 @@ class ReleasedMessage extends Mailable
             $this->from($this->record->from_address);
         }
 
-        $this->to($this->record->to_address);
-
+        // Release marks every sibling row sent, so it sends the original
+        // envelope, whichever row the operator released from.
         $recipients = $this->record->recipients ?? [];
+
+        foreach ($recipients['to'] ?? [] as $to) {
+            $this->to($to['address']);
+        }
+
+        // A row with no recorded envelope can only name its own recipient.
+        if ($recipients === []) {
+            $this->to($this->record->to_address);
+        }
 
         foreach ($recipients['cc'] ?? [] as $cc) {
             $this->cc($cc['address']);

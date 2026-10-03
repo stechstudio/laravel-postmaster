@@ -206,6 +206,37 @@ class SandboxReleaseTest extends TestCase
         $this->assertStringStartsNotWith('sandboxed-', (string) $fresh->first()->provider_message_id);
     }
 
+    /**
+     * Release flips every sibling row to sent, so the send must reach the
+     * whole original envelope, whichever row the operator released from.
+     */
+    public function testReleaseFromAnyRowSendsTheOriginalEnvelope()
+    {
+        Mail::html('<p>Hello all</p>', function ($m) {
+            $m->to(['to@example.com', 'to2@example.com'])->cc('cc@example.com')->bcc('bcc@example.com')->subject('Team update');
+        });
+
+        Postmaster::release(EmailMessage::where('recipient_role', 'bcc')->firstOrFail());
+
+        $sent = Mail::mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
+        $addresses = fn (array $list) => array_map(fn ($a) => $a->getAddress(), $list);
+        $this->assertSame(['to@example.com', 'to2@example.com'], $addresses($sent->getTo()));
+        $this->assertSame(['cc@example.com'], $addresses($sent->getCc()));
+        $this->assertSame(['bcc@example.com'], $addresses($sent->getBcc()));
+    }
+
+    public function testDashboardReleaseConfirmationNamesEveryRecipient()
+    {
+        Postmaster::auth(fn () => true);
+        Mail::html('<p>Hello all</p>', function ($m) {
+            $m->to('to@example.com')->cc('cc@example.com')->subject('Team update');
+        });
+
+        $this->get('/postmaster/messages/'.EmailMessage::where('recipient_role', 'cc')->firstOrFail()->getKey())
+            ->assertOk()
+            ->assertSee('send it for real to to@example.com, cc@example.com?');
+    }
+
     public function testDashboardShowsReleaseOnASandboxedMessage()
     {
         Postmaster::auth(fn () => true);

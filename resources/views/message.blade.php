@@ -54,7 +54,7 @@
             @if ($canRelease)
                 <x-postmaster::confirm-action
                     :action="route('postmaster.messages.release', $message)"
-                    :confirm="'Release this sandboxed email and send it for real to '.$message->to_address.'? This cannot be undone.'"
+                    :confirm="'Release this sandboxed email and send it for real to '.implode(', ', $message->envelopeAddresses()).'? This cannot be undone.'"
                     :title="$incomplete"
                     label="Release"/>
             @endif

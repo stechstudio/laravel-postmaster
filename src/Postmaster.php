@@ -456,9 +456,10 @@ class Postmaster
 
     /**
      * Replay a previously recorded EmailMessage through the configured
-     * mailer, preserving every aspect of the original we can reconstruct:
-     * sender, To/Cc/Bcc envelope, subject, html and text bodies, related /
-     * recipient / tenant context, and tags (plus a `resent` tag of its own).
+     * mailer to that row's recipient alone, preserving every other aspect
+     * of the original we can reconstruct: sender, subject, html and text
+     * bodies, related / recipient / tenant context, and tags (plus a
+     * `resent` tag of its own). Other Cc/Bcc recipients are not re-sent.
      * The new send is linked back to the original via resent_from_id, which
      * the dashboard's chain card walks to show the full retry history.
      *

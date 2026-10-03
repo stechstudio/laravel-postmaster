@@ -6,13 +6,21 @@ use Illuminate\Http\Request;
 
 class SignatureAuth
 {
-    public function __construct(protected ?string $signingKey)
+    /** @var list<string> */
+    protected array $signingKeys;
+
+    /**
+     * Each Helo webhook belongs to one channel and has its own signing key,
+     * so an app with several channels passes several keys, comma-separated.
+     */
+    public function __construct(?string $signingKeys)
     {
+        $this->signingKeys = array_values(array_filter(array_map('trim', explode(',', (string) $signingKeys))));
     }
 
     public function __invoke(Request $request): bool
     {
-        if (empty($this->signingKey)) {
+        if ($this->signingKeys === []) {
             return false;
         }
 
@@ -41,12 +49,14 @@ class SignatureAuth
             return false;
         }
 
-        // Helo uses the signing key literally, including any prefix.
-        $expected = hash_hmac('sha256', $timestamp.'.'.$request->getContent(), $this->signingKey);
+        foreach ($this->signingKeys as $signingKey) {
+            // Helo uses the signing key literally, including any prefix.
+            $expected = hash_hmac('sha256', $timestamp.'.'.$request->getContent(), $signingKey);
 
-        foreach ($signatures as $signature) {
-            if (hash_equals($expected, $signature)) {
-                return true;
+            foreach ($signatures as $signature) {
+                if (hash_equals($expected, $signature)) {
+                    return true;
+                }
             }
         }
 

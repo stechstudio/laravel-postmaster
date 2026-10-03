@@ -66,7 +66,7 @@ class Setup extends AbstractProviderSetup
     public function webhookAuthGuidance(): array
     {
         return [
-            'POSTMASTER_HELO_SIGNING_KEY '.$this->isSet($this->providerConfig('signing_key')).'. Copy the signing key from Helo → Webhooks.',
+            'POSTMASTER_HELO_SIGNING_KEY '.$this->isSet($this->providerConfig('signing_key')).'. Copy the signing key from Helo → Webhooks. Each channel\'s webhook has its own key; separate several with commas.',
             'Select message and recipient events for this channel. Domain verification events are not email events.',
             'Helo signs the raw body with HMAC-SHA256. Keep the server clock accurate; signatures expire after five minutes.',
             $this->configClearReminder(),

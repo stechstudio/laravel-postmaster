@@ -124,7 +124,8 @@ https://your-app.com/webhooks/postmaster/{provider}
 Every webhook becomes a normalized event you can listen for in a service
 provider's `boot()`. The common path is a targeted event for what you
 care about: `EmailBounced`, `EmailComplained`, `EmailDelivered`,
-`EmailOpened`, `EmailClicked`, or `EmailDropped`.
+`EmailOpened`, `EmailClicked`, `EmailDropped`, `EmailUnsubscribed`, or
+`EmailResubscribed`.
 
 ```php
 use Illuminate\Support\Facades\Event;
@@ -349,7 +350,7 @@ if ($message->isFailed())   { /* the latest event was a failure */ }
 
 ### Targeted event classes
 
-For the six lifecycle statuses worth dedicated listeners, a targeted event
+For the eight lifecycle statuses worth dedicated listeners, a targeted event
 class fires alongside the umbrella `EmailEvent` and lets you skip the
 predicate:
 
@@ -361,6 +362,8 @@ predicate:
 | `EmailDropped` | `STATUS_DROPPED` |
 | `EmailOpened` | `STATUS_OPENED` |
 | `EmailClicked` | `STATUS_CLICKED` |
+| `EmailUnsubscribed` | `STATUS_UNSUBSCRIBED` |
+| `EmailResubscribed` | `STATUS_RESUBSCRIBED` |
 
 Every targeted class extends `EmailEvent`, so the API is the same. You get
 all the accessors, predicates, and the correlated `emailMessage()` record
@@ -533,16 +536,18 @@ With persistence on, the package keeps an `email_addresses` table: one row per
 recipient with a current `status` of `active` or `suppressed`. This is on by
 default; set `POSTMASTER_TRACK_ADDRESSES=false` to disable it.
 
-An address is suppressed automatically on a hard bounce, a spam complaint, or a
-drop. Soft bounces don't count, since they're transient.
+An address is suppressed automatically on a hard bounce, a spam complaint, a
+drop, or an unsubscribe. Soft bounces don't count, since they're transient.
 
 Suppression is sticky against opens and clicks. A later delivery is the one
-exception: if a `delivered` webhook arrives for an automatically-suppressed
-address, the package flips it back to active. The reasoning matches what
-`postmaster:sync` does for the provider side — a successful delivery is hard
-proof the address works now, so the local row should reflect that. Manual
-suppressions (operator-asserted via `Postmaster::suppress()`) are never auto-
-cleared by any webhook; only `Postmaster::unsuppress()` lifts a manual one.
+exception: if a `delivered` webhook arrives for an address suppressed by a
+bounce, drop, or complaint, the package flips it back to active. The reasoning
+matches what `postmaster:sync` does for the provider side — a successful
+delivery is hard proof the address works now, so the local row should reflect
+that. A delivery doesn't lift an unsubscribe, since the recipient asked to stop;
+only a newer `resubscribed` webhook does. Manual suppressions (operator-asserted
+via `Postmaster::suppress()`) are never auto-cleared by any webhook; only
+`Postmaster::unsuppress()` lifts a manual one.
 
 Check it before sending:
 

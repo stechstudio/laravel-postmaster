@@ -154,6 +154,7 @@ return [
             'auth' => env('POSTMASTER_HELO_AUTH', \STS\Postmaster\Providers\Helo\SignatureAuth::class),
             'sync' => \STS\Postmaster\Providers\Helo\SuppressionSync::class,
             'setup' => \STS\Postmaster\Providers\Helo\Setup::class,
+            // One key per channel webhook; separate several with commas.
             'signing_key' => env('POSTMASTER_HELO_SIGNING_KEY'),
             // Helo's retry guide requests HTTP 200, including queued receipt.
             'queued_response_status' => 200,

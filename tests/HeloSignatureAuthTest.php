@@ -24,6 +24,19 @@ class HeloSignatureAuthTest extends TestCase
         $this->assertFalse($auth($this->request("t=$time,v1=$signature", '{"hello": "world"}')));
         $this->assertFalse((new SignatureAuth('wrong'))($this->request("t=$time,v1=$signature")));
         $this->assertFalse((new SignatureAuth(null))($this->request("t=$time,v1=$signature")));
+        $this->assertFalse((new SignatureAuth(' , '))($this->request("t=$time,v1=$signature")));
+    }
+
+    public function testAcceptsTheKeyOfAnyConfiguredChannelWebhook(): void
+    {
+        $this->freezeTime();
+        $time = now()->timestamp;
+        $auth = new SignatureAuth('whsec_channel_a, whsec_channel_b');
+
+        foreach (['whsec_channel_a', 'whsec_channel_b'] as $key) {
+            $this->assertTrue($auth($this->request("t=$time,v1=".hash_hmac('sha256', $time.'.{"hello":"world"}', $key))), $key);
+        }
+        $this->assertFalse($auth($this->request("t=$time,v1=".hash_hmac('sha256', $time.'.{"hello":"world"}', 'whsec_channel_c'))));
     }
 
     public function testRejectsStaleFutureMalformedAndUnsupportedSignatures(): void

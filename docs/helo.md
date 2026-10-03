@@ -39,6 +39,13 @@ sync's scope. Use `broadcast` as the mail type for individual broadcast
 messages; Postmaster uses Helo's `/send/broadcast/message` endpoint. It does
 not manage bulk campaigns, domains, or channel provisioning.
 
+Helo adds its own unsubscribe link and `List-Unsubscribe` headers to every
+broadcast message; you can't point them at your own page. Put
+`{{{ helo: unsubscribe }}}` in the template to choose where the link appears;
+without it, Helo appends one at the end. Helo suppresses anyone who
+unsubscribes for that channel's broadcast mail, and only Helo support can
+lift it. Transactional mail gets no link.
+
 Send ordinary Laravel Mailables and notifications. The transport preserves
 To/Cc/Bcc, reply-to, HTML and text, attachments and inline images, custom
 headers, and Laravel's `tags` and `metadata`. Helo's `messageId` becomes the
@@ -100,6 +107,14 @@ Copy the webhook's signing key into `POSTMASTER_HELO_SIGNING_KEY`, then run
 prefix. Keep the server clock accurate. The signature timestamp must be
 within five minutes; the event's own timestamp can be older on retries.
 
+Each Helo webhook belongs to one channel and has its own signing key. If you
+send through several channels, create a webhook for each, all pointing at the
+same URL, and list every key separated by commas:
+
+```dotenv
+POSTMASTER_HELO_SIGNING_KEY=key-for-channel-a,key-for-channel-b
+```
+
 Hard bounces suppress an address; soft or unknown bounce types do not.
 Helo's live events report `Hard` and `Soft`, while its API schema documents
 `Permanent` and `Transient`; Postmaster accepts both. The receiving server's
@@ -127,6 +142,9 @@ webhook and sending configuration aligned. This is not a separate
 suppression list for each tenant. If you send across independent Helo
 channels or mix broadcast and transactional mail, disable local address
 tracking/blocking and leave scoped suppression enforcement to Helo.
+Otherwise someone who unsubscribes from your newsletter would also stop
+getting their password resets: Helo blocks only further broadcast mail, but
+Postmaster's global list blocks everything.
 
 ```dotenv
 POSTMASTER_TRACK_ADDRESSES=false

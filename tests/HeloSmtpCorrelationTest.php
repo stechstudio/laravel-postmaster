@@ -18,6 +18,13 @@ use Symfony\Component\Mime\Email;
  */
 class HeloSmtpCorrelationTest extends TestCase
 {
+    protected function defineEnvironment($app)
+    {
+        parent::defineEnvironment($app);
+        // These tests send through a stub transport; nothing needs recording.
+        $app['config']->set('postmaster.persistence.enabled', false);
+    }
+
     protected function resolve(string $debug): ?string
     {
         $email = (new Email)->from('sender@example.com')->to('recipient@example.com')->subject('test')->html('<p>hi</p>');

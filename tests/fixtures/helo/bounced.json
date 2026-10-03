@@ -1,0 +1,18 @@
+{
+  "channelId": "01a0ff53-0000-7000-8000-000000000000",
+  "details": {
+    "code": "smtp; 550-5.1.1 The email account that you tried to reach does not exist. Please try\n550-5.1.1 double-checking the recipient's email address for typos or\n550-5.1.1 unnecessary spaces. For more information, go to\n550 5.1.1  https://support.google.com/mail/?p=NoSuchUser 586e51a60fabf-49e16efb522si6556569fac.161 - gsmtp",
+    "subType": "General",
+    "type": "Hard"
+  },
+  "eventType": "email-bounced",
+  "mailType": "transactional",
+  "messageId": "01a0ff65-77a3-7d53-9e0e-424841b98d63",
+  "metadata": {},
+  "recipient": "missing@example.com",
+  "subject": "Helo live test — bounce 013354",
+  "tags": [
+    "helo-live"
+  ],
+  "timestamp": "2026-10-03T01:33:56.458+00:00"
+}

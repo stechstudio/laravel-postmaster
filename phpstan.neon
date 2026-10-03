@@ -12,7 +12,11 @@ parameters:
     # analysis or unit tests; their correctness is exercised at runtime
     # when the operator installs the SDK they need.
     excludePaths:
-        - src/Providers/*/SuppressionSync.php
+        - src/Providers/SendGrid/SuppressionSync.php
+        - src/Providers/Postmark/SuppressionSync.php
+        - src/Providers/Mailgun/SuppressionSync.php
+        - src/Providers/Ses/SuppressionSync.php
+        - src/Providers/Resend/SuppressionSync.php
     # Docblocks in this package are intentionally loose (e.g. "@return string"
     # on accessors that may return null); trust runtime checks over PHPDoc.
     treatPhpDocTypesAsCertain: false

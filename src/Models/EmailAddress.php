@@ -34,6 +34,7 @@ class EmailAddress extends Model
     public const string STATUS_ACTIVE     = 'active';
     public const string STATUS_SUPPRESSED = 'suppressed';
 
+    public const string REASON_UNSUBSCRIBED = 'unsubscribed';
     public const string REASON_MANUAL     = 'manual';
     public const string REASON_BOUNCED    = 'bounced';
     public const string REASON_DROPPED    = 'dropped';
@@ -53,6 +54,7 @@ class EmailAddress extends Model
         self::REASON_BOUNCED,
         self::REASON_DROPPED,
         self::REASON_COMPLAINED,
+        self::REASON_UNSUBSCRIBED,
     ];
 
     protected $guarded = [];
@@ -67,6 +69,17 @@ class EmailAddress extends Model
         'last_event_at' => 'datetime',
     ];
 
+    /** Keep ordering precise when subscription events arrive within one second. */
+    public function setLastEventAtAttribute(mixed $value): void
+    {
+        $this->attributes['last_event_at'] = $value === null ? null : \Carbon\CarbonImmutable::parse($value)->utc()->format('Y-m-d H:i:s.u');
+    }
+
+    public function setSuppressedAtAttribute(mixed $value): void
+    {
+        $this->attributes['suppressed_at'] = $value === null ? null : \Carbon\CarbonImmutable::parse($value)->utc()->format('Y-m-d H:i:s.u');
+    }
+
     /**
      * Append a provider name to this row's providers list (deduped),
      * persisting the change. A no-op when the name is empty.
@@ -79,7 +92,8 @@ class EmailAddress extends Model
 
         $providers = $this->providers ?? [];
 
-        if (in_array($provider, $providers, true)) {
+        // Older syncs recorded lowercase config keys ("sendgrid").
+        if (in_array(strtolower($provider), array_map('strtolower', $providers), true)) {
             return;
         }
 

@@ -412,6 +412,16 @@ class EmailMessage extends Model
         return $query->where('status', EmailEvent::STATUS_CLICKED);
     }
 
+    public function scopeUnsubscribed(Builder $query): Builder
+    {
+        return $query->where('status', EmailEvent::STATUS_UNSUBSCRIBED);
+    }
+
+    public function scopeResubscribed(Builder $query): Builder
+    {
+        return $query->where('status', EmailEvent::STATUS_RESUBSCRIBED);
+    }
+
     /**
      * Scope to messages carrying the given tag.
      */

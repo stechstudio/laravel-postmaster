@@ -100,6 +100,16 @@ trait HasStatusPredicates
         return $this->currentStatus() === EmailEvent::STATUS_CLICKED;
     }
 
+    public function isUnsubscribed(): bool
+    {
+        return $this->currentStatus() === EmailEvent::STATUS_UNSUBSCRIBED;
+    }
+
+    public function isResubscribed(): bool
+    {
+        return $this->currentStatus() === EmailEvent::STATUS_RESUBSCRIBED;
+    }
+
     /**
      * Whether the current status represents a delivery failure — bounced,
      * dropped, or complained. The aggregate concept the FAILED_STATUSES set

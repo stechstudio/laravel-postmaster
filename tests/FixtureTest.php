@@ -3,6 +3,7 @@
 namespace STS\Postmaster\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use STS\Postmaster\Providers\Helo\Adapter as Helo;
 use STS\Postmaster\Providers\Mailgun\Adapter as Mailgun;
 use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
 use STS\Postmaster\Providers\Resend\Adapter as Resend;
@@ -32,6 +33,14 @@ class FixtureTest extends TestCase
             'mailgun failed'     => [Mailgun::class, 'mailgun/failed.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
             'resend delivered'   => [Resend::class, 'resend/delivered.json', EmailEvent::STATUS_DELIVERED, null],
             'resend bounced'     => [Resend::class, 'resend/bounced.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            // Helo fixtures are redacted payloads captured from the live API.
+            'helo delivered'     => [Helo::class, 'helo/delivered.json', EmailEvent::STATUS_DELIVERED, null],
+            'helo bounced'       => [Helo::class, 'helo/bounced.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'helo soft bounce'   => [Helo::class, 'helo/bounced-soft.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_SOFT],
+            'helo opened'        => [Helo::class, 'helo/opened.json', EmailEvent::STATUS_OPENED, null],
+            'helo clicked'       => [Helo::class, 'helo/clicked.json', EmailEvent::STATUS_CLICKED, null],
+            'helo unsubscribed'  => [Helo::class, 'helo/unsubscribed.json', EmailEvent::STATUS_UNSUBSCRIBED, null],
+            'helo resubscribed'  => [Helo::class, 'helo/resubscribed.json', EmailEvent::STATUS_RESUBSCRIBED, null],
             'ses delivery'       => [Ses::class, 'ses/delivery.json', EmailEvent::STATUS_DELIVERED, null],
             'ses bounce'         => [Ses::class, 'ses/bounce.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
         ];

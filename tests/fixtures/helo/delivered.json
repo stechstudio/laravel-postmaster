@@ -1,0 +1,20 @@
+{
+  "channelId": "01a0ff53-0000-7000-8000-000000000000",
+  "details": {
+    "response": "250 2.0.0 OK  1790991205 586e51a60fabf-49e16fb66c9si6548504fac.226 - gsmtp"
+  },
+  "eventType": "email-delivered",
+  "mailType": "transactional",
+  "messageId": "01a0ff65-0081-727a-bce7-0b0705200234",
+  "metadata": {
+    "scenario": "rich",
+    "stamp": "013324"
+  },
+  "recipient": "recipient@example.com",
+  "subject": "Helo live test — rich 013324",
+  "tags": [
+    "helo-live",
+    "rich"
+  ],
+  "timestamp": "2026-10-03T01:33:25.905+00:00"
+}

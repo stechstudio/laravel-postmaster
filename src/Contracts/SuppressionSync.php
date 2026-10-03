@@ -8,15 +8,13 @@ namespace STS\Postmaster\Contracts;
  * email_addresses table on the next sync, and an unsuppress action in our
  * dashboard flows out to the provider's list.
  *
- * Each provider implements this against its own SDK; the SDK is a soft
- * dependency (suggested in composer.json) and isAvailable() reports whether
- * it's installed and configured.
+ * Providers use Laravel HTTP or an optional SDK. isAvailable() reports
+ * whether the credentials, scope, and any SDK dependency are configured.
  */
 interface SuppressionSync
 {
     /**
-     * Whether this sync is ready to run — its provider SDK is installed and
-     * its API key (or equivalent credential) is configured. Sync commands
+     * Whether this sync has credentials, scope, and any required SDK. Sync commands
      * skip providers that report false and log a hint.
      */
     public function isAvailable(): bool;

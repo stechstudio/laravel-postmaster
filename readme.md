@@ -7,8 +7,8 @@
 
 **Provider-agnostic email delivery tracking for Laravel.**
 
-Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, or
-Resend. Postmaster handles everything those providers send back. It verifies
+Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, Resend, or
+Helo. Postmaster handles everything those providers send back. It verifies
 each inbound webhook and normalizes them into one event your app listens for —
 so switching providers, running several at once, or failing over between them
 never touches your code.
@@ -22,7 +22,7 @@ support dashboard to browse it all.
 ## What you get
 
 - **One event for every provider.** Every webhook arrives as the same
-  `EmailEvent`, no matter which of the five providers sent it. There's no
+  `EmailEvent`, no matter which of the six providers sent it. There's no
   provider-specific parsing anywhere in your app.
 - **Provider independence.** Your code only ever sees the normalized event, so
   you can switch providers, run several at once, or fail over between them
@@ -117,7 +117,7 @@ provider's dashboard, set the webhook URL to:
 https://your-app.com/webhooks/postmaster/{provider}
 ```
 
-…where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, or `resend`.
+…where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, or `helo`.
 
 ### 2. Listen for the event
 
@@ -217,6 +217,21 @@ configure.
 POSTMASTER_RESEND_SIGNING_SECRET=whsec_...
 ```
 
+### Helo
+
+```
+POSTMASTER_HELO_SIGNING_KEY=...
+```
+
+Copy the signing key for your webhook endpoint from Helo's dashboard. It is
+separate from the API key. Postmaster verifies the raw request body using
+Helo's HMAC-SHA256 signature and rejects timestamps more than five minutes
+from the server clock. Configure Helo to send to `/webhooks/postmaster/helo`.
+Queued Helo requests return HTTP 200 after the job is dispatched.
+
+See [Helo setup and live testing](docs/helo.md) for API sending, SMTP,
+channel configuration, and suppression sync.
+
 ### Postmark
 
 Postmark does not sign webhook payloads. Use HTTP basic auth (the default) or a
@@ -281,7 +296,7 @@ Every webhook becomes an `EmailEvent` with a normalized API. The methods are
 the same whatever the provider:
 
 ```php
-$event->provider();           // "SendGrid", "Postmark", "Mailgun", "SES", "Resend"
+$event->provider();           // "SendGrid", "Postmark", "Mailgun", "SES", "Resend", "Helo"
 $event->status();             // one of the EmailEvent::STATUS_* constants
 $event->toAddress();          // the recipient email address
 $event->providerMessageId();  // the provider's message id
@@ -299,7 +314,7 @@ $event->toArray();            // everything above as an array
 ```
 
 > **A note on provider casing.** Config keys are lowercase identifiers
-> (`sendgrid`, `postmark`, `mailgun`, `ses`, `resend`). Stored and surfaced
+> (`sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, `helo`). Stored and surfaced
 > values are the canonical product name (`SendGrid`, `Postmark`, …). The
 > `provider()` method, the `provider` column, and the dashboard all use the
 > latter.
@@ -310,7 +325,7 @@ $event->toArray();            // everything above as an array
 
 `EmailEvent::STATUS_ACCEPTED`, `STATUS_DEFERRED`, `STATUS_DELIVERED`,
 `STATUS_BOUNCED`, `STATUS_DROPPED`, `STATUS_COMPLAINED`, `STATUS_OPENED`,
-`STATUS_CLICKED`. There are five more for outbound records the package
+`STATUS_CLICKED`, `STATUS_UNSUBSCRIBED`, and `STATUS_RESUBSCRIBED`. There are five more for outbound records the package
 writes itself: `STATUS_SENT`, `STATUS_SANDBOXED`, `STATUS_BLOCKED`,
 `STATUS_LOGGED` (sends through Laravel's `log` driver), and `STATUS_CAPTURED`
 (sends through the `array` driver). The last four are terminal; no webhook
@@ -590,9 +605,9 @@ php artisan postmaster:sync --provider=sendgrid
 php artisan postmaster:sync --dry-run          # report without writing
 ```
 
-Each provider needs two things: its official SDK installed (suggested in
-`composer.json`, not required) and an API key configured. With either
-missing, that provider is skipped with an informative line:
+Configure an API key and any required SDK for each provider. Helo uses
+Laravel's HTTP client and needs no SDK. Providers with missing credentials,
+channel configuration, or required SDKs are skipped:
 
 | Provider | SDK | Config key |
 |---|---|---|
@@ -600,7 +615,13 @@ missing, that provider is skipped with an informative line:
 | Postmark | `composer require wildbit/postmark-php` | `POSTMASTER_POSTMARK_SERVER_TOKEN` (or `POSTMARK_TOKEN`) |
 | Mailgun  | `composer require mailgun/mailgun-php` | `POSTMASTER_MAILGUN_API_KEY` (or `MAILGUN_SECRET`) + `POSTMASTER_MAILGUN_DOMAIN` |
 | Amazon SES | `composer require aws/aws-sdk-php` | Uses the standard AWS credential chain |
+| Helo | Laravel HTTP; no SDK | `POSTMASTER_HELO_API_KEY` (or `HELO_API_KEY`), `POSTMASTER_HELO_CHANNEL_ID` (or `HELO_CHANNEL_ID`), and `POSTMASTER_HELO_MAIL_TYPE` (defaults to `transactional`) |
 | Resend | — | Resend has a full API but no suppression-list resource (suppressions are dashboard-only); sync is a no-op for Resend, and the local table is fed entirely by the webhook stream |
+
+Sync retains suppressions associated with another provider or several
+providers; an empty list from one provider cannot clear those globally.
+Manual suppressions are never cleared by sync. A failed API fetch leaves
+that provider's local rows unchanged and makes the command exit nonzero.
 
 **Unsuppress is two-way too.** Each suppression row records which
 provider(s) put it on the list (via webhook events or sync). When you

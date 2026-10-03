@@ -149,6 +149,20 @@ return [
             'api_key'        => env('POSTMASTER_RESEND_API_KEY', env('RESEND_KEY')),
         ],
 
+        'helo' => [
+            'adapter' => \STS\Postmaster\Providers\Helo\Adapter::class,
+            'auth' => env('POSTMASTER_HELO_AUTH', \STS\Postmaster\Providers\Helo\SignatureAuth::class),
+            'sync' => \STS\Postmaster\Providers\Helo\SuppressionSync::class,
+            'setup' => \STS\Postmaster\Providers\Helo\Setup::class,
+            'signing_key' => env('POSTMASTER_HELO_SIGNING_KEY'),
+            // Helo's retry guide requests HTTP 200, including queued receipt.
+            'queued_response_status' => 200,
+            'api_key' => env('POSTMASTER_HELO_API_KEY', env('HELO_API_KEY')),
+            // Helo scopes suppressions to one channel and mail type.
+            'channel_id' => env('POSTMASTER_HELO_CHANNEL_ID', env('HELO_CHANNEL_ID')),
+            'mail_type' => env('POSTMASTER_HELO_MAIL_TYPE', 'transactional'),
+        ],
+
     ],
 
     /*

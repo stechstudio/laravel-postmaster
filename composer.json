@@ -1,6 +1,6 @@
 {
     "name": "stechstudio/laravel-postmaster",
-    "description": "Verify, normalize, and track email delivery webhooks from SendGrid, Postmark, Mailgun, Amazon SES, and Resend",
+    "description": "Verify, normalize, and track email delivery webhooks from SendGrid, Postmark, Mailgun, Amazon SES, Resend, and Helo",
     "license": "MIT",
     "authors": [
         {
@@ -20,7 +20,8 @@
         "Postmark",
         "Mailgun",
         "SES",
-        "Resend"
+        "Resend",
+        "Helo"
     ],
     "replace": {
         "stechstudio/laravel-email-events": "self.version"
@@ -28,6 +29,7 @@
     "require": {
         "php": "^8.3",
         "illuminate/support": "^12.0|^13.0",
+        "illuminate/http": "^12.0|^13.0",
         "illuminate/filesystem": "^12.0|^13.0",
         "laravel/prompts": "^0.3"
     },

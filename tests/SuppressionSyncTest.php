@@ -71,6 +71,48 @@ class SuppressionSyncTest extends TestCase
         $this->assertSame(EmailAddress::REASON_COMPLAINED, $bob->reason);
     }
 
+    public function testSyncNamesProvidersWhoseAdaptersNeedAWebhookPayload()
+    {
+        // Mailgun's and SES's adapters unwrap the payload in their constructors.
+        config(['postmaster.providers' => [
+            'mailgun' => ['adapter' => \STS\Postmaster\Providers\Mailgun\Adapter::class, 'auth' => 'basic', 'sync' => FakeSync::class],
+            'ses'     => ['adapter' => \STS\Postmaster\Providers\Ses\Adapter::class, 'auth' => 'basic', 'sync' => FakeSync::class],
+        ]]);
+        $this->app->forgetInstance('postmaster');
+        FakeSync::$remote = ['alice@example.com' => EmailAddress::REASON_BOUNCED];
+
+        $this->artisan('postmaster:sync')->assertSuccessful();
+
+        $this->assertSame(['Mailgun', 'SES'], EmailAddress::where('address', 'alice@example.com')->first()->providers);
+    }
+
+    public function testSyncRecordsTheSameProviderNameAsWebhooks()
+    {
+        // Webhooks record the adapter's product name; sync must not add the
+        // lowercase config key alongside it.
+        $webhooked = EmailAddress::create([
+            'address'       => 'alice@example.com',
+            'status'        => EmailAddress::STATUS_SUPPRESSED,
+            'reason'        => EmailAddress::REASON_BOUNCED,
+            'suppressed_at' => now(),
+            'providers'     => ['Postmark'],
+        ]);
+        FakeSync::$remote = [
+            'alice@example.com' => EmailAddress::REASON_BOUNCED,
+            'bob@example.com'   => EmailAddress::REASON_BOUNCED,
+        ];
+
+        $this->artisan('postmaster:sync')->assertSuccessful();
+
+        $this->assertSame(['Postmark'], $webhooked->fresh()->providers);
+        $this->assertSame(['Postmark'], EmailAddress::where('address', 'bob@example.com')->first()->providers);
+
+        FakeSync::$remote = [];
+        $this->artisan('postmaster:sync')->assertSuccessful();
+
+        $this->assertFalse($webhooked->fresh()->isSuppressed());
+    }
+
     public function testSyncClearsLocalAutomaticSuppressionsTheProviderNoLongerHolds()
     {
         // Alice was suppressed locally via a webhook bounce. The provider's
@@ -208,7 +250,8 @@ class SuppressionSyncTest extends TestCase
         $this->assertNotNull($activity);
         $this->assertSame(\STS\Postmaster\Models\EmailActivity::STATUS_SUPPRESSED, $activity->status);
         $this->assertSame(EmailAddress::REASON_BOUNCED, $activity->reason);
-        $this->assertSame('fake', $activity->provider);
+        // The fake provider uses the Postmark adapter.
+        $this->assertSame('Postmark', $activity->provider);
     }
 
     public function testUnsuppressReportsProvidersThatNeedManualCleanup()

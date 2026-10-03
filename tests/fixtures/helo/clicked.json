@@ -1,0 +1,26 @@
+{
+  "channelId": "01a0ff53-0000-7000-8000-000000000000",
+  "details": {
+    "client": {
+      "family": "Chrome",
+      "version": "153.0.0"
+    },
+    "country": "United States",
+    "countryCode": "US",
+    "device": {
+      "brand": "Apple",
+      "family": "Mac",
+      "model": "Mac"
+    },
+    "ip": "203.0.113.10",
+    "link": "https://github.com/stechstudio/laravel-postmaster"
+  },
+  "eventType": "link-clicked",
+  "mailType": "transactional",
+  "messageId": "01a0ff73-ac02-77e2-9471-be8ad63857f6",
+  "metadata": {},
+  "recipient": "recipient@example.com",
+  "subject": "Helo live test 1 — open and click me",
+  "tags": null,
+  "timestamp": "2026-10-03T01:49:42.3933078+00:00"
+}

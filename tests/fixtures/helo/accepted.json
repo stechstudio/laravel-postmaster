@@ -1,0 +1,21 @@
+{
+  "channelId": "01a0ff53-0000-7000-8000-000000000000",
+  "eventType": "message-accepted",
+  "mailType": "transactional",
+  "messageId": "01a0ff65-0081-727a-bce7-0b0705200234",
+  "metadata": {
+    "scenario": "rich",
+    "stamp": "013324"
+  },
+  "recipients": [
+    "recipient@example.com",
+    "cc@example.com",
+    "bcc@example.com"
+  ],
+  "subject": "Helo live test — rich 013324",
+  "tags": [
+    "helo-live",
+    "rich"
+  ],
+  "timestamp": "2026-10-03T01:33:24.5728577+00:00"
+}

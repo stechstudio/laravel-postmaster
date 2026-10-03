@@ -2,21 +2,21 @@
 
 Postmaster supports Helo's message and recipient webhook events, API
 sending, suppression sync, and the existing dashboard, tracking, resend, and
-sandbox features. It uses a small internal client built on Laravel HTTP;
-there is no SDK to install. Domain verification events are outside this
-package's email-delivery scope.
+sandbox features. API sending and suppression sync use
+[stechstudio/laravel-helo-email](https://github.com/stechstudio/laravel-helo-email).
+Webhooks and SMTP sending don't need it. Domain verification events are
+outside this package's email-delivery scope.
 
 ## Send through the API
 
-Add a mailer to the `mailers` array in your app's `config/mail.php`:
+Install the Helo package:
 
-```php
-'helo' => [
-    'transport' => 'helo',
-],
+```bash
+composer require stechstudio/laravel-helo-email
 ```
 
-Set these values in the app's `.env`:
+Set these values in the app's `.env`. You don't need to change
+`config/mail.php`; the package adds a `helo` mailer.
 
 ```dotenv
 MAIL_MAILER=helo
@@ -24,18 +24,19 @@ MAIL_FROM_ADDRESS=sender@your-verified-domain.com
 MAIL_FROM_NAME="Your app"
 HELO_API_KEY=...
 HELO_CHANNEL_ID=...
+HELO_MAIL_TYPE=transactional
 POSTMASTER_HELO_SIGNING_KEY=...
-POSTMASTER_HELO_MAIL_TYPE=transactional
 ```
 
-`POSTMASTER_HELO_API_KEY` and `POSTMASTER_HELO_CHANNEL_ID` override the shorter
-names. The API key needs access to the selected channel, sending, and
-suppression operations. A channel-scoped key can send without a channel ID,
-but suppression sync always needs the channel ID explicitly.
+The API key needs access to the selected channel, sending, and suppression
+operations. A channel-scoped key can send without a channel ID, but
+suppression sync always needs the channel ID explicitly.
 
 For several mailers, you can set `key`, `channel_id`, and `mail_type` directly
-on each mailer. The provider-level settings still determine suppression
-sync's scope. Use `broadcast` as the mail type for individual broadcast
+on each mailer; see the
+[package README](https://github.com/stechstudio/laravel-helo-email#several-channels-or-mail-types).
+The `HELO_CHANNEL_ID` and `HELO_MAIL_TYPE` settings still determine
+suppression sync's scope. Use `broadcast` as the mail type for individual broadcast
 messages; Postmaster uses Helo's `/send/broadcast/message` endpoint. It does
 not manage bulk campaigns, domains, or channel provisioning.
 
@@ -136,6 +137,9 @@ php artisan postmaster:sync --provider=helo --dry-run
 php artisan postmaster:sync --provider=helo
 ```
 
+Sync needs stechstudio/laravel-helo-email installed, and uses
+`HELO_API_KEY`, `HELO_CHANNEL_ID`, and `HELO_MAIL_TYPE` from its config.
+
 Helo scopes suppressions by **channel and mail type**. Postmaster's address
 list is global. Configure sync for one channel and mail type, and keep the
 webhook and sending configuration aligned. This is not a separate
@@ -151,8 +155,8 @@ POSTMASTER_TRACK_ADDRESSES=false
 POSTMASTER_BLOCK_SUPPRESSED=false
 ```
 
-Do not enable Helo suppression sync in that arrangement: leave the
-provider-level `channel_id` unset and configure the channel on each mailer.
+Do not enable Helo suppression sync in that arrangement: leave
+`HELO_CHANNEL_ID` unset and configure the channel on each mailer.
 Message delivery tracking still works across channels.
 
 Sync maps Helo's `bounce`, `complaint`, `unsubscribe`, and `manual` reasons
@@ -168,8 +172,9 @@ Helo in its `manual` list so the operator knows Helo did not remove it.
 ## Use SMTP instead
 
 Use Laravel's standard SMTP mailer with `smtp.helohq.com`, port 587, and a
-Helo SMTP user's credentials. SMTP users are scoped to a channel. Webhook
-verification and suppression sync use the same provider configuration above.
+Helo SMTP user's credentials. SMTP users are scoped to a channel. SMTP
+sending and webhooks don't need stechstudio/laravel-helo-email; suppression
+sync does, with the same settings as above.
 The install wizard detects Helo from the SMTP hostname.
 
 Helo's SMTP server answers each message with its message ID, and Postmaster

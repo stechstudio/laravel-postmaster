@@ -38,6 +38,7 @@ class Setup extends AbstractProviderSetup
 
     public function askWebhookAuth(): array
     {
+        note($this->packageNote());
         note('Copy the signing key for this endpoint from Helo → Webhooks. This is separate from your API key.');
 
         return ['POSTMASTER_HELO_SIGNING_KEY' => password(label: 'Helo webhook signing key', required: true)];
@@ -45,19 +46,19 @@ class Setup extends AbstractProviderSetup
 
     public function askSuppressionSync(): array
     {
-        note('Helo sync uses Laravel HTTP; no SDK is needed. Select the channel and mail type this app uses. Postmaster stores suppressions globally.');
+        note('Select the channel and mail type this app uses. Postmaster stores suppressions globally.');
 
         $values = [];
-        if (! $this->providerConfig('api_key')) {
-            $values['POSTMASTER_HELO_API_KEY'] = password(label: 'Helo API key', required: true);
+        if (! config('helo.key')) {
+            $values['HELO_API_KEY'] = password(label: 'Helo API key', required: true);
         }
-        if (! $this->providerConfig('channel_id')) {
-            $values['POSTMASTER_HELO_CHANNEL_ID'] = text(label: 'Helo channel ID', required: true);
+        if (! config('helo.channel_id')) {
+            $values['HELO_CHANNEL_ID'] = text(label: 'Helo channel ID', required: true);
         }
-        $values['POSTMASTER_HELO_MAIL_TYPE'] = select(
+        $values['HELO_MAIL_TYPE'] = select(
             label: 'Helo mail type',
             options: ['transactional' => 'Transactional', 'broadcast' => 'Broadcast'],
-            default: $this->providerConfig('mail_type', 'transactional'),
+            default: config('helo.mail_type', 'transactional'),
         );
 
         return $values;
@@ -69,7 +70,13 @@ class Setup extends AbstractProviderSetup
             'POSTMASTER_HELO_SIGNING_KEY '.$this->isSet($this->providerConfig('signing_key')).'. Copy the signing key from Helo → Webhooks. Each channel\'s webhook has its own key; separate several with commas.',
             'Select message and recipient events for this channel. Domain verification events are not email events.',
             'Helo signs the raw body with HMAC-SHA256. Keep the server clock accurate; signatures expire after five minutes.',
+            $this->packageNote(),
             $this->configClearReminder(),
         ];
+    }
+
+    protected function packageNote(): string
+    {
+        return 'To send through Helo\'s API (MAIL_MAILER=helo) or sync suppressions, install stechstudio/laravel-helo-email. Sending through Helo\'s SMTP doesn\'t need it.';
     }
 }

@@ -610,9 +610,8 @@ php artisan postmaster:sync --provider=sendgrid
 php artisan postmaster:sync --dry-run          # report without writing
 ```
 
-Configure an API key and any required SDK for each provider. Helo uses
-Laravel's HTTP client and needs no SDK. Providers with missing credentials,
-channel configuration, or required SDKs are skipped:
+Configure an API key and any required SDK for each provider. Providers with
+missing credentials, channel configuration, or required SDKs are skipped:
 
 | Provider | SDK | Config key |
 |---|---|---|
@@ -620,7 +619,7 @@ channel configuration, or required SDKs are skipped:
 | Postmark | `composer require wildbit/postmark-php` | `POSTMASTER_POSTMARK_SERVER_TOKEN` (or `POSTMARK_TOKEN`) |
 | Mailgun  | `composer require mailgun/mailgun-php` | `POSTMASTER_MAILGUN_API_KEY` (or `MAILGUN_SECRET`) + `POSTMASTER_MAILGUN_DOMAIN` |
 | Amazon SES | `composer require aws/aws-sdk-php` | Uses the standard AWS credential chain |
-| Helo | Laravel HTTP; no SDK | `POSTMASTER_HELO_API_KEY` (or `HELO_API_KEY`), `POSTMASTER_HELO_CHANNEL_ID` (or `HELO_CHANNEL_ID`), and `POSTMASTER_HELO_MAIL_TYPE` (defaults to `transactional`) |
+| Helo | `composer require stechstudio/laravel-helo-email` | `HELO_API_KEY`, `HELO_CHANNEL_ID`, and `HELO_MAIL_TYPE` (defaults to `transactional`) |
 | Resend | — | Resend has a full API but no suppression-list resource (suppressions are dashboard-only); sync is a no-op for Resend, and the local table is fed entirely by the webhook stream |
 
 Sync retains suppressions associated with another provider or several

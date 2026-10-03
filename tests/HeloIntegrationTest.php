@@ -30,8 +30,8 @@ class HeloIntegrationTest extends TestCase
         $app['config']->set('postmaster.persistence.enabled', true);
         $app['config']->set('postmaster.persistence.store_content', true);
         $app['config']->set('postmaster.providers.helo.signing_key', 'signing-key');
-        $app['config']->set('postmaster.providers.helo.api_key', 'api-key');
-        $app['config']->set('postmaster.providers.helo.channel_id', 'channel-id');
+        $app['config']->set('helo.key', 'api-key');
+        $app['config']->set('helo.channel_id', 'channel-id');
         $app['config']->set('mail.default', 'helo');
         $app['config']->set('mail.mailers.helo', ['transport' => 'helo']);
     }
@@ -226,7 +226,7 @@ class HeloIntegrationTest extends TestCase
         Http::swap(new \Illuminate\Http\Client\Factory);
         Http::preventStrayRequests();
         Http::fake(['api.helohq.com/*' => Http::response(['totalCount' => 1, 'results' => []])]);
-        $this->artisan('postmaster:sync', ['--provider' => 'helo'])->expectsOutputToContain('incomplete')->assertFailed();
+        $this->artisan('postmaster:sync', ['--provider' => 'helo'])->expectsOutputToContain('empty page at offset 0 of 1')->assertFailed();
         $this->assertTrue(EmailAddress::sole()->isSuppressed());
     }
 

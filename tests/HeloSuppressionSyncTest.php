@@ -16,7 +16,11 @@ class HeloSuppressionSyncTest extends TestCase
 
     protected function sync(array $config = []): SuppressionSync
     {
-        return new SuppressionSync(array_replace(['api_key' => 'api-key', 'channel_id' => 'channel-id', 'mail_type' => 'transactional'], $config));
+        config(['helo.key' => array_key_exists('api_key', $config) ? $config['api_key'] : 'api-key']);
+        config(['helo.channel_id' => array_key_exists('channel_id', $config) ? $config['channel_id'] : 'channel-id']);
+        app()->forgetInstance(\STS\HeloEmail\HeloClient::class);
+
+        return new SuppressionSync(['mail_type' => $config['mail_type'] ?? 'transactional']);
     }
 
     protected function row(string $email = 'USER@EXAMPLE.COM', string $reason = 'bounce'): array
@@ -64,7 +68,7 @@ class HeloSuppressionSyncTest extends TestCase
             try {
                 iterator_to_array($this->sync()->pull());
                 $this->fail('An invalid list must not clear local suppressions.');
-            } catch (UnexpectedValueException $exception) {
+            } catch (\RuntimeException $exception) {
                 $this->assertStringContainsString('Helo', $exception->getMessage());
             }
         }
@@ -73,7 +77,7 @@ class HeloSuppressionSyncTest extends TestCase
     public function testPropagatesHttpErrorsWithHelosReason(): void
     {
         Http::fake(['api.helohq.com/*' => Http::response(['status' => 403, 'code' => 'forbidden', 'detail' => 'User or API credential does not have adequate permission to perform that action.'], 403)]);
-        $this->expectException(UnexpectedValueException::class);
+        $this->expectException(\STS\HeloEmail\HeloException::class);
         $this->expectExceptionMessage('Helo API error 403 (forbidden): User or API credential does not have adequate permission');
         iterator_to_array($this->sync()->pull());
     }

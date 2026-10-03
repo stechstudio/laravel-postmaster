@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use STS\Postmaster\Console\Concerns\ResolvesProvider;
 use STS\Postmaster\EmailEvent;
+use STS\Postmaster\Listeners\RecordOutboundMessage;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Models\EmailMessage;
 use Throwable;
@@ -241,7 +242,7 @@ class Verify extends Command
         try {
             $sent = $bypassSandbox ? $this->withoutSandbox($send) : $send();
 
-            return $sent?->getMessageId();
+            return $sent ? app(RecordOutboundMessage::class)->providerMessageId($sent) : null;
         } catch (Throwable $e) {
             $this->newLine();
             $this->components->error('The test email failed to send.');

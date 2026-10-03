@@ -154,10 +154,21 @@ Helo SMTP user's credentials. SMTP users are scoped to a channel. Webhook
 verification and suppression sync use the same provider configuration above.
 The install wizard detects Helo from the SMTP hostname.
 
-The bundled API transport provides a documented message ID for correlation
-and reports recipients suppressed during submission. Helo's SMTP queue-ID
-format is not documented, so SMTP correlation needs confirmation against a
-live account; use the API transport for the first end-to-end test.
+Helo's SMTP server answers each message with its message ID, and Postmaster
+records that ID, so webhooks match SMTP sends the same way they match API
+sends. SMTP has three limits the API transport doesn't:
+
+- Helo ignores Laravel's tags and metadata over SMTP, so its webhooks carry
+  none. Postmaster still stores them on its own records.
+- A Helo SMTP user sends only one mail type, transactional or broadcast.
+- If some recipients are suppressed, Helo drops them without any event, and
+  their rows stay `sent`. If every recipient is suppressed, the send fails
+  with `554 All recipients are suppressed`. Keep
+  `POSTMASTER_BLOCK_SUPPRESSED=true` and run sync so Postmaster blocks those
+  addresses before sending.
+
+Helo documents the `X-Helo-TrackOpens` and `X-Helo-TrackLinks` headers for
+SMTP as well.
 
 ## Run the first live test
 
@@ -192,11 +203,11 @@ resubscribe links appear in broadcast mail. Gmail fetches the open pixel
 through a proxy, so an open can arrive late or not at all.
 
 The webhook fixtures in `tests/fixtures/helo` are redacted payloads captured
-from the live API on 2026-10-03. That run covered sending, every event except
-`recipient-complained`, suppression sync both ways, unsuppress, idempotent
-retries, and signature rejection. Gmail does not report spam complaints back
-to Helo, so complaint handling is tested only against Helo's documented
-payload.
+from the live API on 2026-10-03. That run covered API and SMTP sending, every
+event except `recipient-complained`, suppression sync both ways, unsuppress,
+idempotent retries, and signature rejection. Gmail does not report spam
+complaints back to Helo, so complaint handling is tested only against Helo's
+documented payload.
 
 ## Sources
 

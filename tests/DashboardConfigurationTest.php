@@ -45,7 +45,7 @@ class DashboardConfigurationTest extends TestCase
             ->assertOk()
             ->assertSeeInOrder(['Mailers', 'smtp', 'Default', 'MailerSend', 'SMTP', 'smtp.mailersend.net:587'])
             ->assertSee('hello@example.com')
-            ->assertSee('https://app.example.com/webhooks/postmaster/mailersend');
+            ->assertSeeText('https://app.example.com/webhooks/postmaster/mailersend');
     }
 
     public function testNeverShowsCredentials(): void
@@ -93,7 +93,7 @@ class DashboardConfigurationTest extends TestCase
 
         $this->sent('smtp', 'MailerSend');
 
-        $this->get('/postmaster/configuration')->assertOk()->assertSee('Working')->assertSee('1 confirmed by webhook');
+        $this->get('/postmaster/configuration')->assertOk()->assertSee('Working')->assertSee('All confirmed');
     }
 
     public function testIgnoresConfirmationsOlderThanThirtyDays(): void

@@ -129,12 +129,12 @@ class MailerStatus
             ! $this->delivers() => ['muted', 'Doesn\'t deliver', $this->transport === 'log' ? 'Mail is written to the log.' : 'Mail is kept in memory.'],
             $this->loads === false => [$isDefault ? 'bad' : 'warn', 'Not set up', "Laravel couldn't load the {$this->transport} driver. Is its package installed?"],
             $this->key === false => [$isDefault ? 'bad' : 'warn', 'Not set up', 'Its sending key isn\'t in config.'],
-            $this->confirmed() > 0 => ['ok', 'Working', "{$this->providerLabel()} webhooks confirmed its recent sends."],
+            $this->confirmed() > 0 => ['ok', 'Working', "Confirmed by {$this->providerLabel()} webhooks."],
             $this->provider === null => ['muted', 'Not tracked', "Postmaster can't tell which provider runs {$this->host}, so it can't match webhooks to its mail."],
             $this->sent > 0 => ['warn', 'No webhooks back', $this->provider->webhookAuthConfigured()
                 ? "No {$this->provider->label()} webhook has updated its recent sends. Check the webhook in {$this->provider->label()}."
-                : "Its webhook secret is missing, so Postmaster rejects {$this->provider->label()}'s webhooks."],
-            default => ['warn', 'Unconfirmed', 'Set up, but nothing has gone through it in the last 30 days.'],
+                : "Webhook secret is missing, so {$this->provider->label()}'s webhooks are rejected."],
+            default => ['warn', 'Unconfirmed', 'Set up, but nothing sent in the last 30 days.'],
         };
     }
 }

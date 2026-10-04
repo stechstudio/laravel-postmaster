@@ -12,7 +12,7 @@
             <div class="pm-setting-note">
                 A mailer is working once a send from the last {{ ConfigurationReport::RECENT_DAYS }} days comes back confirmed by its provider's webhook.
                 @if ($olderSends)
-                    Mail sent before Postmaster recorded each message's mailer isn't counted.
+                    Older mail, sent before Postmaster tracked mailers, isn't counted.
                 @endif
             </div>
         </div>
@@ -48,7 +48,7 @@
                             @if ($mailer->isSmtp())
                                 <span class="pm-mailer-detail">SMTP · <span class="pm-mono">{{ $mailer->host }}</span></span>
                             @elseif ($mailer->configured && $mailer->delivers())
-                                <span class="pm-mailer-detail">API · <span class="pm-mono">{{ $mailer->transport }}</span></span>
+                                <span class="pm-mailer-detail">API @if ($mailer->transport !== $mailer->name) · <span class="pm-mono">{{ $mailer->transport }}</span>@endif</span>
                             @endif
                         </td>
                         @foreach ([$mailer->credential(), $mailer->webhook(), $mailer->sync()] as [$badgeTone, $badge])
@@ -66,14 +66,18 @@
                         <td class="pm-cell-meta">
                             @if ($mailer->sent)
                                 {{ number_format($mailer->sent) }} sent
-                                <span class="pm-mailer-detail">{{ $mailer->confirmed() ? number_format($mailer->confirmed()).' confirmed by webhook' : 'None confirmed' }}</span>
+                                <span class="pm-mailer-detail">{{ match (true) {
+                                    $mailer->confirmed() === $mailer->sent => 'All confirmed',
+                                    $mailer->confirmed() > 0 => number_format($mailer->confirmed()).' confirmed',
+                                    default => 'None confirmed',
+                                } }}</span>
                             @else
                                 <span class="pm-dim">None sent</span>
                             @endif
                         </td>
                         <td class="pm-cell-badge">
                             <span class="pm-badge pm-badge--{{ $tone }}">{{ $label }}</span>
-                            <span class="pm-mailer-detail pm-mailer-why">{{ $why }}</span>
+                            <span class="pm-mailer-detail pm-mailer-why">{{ ConfigurationReport::markup($why) }}</span>
                         </td>
                     </tr>
                 @endforeach

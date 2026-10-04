@@ -875,7 +875,7 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
 .pm-config-intro { margin: 0; font-size: 13px; }
 
 /* Settings cards pair up side by side, so a group never sits alone in a row. */
-.pm-grid--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pm-grid--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 
 /* These badges carry phrases ("Credential missing"), not one-word statuses. */
 .pm-settings .pm-badge, .pm-mailer-table .pm-badge { text-transform: none; }
@@ -926,24 +926,80 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
 }
 .pm-setting-value { font-size: 13px; overflow-wrap: anywhere; }
 .pm-setting-note { color: var(--pm-muted-fg); font-size: 12.5px; font-weight: 400; }
-.pm-card-head .pm-setting-note { margin-top: 2px; }
+.pm-card-head .pm-setting-note { margin-top: 2px; max-width: 80ch; }
+
+/* A long code value, such as a webhook URL, takes the row's full width. */
+.pm-setting--stack { grid-template-columns: 1fr; }
+
+/* Setup facts that are fine read as quiet text with a dot. Pills are kept
+   for problems and the verdict, so those stand out on a healthy page. */
+.pm-settings .pm-badge--ok, .pm-settings .pm-badge--muted,
+.pm-mailer-table .pm-cell-detail .pm-badge--ok,
+.pm-mailer-table .pm-cell-detail .pm-badge--muted {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--pm-fg);
+}
+.pm-settings .pm-badge--muted,
+.pm-mailer-table .pm-cell-detail .pm-badge--muted { color: var(--pm-muted-fg); }
+.pm-settings .pm-badge--ok::before,
+.pm-mailer-table .pm-cell-detail .pm-badge--ok::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 7px;
+    border-radius: 50%;
+    background: var(--pm-ok-fg);
+    vertical-align: 1px;
+}
 
 /* Mailers: the table sits flush in its card, so its edge cells take the
-   card's padding. Second lines under a value are quieter. */
+   card's padding. Second lines under a value are quieter. Rows don't open
+   anything, so they don't highlight on hover. */
+.pm-mailer-table th { padding-top: 9px; }
 .pm-mailer-table th:first-child, .pm-mailer-table td:first-child { padding-left: 16px; }
 .pm-mailer-table th:last-child, .pm-mailer-table td:last-child { padding-right: 16px; }
 .pm-mailer-table td { vertical-align: top; }
+.pm-mailer-table tbody tr:hover { background: none; }
 .pm-mailer-role { display: block; margin-top: 3px; color: var(--pm-muted-fg); font-size: 12px; }
 .pm-mailer-provider { font-weight: 500; }
 .pm-mailer-detail { display: block; margin-top: 3px; color: var(--pm-muted-fg); font-size: 12px; }
-.pm-mailer-why { max-width: 260px; white-space: normal; }
+.pm-mailer-table .pm-cell-sub .pm-mailer-detail, .pm-mailer-table .pm-cell-meta { white-space: nowrap; }
+.pm-mailer-why { max-width: 340px; white-space: normal; }
 
-@media (max-width: 768px) {
-    .pm-mailer-table th:first-child, .pm-mailer-table td:first-child { padding-left: 0; }
-    .pm-mailer-table td { white-space: normal; }
-    /* On a phone, a mailer is its name, provider, verdict, and send count. */
+/* Below 1080px the seven columns don't fit, so each mailer becomes a card:
+   name and verdict, provider and send count, then the reason. This is the
+   generic table collapse from the 768px block, brought forward. */
+@media (max-width: 1080px) {
+    .pm-mailer-table thead { display: none; }
+    .pm-mailer-table, .pm-mailer-table tbody { display: block; }
+    .pm-mailer-table tbody tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "title badge" "sub meta" "why why";
+        gap: 2px 12px;
+        align-items: baseline;
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--pm-border);
+    }
+    .pm-mailer-table tbody tr:last-child { border-bottom: 0; }
+    .pm-mailer-table td { display: none; padding: 0; border: 0; white-space: normal; }
+    .pm-mailer-table td:first-child { padding-left: 0; }
+    .pm-mailer-table td:last-child { padding-right: 0; }
+    .pm-mailer-table .pm-cell-title { display: block; grid-area: title; font-weight: 500; }
+    .pm-mailer-table .pm-cell-sub { display: block; grid-area: sub; color: var(--pm-muted-fg); font-size: 12.5px; }
+    .pm-mailer-table .pm-cell-meta { display: block; grid-area: meta; justify-self: end; text-align: right; color: var(--pm-muted-fg); font-size: 12px; }
+    .pm-mailer-table .pm-cell-meta .pm-mailer-detail { display: inline; margin-left: 4px; }
+    .pm-mailer-table .pm-cell-meta .pm-mailer-detail::before { content: "· "; }
+    .pm-mailer-table .pm-cell-badge { display: contents; }
+    .pm-mailer-table .pm-cell-badge .pm-badge { grid-area: badge; justify-self: end; }
+    .pm-mailer-why { display: block; grid-area: why; max-width: none; margin-top: 4px; }
     .pm-mailer-role { display: inline; margin-left: 6px; }
-    .pm-mailer-table .pm-cell-sub .pm-mailer-detail, .pm-mailer-why { display: none; }
+    .pm-mailer-table .pm-cell-sub .pm-mailer-detail { display: none; }
 }
 
 @media (max-width: 1080px) {
@@ -952,9 +1008,6 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
     .pm-stats--words .pm-stat:nth-child(2n + 1) { padding-left: 0; border-left: 0; }
     .pm-stats--words .pm-stat:nth-child(2n) { padding-right: 0; }
     .pm-stats--words .pm-stat:nth-child(n + 3) { padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--pm-line); }
-}
-
-@media (max-width: 860px) {
     .pm-grid--pair { grid-template-columns: 1fr; }
 }
 

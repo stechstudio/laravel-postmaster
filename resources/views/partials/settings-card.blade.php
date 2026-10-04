@@ -5,7 +5,8 @@
      Params:
        $title, $description : string
        $rows                : list of ConfigurationReport rows
-       $lastWebhook         : EmailActivity|null, or false to leave the row out --}}
+       $lastWebhook         : EmailActivity|null, or false to leave the row out --}}@use('STS\Postmaster\Support\ConfigurationReport')
+
 <div class="pm-card pm-card--flush">
     <div class="pm-card-head">
         <div>
@@ -15,7 +16,7 @@
     </div>
     <dl class="pm-settings">
         @foreach ($rows as $row)
-            <div class="pm-setting">
+            <div @class(['pm-setting', 'pm-setting--stack' => $row['mono'] && strlen($row['value']) > 40])>
                 <dt>
                     {{ $row['label'] }}
                     @if ($row['env'])
@@ -27,10 +28,11 @@
                     @if ($row['tone'])
                         <span class="pm-badge pm-badge--{{ $row['tone'] }}">{{ $row['value'] }}</span>
                     @else
-                        <span @class(['pm-setting-value', 'pm-mono' => $row['mono']])>{{ $row['value'] }}</span>
+                        {{-- Long code values, such as URLs, break only after a slash. --}}
+                        <span @class(['pm-setting-value', 'pm-mono' => $row['mono']])>{!! str_replace('/', '/<wbr>', e($row['value'])) !!}</span>
                     @endif
                     @if ($row['note'])
-                        <span class="pm-setting-note">{{ $row['note'] }}</span>
+                        <span class="pm-setting-note">{{ ConfigurationReport::markup($row['note']) }}</span>
                     @endif
                 </dd>
             </div>

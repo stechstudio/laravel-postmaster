@@ -5,6 +5,7 @@ namespace STS\Postmaster\Support;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\HtmlString;
 use STS\Postmaster\Contracts\ProviderSetup;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Models\EmailActivity;
@@ -92,12 +93,12 @@ class ConfigurationReport
                 ? ['Delivery', 'Sandbox', 'warn', 'Mail is recorded, not sent']
                 : ['Delivery', 'Normal', 'ok', 'Mail is sent as usual'],
             $default
-                ? ['Sending through', $default->providerLabel(), $default->status()[0], "{$default->name} mailer, ".strtolower($default->status()[1])]
+                ? ['Sending through', $default->providerLabel(), $default->status()[0], "{$default->status()[1]} · {$default->name} mailer"]
                 : ['Sending through', 'Unknown', 'muted', 'No default mailer'],
-            ['Timeline', $this->recordsEvents() ? 'Recording' : 'Off', $this->recordsEvents() ? 'ok' : 'muted', $this->recordsEvents() ? 'Every webhook event is kept' : 'Only the latest status is kept'],
+            ['Timeline', $this->recordsEvents() ? 'Recording' : 'Off', $this->recordsEvents() ? 'plain' : 'muted', $this->recordsEvents() ? 'Every webhook event is kept' : 'Only the latest status is kept'],
             config('postmaster.queue_webhooks')
-                ? ['Webhooks', 'Queued', 'info', 'on the '.$this->webhookQueueConnection().' connection']
-                : ['Webhooks', 'Inline', 'muted', 'Handled during the request'],
+                ? ['Webhooks', 'Queued', 'plain', 'On the '.$this->webhookQueueConnection().' connection']
+                : ['Webhooks', 'Inline', 'plain', 'Handled during the request'],
         ];
     }
 
@@ -118,7 +119,7 @@ class ConfigurationReport
 
         foreach ($providers as $provider) {
             if (! $provider->webhookAuthConfigured()) {
-                $checks[] = ['bad', 'Webhook credential missing', "Postmaster rejects every {$provider->label()} webhook until it can verify them. ".$provider->webhookAuthGuidance()[0]];
+                $checks[] = ['bad', "{$provider->label()} webhook secret missing", "Postmaster rejects every {$provider->label()} webhook until it can verify them. ".$provider->webhookAuthGuidance()[0]];
             }
         }
 
@@ -164,20 +165,32 @@ class ConfigurationReport
             'Sending'   => ['How mail leaves the app.', $this->sending()],
             'Webhooks'  => ['How providers report back.', $this->webhooks()],
             'Recording' => ['What Postmaster keeps in the database.', $this->recording()],
-            'Retention' => ['How long it keeps it. postmaster:prune clears anything older.', $this->retention()],
+            'Retention' => ['How long Postmaster keeps each kind of record.', $this->retention()],
         ];
     }
 
     protected function sending(): array
     {
-        $from = config('mail.from.address');
-
         return [
             $this->row('Default mailer', (string) config('mail.default'), 'MAIL_MAILER', mono: true),
-            $this->row('From', $from ? trim(config('mail.from.name').' <'.$from.'>') : 'Not set', 'MAIL_FROM_ADDRESS', tone: $from ? null : 'warn'),
+            $this->from(),
             $this->row('Delivery', ucfirst((string) config('postmaster.delivery', 'normal')), 'POSTMASTER_DELIVERY', tone: $this->isSandboxed() ? 'warn' : 'ok'),
             $this->toggle('Block suppressed recipients', config('postmaster.block_suppressed'), 'POSTMASTER_BLOCK_SUPPRESSED', 'Sends to a suppressed address are recorded as blocked and never handed to the mailer.'),
+            $this->row('Suppression sync', 'Daily at '.PostmasterServiceProvider::SYNC_AT, note: 'Runs postmaster:sync to pull each provider\'s suppression list. Needs Laravel\'s scheduler running.'),
         ];
+    }
+
+    /** The sender's name as the value and the address as its note, so neither breaks mid-word. */
+    protected function from(): array
+    {
+        $address = config('mail.from.address');
+        $name    = config('mail.from.name');
+
+        return match (true) {
+            ! $address => $this->row('From', 'Not set', 'MAIL_FROM_ADDRESS', tone: 'warn'),
+            ! $name    => $this->row('From', (string) $address, 'MAIL_FROM_ADDRESS'),
+            default    => $this->row('From', (string) $name, 'MAIL_FROM_ADDRESS', (string) $address),
+        };
     }
 
     protected function webhooks(): array
@@ -192,7 +205,9 @@ class ConfigurationReport
 
         return [
             ...$endpoints,
-            $this->toggle('Route registered', config('postmaster.register_route', true), 'POSTMASTER_REGISTER_ROUTE', 'Off means the app registers the webhook route itself.'),
+            $this->toggle('Route registered', $registers = config('postmaster.register_route', true), 'POSTMASTER_REGISTER_ROUTE', $registers
+                ? 'Postmaster registers the webhook route.'
+                : 'The app registers the webhook route itself.'),
             config('postmaster.queue_webhooks')
                 ? $this->row('Processing', 'Queued', 'POSTMASTER_QUEUE_WEBHOOKS', 'Connection '.$this->webhookQueueConnection().', queue '.(config('postmaster.queue_name') ?: 'default').'.', 'info')
                 : $this->row('Processing', 'Inline', 'POSTMASTER_QUEUE_WEBHOOKS', 'Each webhook is handled during its request.', 'muted'),
@@ -210,7 +225,7 @@ class ConfigurationReport
         $attachments = (array) config('postmaster.persistence.attachments', []);
 
         return [
-            $this->row('Database', $connection.' ('.config("database.connections.{$connection}.driver").')', 'POSTMASTER_PERSISTENCE_CONNECTION', mono: true),
+            $this->row('Database', $connection === ($driver = config("database.connections.{$connection}.driver")) ? $connection : "{$connection} ({$driver})", 'POSTMASTER_PERSISTENCE_CONNECTION', mono: true),
             $this->toggle('Timeline', $this->recordsEvents(), 'POSTMASTER_RECORD_EVENTS', 'Keeps every webhook event, not just each message\'s latest status.'),
             $this->toggle('Address tracking', config('postmaster.persistence.track_addresses'), 'POSTMASTER_TRACK_ADDRESSES', 'Suppresses an address when a provider reports a hard bounce, complaint, or unsubscribe.'),
             $this->toggle('Message content', config('postmaster.persistence.store_content'), 'POSTMASTER_STORE_CONTENT', 'Keeps subject, bodies, and recipients so you can read and resend a message.'),
@@ -233,9 +248,21 @@ class ConfigurationReport
             $this->row('Attachment disk cap', $this->bytes(config('postmaster.persistence.attachments.max_disk_usage')) ?: 'No cap', 'POSTMASTER_ATTACHMENTS_MAX_DISK_USAGE', $storesAttachments ? 'Oldest files go first once the cap is reached.' : null),
             $this->window('Routine events', 'prune_routine_activity_after_days', 'POSTMASTER_PRUNE_ROUTINE_ACTIVITY_AFTER_DAYS', 'Sends, deliveries, opens, and clicks.'),
             $this->window('Failure events', 'prune_failed_activity_after_days', 'POSTMASTER_PRUNE_FAILED_ACTIVITY_AFTER_DAYS', 'Bounces, complaints, drops, and suppressions.'),
-            $this->row('Pruning', 'Daily at '.PostmasterServiceProvider::PRUNE_AT, note: 'Runs postmaster:prune. Needs Laravel\'s scheduler running.', mono: true),
-            $this->row('Suppression sync', 'Daily at '.PostmasterServiceProvider::SYNC_AT, note: 'Runs postmaster:sync. Needs Laravel\'s scheduler running.', mono: true),
+            $this->row('Pruning', 'Daily at '.PostmasterServiceProvider::PRUNE_AT, note: 'Runs postmaster:prune. Needs Laravel\'s scheduler running.'),
         ];
+    }
+
+    /**
+     * Escape text and set any .env name or artisan command in it in mono, for
+     * check bodies, notes, and reasons that mention them.
+     */
+    public static function markup(string $text): HtmlString
+    {
+        return new HtmlString(preg_replace(
+            '/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+|postmaster:[a-z-]+)\b/',
+            '<span class="pm-mono">$1</span>',
+            e($text),
+        ));
     }
 
     protected function row(string $label, string $value, ?string $env = null, ?string $note = null, ?string $tone = null, bool $mono = false): array

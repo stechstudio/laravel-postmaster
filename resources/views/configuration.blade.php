@@ -1,4 +1,5 @@
 @extends('postmaster::layout')
+@use('STS\Postmaster\Support\ConfigurationReport')
 
 @section('title', 'Configuration')
 
@@ -31,7 +32,7 @@
             @foreach ($checks as [$tone, $title, $body])
                 <div class="pm-check pm-check--{{ $tone }}">
                     <div class="pm-check-title">{{ $title }}</div>
-                    <div class="pm-check-body">{{ $body }}</div>
+                    <div class="pm-check-body">{{ ConfigurationReport::markup($body) }}</div>
                 </div>
             @endforeach
         </div>

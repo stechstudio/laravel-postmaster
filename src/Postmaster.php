@@ -18,6 +18,7 @@ use STS\Postmaster\Mail\ResentMessage;
 use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 use STS\Postmaster\Providers\GenericSetup;
+use STS\Postmaster\Support\ConfigurationReport;
 use STS\Postmaster\Support\OutboundMetadata;
 use Symfony\Component\Mime\Email;
 use Throwable;
@@ -84,6 +85,84 @@ class Postmaster
     }
 
     /**
+     * Guess the provider a mailer sends through (the default mailer unless
+     * named): a transport name the provider registers, or the host of an SMTP
+     * mailer. Returns the provider name and how it was found, or [null, ''].
+     *
+     * @return array{0: string|null, 1: string}
+     */
+    public function detectProvider(?string $mailer = null): array
+    {
+        $mailer ??= config('mail.default');
+        $transport = $mailer ? config("mail.mailers.{$mailer}.transport") : null;
+
+        if (! is_string($transport)) {
+            return [null, ''];
+        }
+
+        $setups = [];
+        foreach (array_keys(config('postmaster.providers', [])) as $name) {
+            $setups[$name] = $this->setup($name);
+        }
+
+        foreach ($setups as $name => $setup) {
+            if (in_array($transport, $setup->transportNames(), true)) {
+                return [$name, "from the \"{$transport}\" mail transport"];
+            }
+        }
+
+        $host = $transport === 'smtp' ? (string) config("mail.mailers.{$mailer}.host") : '';
+
+        foreach ($host === '' ? [] : $setups as $name => $setup) {
+            foreach ($setup->smtpHints() as $needle) {
+                if (str_contains($host, $needle)) {
+                    return [$name, "from the SMTP host \"{$host}\""];
+                }
+            }
+        }
+
+        return [null, ''];
+    }
+
+    /**
+     * The absolute URL a provider posts webhooks to: APP_URL plus the named
+     * route's path when it's registered, otherwise the configured webhook
+     * path. APP_URL, not the current request, because that's the address
+     * providers are given.
+     */
+    public function webhookUrl(string $provider): string
+    {
+        $base = rtrim((string) config('app.url'), '/');
+        $path = Route::has('webhook.postmaster')
+            ? route('webhook.postmaster', ['provider' => $provider], false)
+            : '/'.trim((string) config('postmaster.url', 'webhooks/postmaster'), '/')."/{$provider}";
+
+        return $base.$path;
+    }
+
+    /** Whether a provider's servers could not reach this URL, such as a .test host. */
+    public function isUnreachableUrl(string $url): bool
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        if ($host === '' || in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)) {
+            return true;
+        }
+
+        foreach (['.test', '.local', '.localhost', '.example', '.invalid'] as $tld) {
+            if (str_ends_with($host, $tld)) {
+                return true;
+            }
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return ! filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        }
+
+        return false;
+    }
+
+    /**
      * The setup profile for a provider — the human-facing language, env vars,
      * and interactive prompts the CLI commands use. Resolved from the provider's
      * `setup` config entry, falling back to a generic profile for providers
@@ -124,6 +203,12 @@ class Postmaster
         $this->tenantResolver = $resolver;
 
         return $this;
+    }
+
+    /** Whether the app registered a tenant resolver. */
+    public function resolvesTenants(): bool
+    {
+        return $this->tenantResolver !== null;
     }
 
     /**
@@ -739,6 +824,12 @@ class Postmaster
         $this->authCallback = $callback;
 
         return $this;
+    }
+
+    /** What the dashboard's configuration page shows. */
+    public function configuration(): ConfigurationReport
+    {
+        return new ConfigurationReport($this);
     }
 
     /**

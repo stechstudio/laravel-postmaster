@@ -36,6 +36,39 @@ class ProviderSetupTest extends TestCase
         $this->assertSame([], $this->resolve('sendgrid')->transportNames());
     }
 
+    public function testFindsEachMailersSendingKeyWhereItsDriverLooks()
+    {
+        // Laravel's own transports fall back to config/services.php.
+        $this->assertFalse($this->resolve('postmark')->sendingKeySet([]));
+        $this->assertTrue($this->resolve('postmark')->sendingKeySet(['token' => 'x']));
+        config(['services.postmark.key' => 'x']);
+        $this->assertTrue($this->resolve('postmark')->sendingKeySet([]));
+
+        $this->assertFalse($this->resolve('resend')->sendingKeySet([]));
+        config(['services.resend.key' => 'x']);
+        $this->assertTrue($this->resolve('resend')->sendingKeySet([]));
+
+        $this->assertFalse($this->resolve('mailgun')->sendingKeySet([]));
+        config(['services.mailgun.secret' => 'x']);
+        $this->assertTrue($this->resolve('mailgun')->sendingKeySet([]));
+
+        // The third-party drivers read their own config files.
+        $this->assertFalse($this->resolve('helo')->sendingKeySet([]));
+        config(['helo.key' => 'x']);
+        $this->assertTrue($this->resolve('helo')->sendingKeySet([]));
+
+        $this->assertFalse($this->resolve('mailersend')->sendingKeySet([]));
+        config(['mailersend-driver.api_key' => 'x']);
+        $this->assertTrue($this->resolve('mailersend')->sendingKeySet([]));
+    }
+
+    public function testCannotTellWhenSesUsesTheServersAwsRole()
+    {
+        $this->assertNull($this->resolve('ses')->sendingKeySet([]));
+        $this->assertTrue($this->resolve('ses')->sendingKeySet(['key' => 'x', 'secret' => 'y']));
+        $this->assertNull($this->resolve('sendgrid')->sendingKeySet([]));
+    }
+
     public function testWebhookVerbIsTailoredForSes()
     {
         $this->assertSame('Subscribe an SNS topic to this URL', $this->resolve('ses')->webhookVerb());

@@ -31,6 +31,11 @@ class Setup extends AbstractProviderSetup
         return ['smtp.helohq.com'];
     }
 
+    public function sendingKeySet(array $mailer): ?bool
+    {
+        return $this->anySet($mailer['key'] ?? null, config('helo.key'));
+    }
+
     public function webhookAuthConfigured(): bool
     {
         return (bool) $this->providerConfig('signing_key');

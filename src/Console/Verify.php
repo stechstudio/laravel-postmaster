@@ -11,6 +11,7 @@ use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Listeners\RecordOutboundMessage;
 use STS\Postmaster\Listeners\RelayVerificationEvent;
 use STS\Postmaster\Models\EmailMessage;
+use STS\Postmaster\Postmaster;
 use Throwable;
 
 use function Laravel\Prompts\confirm;
@@ -164,7 +165,7 @@ class Verify extends Command
             return null;
         }
 
-        [$guess, $why] = $this->guessProvider();
+        [$guess, $why] = app(Postmaster::class)->detectProvider();
 
         if ($guess !== null && in_array($guess, $providers, true)) {
             if (confirm("Detected the \"{$guess}\" provider {$why}. Verify that one?", default: true)) {

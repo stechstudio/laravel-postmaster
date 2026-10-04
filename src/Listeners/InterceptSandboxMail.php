@@ -52,7 +52,8 @@ class InterceptSandboxMail
             $this->recorder->record(
                 $event->message,
                 $this->syntheticMessageId('sandboxed'),
-                EmailEvent::STATUS_SANDBOXED
+                EmailEvent::STATUS_SANDBOXED,
+                $event->data['mailer'] ?? config('mail.default'),
             );
         }
 

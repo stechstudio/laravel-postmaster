@@ -32,7 +32,9 @@ class RecordOutboundMessage
 
     public function handle(MessageSent $event): void
     {
-        $this->record($event->message, $this->resolveProviderMessageId($event), $this->statusForCurrentTransport());
+        $mailer = $event->data['mailer'] ?? config('mail.default');
+
+        $this->record($event->message, $this->resolveProviderMessageId($event), $this->statusFor($mailer), $mailer);
     }
 
     /**
@@ -92,21 +94,15 @@ class RecordOutboundMessage
     }
 
     /**
-     * The lifecycle status to record for a send completing right now. Usually
-     * STATUS_SENT — but when the default mailer's transport is Laravel's `log`
-     * or `array` driver, there's no real delivery and no webhook will ever
-     * land, so the row is marked terminal so the dashboard doesn't keep it in
-     * a "waiting on the provider" state forever.
-     *
-     * Detection is best-effort and reads the default mailer's transport from
-     * config. A per-call mailer override (e.g. Mail::mailer('log')->send())
-     * while a different default is configured will fall through to
-     * STATUS_SENT — same as the previous behavior, no regression.
+     * The lifecycle status to record for a send through this mailer. Usually
+     * STATUS_SENT — but when its transport is Laravel's `log` or `array`
+     * driver, there's no real delivery and no webhook will ever land, so the
+     * row is marked terminal so the dashboard doesn't keep it in a "waiting
+     * on the provider" state forever.
      */
-    protected function statusForCurrentTransport(): string
+    protected function statusFor(?string $mailer): string
     {
-        $default   = config('mail.default');
-        $transport = config("mail.mailers.{$default}.transport", $default);
+        $transport = config("mail.mailers.{$mailer}.transport", $mailer);
 
         return match ($transport) {
             'log'   => EmailEvent::STATUS_LOGGED,
@@ -125,7 +121,7 @@ class RecordOutboundMessage
      * want one to return. $messageId may be a synthetic id for a message
      * that was never sent.
      */
-    public function record(Email $message, ?string $messageId, string $status = EmailEvent::STATUS_SENT): ?EmailMessage
+    public function record(Email $message, ?string $messageId, string $status = EmailEvent::STATUS_SENT, ?string $mailer = null): ?EmailMessage
     {
         $metadata = OutboundMetadata::pull($message);
 
@@ -135,10 +131,10 @@ class RecordOutboundMessage
         // send, so it's reliable regardless of how the transport handles the
         // message.
         if (($releaseOf = OutboundMetadata::releasing()) !== null) {
-            return $this->reconcileRelease($releaseOf, $messageId, $status);
+            return $this->reconcileRelease($releaseOf, $messageId, $status, $mailer);
         }
 
-        $shared   = $this->sharedAttributes($message, $messageId, $status, $metadata);
+        $shared   = $this->sharedAttributes($message, $messageId, $status, $metadata) + ['mailer' => $mailer];
         $envelope = $this->envelope($message);
 
         $this->storeAttachments($message, $messageId, $metadata);
@@ -222,7 +218,7 @@ class RecordOutboundMessage
      * release on the timeline. Every envelope-sibling row (To/Cc/Bcc) that
      * shared the sandbox id transitions together.
      */
-    protected function reconcileRelease(int $originalId, ?string $messageId, string $status): ?EmailMessage
+    protected function reconcileRelease(int $originalId, ?string $messageId, string $status, ?string $mailer): ?EmailMessage
     {
         $original = EmailMessage::model()->newQuery()->withoutGlobalScopes()->find($originalId);
 
@@ -244,6 +240,9 @@ class RecordOutboundMessage
                 'provider_message_id' => $messageId,
                 'status'              => $status,
                 'sent_at'             => $sentAt,
+                // The release may go out through a different mailer than the
+                // one the sandboxed send named.
+                'mailer'              => $mailer ?? $row->mailer,
             ])->save();
 
             $this->recordActivity($row, [

@@ -41,6 +41,12 @@ class Setup extends AbstractProviderSetup
         )];
     }
 
+    public function sendingKeySet(array $mailer): ?bool
+    {
+        // Laravel reads services.mailgun only when the mailer has no secret.
+        return $this->anySet($mailer['secret'] ?? null, config('services.mailgun.secret'));
+    }
+
     public function webhookAuthConfigured(): bool
     {
         return (bool) $this->providerConfig('signing_key');

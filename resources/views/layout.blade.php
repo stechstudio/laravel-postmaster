@@ -38,6 +38,7 @@
             <a href="{{ route('postmaster.messages') }}" @class(['is-active' => request()->routeIs('postmaster.messages*')])>Messages</a>
             <a href="{{ route('postmaster.activity') }}" @class(['is-active' => request()->routeIs('postmaster.activity')])>Activity</a>
             <a href="{{ route('postmaster.addresses') }}" @class(['is-active' => request()->routeIs('postmaster.addresses')])>Addresses</a>
+            <a href="{{ route('postmaster.configuration') }}" @class(['is-active' => request()->routeIs('postmaster.configuration')])>Configuration</a>
         </nav>
     </aside>
     <main class="pm-main">

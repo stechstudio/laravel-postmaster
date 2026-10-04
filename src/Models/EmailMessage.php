@@ -22,6 +22,7 @@ use STS\Postmaster\Facades\Postmaster;
  * "postmaster.persistence.message_model" config key.
  *
  * @property string|null $provider
+ * @property string|null $mailer The Laravel mailer that sent it.
  * @property string|null $provider_message_id
  * @property string|null $to_address
  * @property string|null $recipient_role  'to' | 'cc' | 'bcc'

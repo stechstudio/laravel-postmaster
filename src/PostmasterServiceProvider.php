@@ -30,6 +30,12 @@ use STS\Postmaster\Providers\SendGrid\SignatureAuth as SendGridSignatureAuth;
 
 class PostmasterServiceProvider extends ServiceProvider
 {
+    /** When the daily prune runs. The configuration page shows it too. */
+    public const PRUNE_AT = '03:00';
+
+    /** When the daily suppression sync runs, an hour after pruning. */
+    public const SYNC_AT = '04:00';
+
     /**
      * Perform post-registration booting of services.
      */
@@ -217,14 +223,14 @@ class PostmasterServiceProvider extends ServiceProvider
                 // nothing.
                 $this->app->make(Schedule::class)
                     ->command('postmaster:prune')
-                    ->dailyAt('03:00');
+                    ->dailyAt(self::PRUNE_AT);
 
                 // One hour after pruning, mirror each configured provider's
                 // suppression list. The command skips providers whose SDK
                 // isn't installed or whose API key isn't configured.
                 $this->app->make(Schedule::class)
                     ->command('postmaster:sync')
-                    ->dailyAt('04:00');
+                    ->dailyAt(self::SYNC_AT);
             });
         }
     }

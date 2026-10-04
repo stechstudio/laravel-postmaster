@@ -1310,6 +1310,25 @@ environment**, so the dashboard is never unguarded in production by accident.
 - **Activity.** A filterable, paginated stream of every recorded event, drawn
   from the timeline (on by default with persistence).
 - **Addresses.** The suppression list.
+- **Configuration.** A read-only view of the current setup, for checking a
+  production app at a glance. It opens with anything that needs attention,
+  such as sandbox delivery being on or a webhook secret that's missing.
+  Then it lists each mailer in use with its provider and a status:
+  - **Working** when its key or login is set and a provider webhook confirmed
+    one of its sends in the last 30 days.
+  - **Unconfirmed**, **No webhooks back**, or **No longer configured** when
+    only one half holds.
+  - **Not set up** when its key is missing or its driver won't load.
+
+  SMTP mailers show their server, and Postmaster names the provider from the
+  host (or, failing that, from the webhooks that come back). Mailers from
+  Laravel's stock `config/mail.php` that nobody set up stay hidden. Below that
+  are cards for sending, webhooks, what's recorded, and how long it's kept,
+  each setting with the `.env` variable that controls it. Credentials are
+  never shown, only whether they're set.
+
+  Postmaster records the mailer behind each message for this, in a `mailer`
+  column added in a new migration. Run `php artisan migrate` after upgrading.
 
 Every datetime is stored UTC and displayed in the viewer's browser timezone
 by default. A small clock toggle in the header swaps between that and UTC;

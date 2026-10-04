@@ -35,6 +35,13 @@ class Setup extends AbstractProviderSetup
         return 'Subscribe an SNS topic to this URL';
     }
 
+    public function sendingKeySet(array $mailer): ?bool
+    {
+        // Without a key, the AWS SDK falls back to the server's role, which
+        // config can't show.
+        return $this->anySet($mailer['key'] ?? null, config('services.ses.key')) ? true : null;
+    }
+
     public function askWebhookAuth(): array
     {
         note("SES delivers events through SNS; the package verifies each message's signature against AWS's certs automatically. No operator-supplied credential is needed.");

@@ -55,6 +55,11 @@ class Setup extends AbstractProviderSetup
         ];
     }
 
+    public function sendingKeySet(array $mailer): ?bool
+    {
+        return $this->anySet($mailer['token'] ?? null, $mailer['key'] ?? null, config('services.postmark.token'), config('services.postmark.key'));
+    }
+
     public function webhookAuthConfigured(): bool
     {
         // Postmark authenticates webhooks with the shared token or basic-auth

@@ -94,7 +94,7 @@ class PersistenceTest extends TestCase
         $this->assertSame('Greetings', $record->subject);
         // Tests run through Laravel's `array` mailer (no real transport), so
         // the recorded row is captured rather than sent — see
-        // statusForCurrentTransport() on the listener.
+        // statusFor() on the listener.
         $this->assertSame(EmailEvent::STATUS_CAPTURED, $record->status);
         $this->assertNotEmpty($record->provider_message_id);
         $this->assertNotNull($record->sent_at);

@@ -32,6 +32,12 @@ class Setup extends AbstractProviderSetup
         return ['smtp.mailersend.net'];
     }
 
+    public function sendingKeySet(array $mailer): ?bool
+    {
+        // mailersend/laravel-driver merges the mailer over its own config.
+        return $this->anySet($mailer['api_key'] ?? null, config('mailersend-driver.api_key'));
+    }
+
     public function webhookAuthConfigured(): bool
     {
         return (bool) $this->providerConfig('signing_secret');

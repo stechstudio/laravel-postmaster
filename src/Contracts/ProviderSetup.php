@@ -56,6 +56,15 @@ interface ProviderSetup
     public function supportsSuppressionSync(): bool;
 
     /**
+     * Whether a mailer using this provider's transport has the key it sends
+     * with, looked up where the driver looks. Null when Postmaster can't
+     * tell, such as SES using the server's AWS role.
+     *
+     * @param array<string, mixed> $mailer The mailer's config block.
+     */
+    public function sendingKeySet(array $mailer): ?bool;
+
+    /**
      * Interactively collect this provider's suppression-sync env vars (and emit
      * any SDK / setup notes). Returns the [ENV => value] pairs to write.
      *

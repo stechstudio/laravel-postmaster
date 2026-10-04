@@ -4,7 +4,6 @@ namespace STS\Postmaster\Console\Concerns;
 
 use STS\Postmaster\Contracts\ProviderSetup;
 use STS\Postmaster\Postmaster;
-use Throwable;
 
 /**
  * Shared provider plumbing for the interactive console commands: resolve each
@@ -51,62 +50,15 @@ trait ResolvesProvider
         return $mailer ? config("mail.mailers.{$mailer}.transport") : null;
     }
 
-    /**
-     * Guess the provider from the mail config: a direct transport match, or the
-     * SMTP host when mail goes out over SMTP.
-     *
-     * @return array{0: string|null, 1: string}
-     */
-    protected function guessProvider(): array
-    {
-        $transport = $this->mailTransport();
-
-        if ($transport === null) {
-            return [null, ''];
-        }
-
-        foreach ($this->providerSetups() as $name => $setup) {
-            if (in_array($transport, $setup->transportNames(), true)) {
-                return [$name, "from the \"{$transport}\" mail transport"];
-            }
-        }
-
-        if ($transport === 'smtp') {
-            $host = (string) config('mail.mailers.'.config('mail.default').'.host');
-
-            foreach ($this->providerSetups() as $name => $setup) {
-                foreach ($setup->smtpHints() as $needle) {
-                    if ($host !== '' && str_contains($host, $needle)) {
-                        return [$name, "from the SMTP host \"{$host}\""];
-                    }
-                }
-            }
-        }
-
-        return [null, ''];
-    }
-
     /** Just the detected provider name, or null when it can't be determined. */
     protected function detectProvider(): ?string
     {
-        return $this->guessProvider()[0];
+        return app(Postmaster::class)->detectProvider()[0];
     }
 
-    /**
-     * The absolute webhook URL the provider should POST events to — the named
-     * route when it's registered, otherwise built from APP_URL and the
-     * configured webhook path.
-     */
     protected function webhookUrl(string $provider): string
     {
-        try {
-            return route('webhook.postmaster', ['provider' => $provider]);
-        } catch (Throwable $e) {
-            $base = rtrim((string) config('app.url'), '/');
-            $path = trim((string) config('postmaster.url', 'webhooks/postmaster'), '/');
-
-            return "{$base}/{$path}/{$provider}";
-        }
+        return app(Postmaster::class)->webhookUrl($provider);
     }
 
     /**
@@ -170,34 +122,8 @@ trait ResolvesProvider
         return null;
     }
 
-    /**
-     * Whether a URL's host is a local/private address a provider's servers
-     * could not POST a webhook to.
-     */
     protected function looksLocal(string $url): bool
     {
-        $host = parse_url($url, PHP_URL_HOST);
-
-        if (! is_string($host) || $host === '') {
-            return true;
-        }
-
-        $host = strtolower($host);
-
-        if (in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)) {
-            return true;
-        }
-
-        foreach (['.test', '.local', '.localhost', '.example', '.invalid'] as $tld) {
-            if (str_ends_with($host, $tld)) {
-                return true;
-            }
-        }
-
-        if (filter_var($host, FILTER_VALIDATE_IP)) {
-            return ! filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
-        }
-
-        return false;
+        return app(Postmaster::class)->isUnreachableUrl($url);
     }
 }

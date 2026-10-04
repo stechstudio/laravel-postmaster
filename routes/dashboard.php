@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use STS\Postmaster\Http\Controllers\Dashboard\ActivityController;
 use STS\Postmaster\Http\Controllers\Dashboard\AddressController;
 use STS\Postmaster\Http\Controllers\Dashboard\AssetController;
+use STS\Postmaster\Http\Controllers\Dashboard\ConfigurationController;
 use STS\Postmaster\Http\Controllers\Dashboard\MessageController;
 use STS\Postmaster\Http\Controllers\Dashboard\OverviewController;
 
@@ -35,3 +36,5 @@ Route::get('activity/feed', [ActivityController::class, 'feed'])->name('postmast
 
 Route::get('addresses', [AddressController::class, 'index'])->name('postmaster.addresses');
 Route::post('addresses/unsuppress', [AddressController::class, 'unsuppress'])->name('postmaster.addresses.unsuppress');
+
+Route::get('configuration', ConfigurationController::class)->name('postmaster.configuration');

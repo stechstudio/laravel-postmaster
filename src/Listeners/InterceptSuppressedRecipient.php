@@ -64,7 +64,8 @@ class InterceptSuppressedRecipient
         $this->recorder->record(
             $event->message,
             $this->syntheticMessageId('blocked'),
-            EmailEvent::STATUS_BLOCKED
+            EmailEvent::STATUS_BLOCKED,
+            $event->data['mailer'] ?? config('mail.default'),
         );
 
         // Cancel the send: the message is never handed to the transport.

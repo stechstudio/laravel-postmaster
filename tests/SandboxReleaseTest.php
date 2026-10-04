@@ -81,6 +81,19 @@ class SandboxReleaseTest extends TestCase
         $this->assertSame(EmailEvent::STATUS_CAPTURED, $fresh->status);
     }
 
+    public function testReleaseRecordsTheMailerThatSentIt()
+    {
+        config(['mail.mailers.bulk' => ['transport' => 'array']]);
+        Mail::mailer('bulk')->html('<p>Hello</p>', fn ($m) => $m->to('recipient@example.com')->subject('Greetings'));
+        $record = EmailMessage::sole();
+        $this->assertSame('bulk', $record->mailer);
+
+        // Release sends through the default mailer.
+        Postmaster::release($record);
+
+        $this->assertSame('array', $record->fresh()->mailer);
+    }
+
     public function testReleaseReconcilesEvenWhenTheMessageMetadataBridgeIsBroken()
     {
         // Reproduces the production failure: with a real provider transport,

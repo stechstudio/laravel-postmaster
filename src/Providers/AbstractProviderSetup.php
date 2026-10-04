@@ -44,6 +44,11 @@ abstract class AbstractProviderSetup implements ProviderSetup
         return true;
     }
 
+    public function sendingKeySet(array $mailer): ?bool
+    {
+        return null;
+    }
+
     public function askSuppressionSync(): array
     {
         return [];
@@ -82,6 +87,18 @@ abstract class AbstractProviderSetup implements ProviderSetup
      * The reminder that cached config keeps stale values after a .env edit —
      * the single most common reason a "fix" to webhook auth appears not to work.
      */
+    /** Whether any of these values is set, for a key with several possible homes. */
+    protected function anySet(mixed ...$values): bool
+    {
+        foreach ($values as $value) {
+            if ($value !== null && $value !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected function configClearReminder(): string
     {
         return 'After editing .env, run `php artisan config:clear` — cached config keeps the old values.';

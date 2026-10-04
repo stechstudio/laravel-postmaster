@@ -870,3 +870,94 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
     .pm-imgbar { flex-wrap: wrap; }
     .pm-pager { flex-wrap: wrap; gap: 10px; }
 }
+
+/* Configuration page. */
+.pm-config-intro { margin: 0; font-size: 13px; }
+
+/* Settings cards pair up side by side, so a group never sits alone in a row. */
+.pm-grid--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* These badges carry phrases ("Credential missing"), not one-word statuses. */
+.pm-settings .pm-badge, .pm-mailer-table .pm-badge { text-transform: none; }
+
+/* Summary tiles that hold a word rather than a count, with a caption under it. */
+.pm-stats--words { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pm-stats--words .pm-stat .pm-stat-value { font-size: 22px; margin-top: 2px; }
+.pm-stat-caption { color: var(--pm-muted-fg); font-size: 12.5px; margin-top: 2px; }
+.pm-tone--ok   { color: var(--pm-ok-fg); }
+.pm-tone--info { color: var(--pm-info-fg); }
+.pm-tone--warn { color: var(--pm-warn-fg); }
+.pm-tone--bad  { color: var(--pm-bad-fg); }
+.pm-tone--muted { color: var(--pm-muted-fg); }
+
+/* A setting that needs attention: a tone-coloured rule down the left edge,
+   so the list reads at a glance without five pastel boxes. */
+.pm-check {
+    padding: 12px 16px 12px 14px;
+    border-left: 3px solid var(--pm-muted-fg);
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-check:last-child { border-bottom: 0; border-bottom-left-radius: var(--pm-radius); }
+.pm-check--ok   { border-left-color: var(--pm-ok-fg); }
+.pm-check--info { border-left-color: var(--pm-info-fg); }
+.pm-check--warn { border-left-color: var(--pm-warn-fg); }
+.pm-check--bad  { border-left-color: var(--pm-bad-fg); }
+.pm-check-title { font-weight: 500; }
+.pm-check-body { color: var(--pm-muted-fg); font-size: 13px; margin-top: 2px; }
+
+/* Settings rows: label and .env name on the left, value and note on the right. */
+.pm-settings { margin: 0; }
+.pm-setting {
+    display: grid;
+    grid-template-columns: minmax(130px, 2fr) 3fr;
+    gap: 4px 16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--pm-border);
+}
+.pm-setting:last-child { border-bottom: 0; }
+.pm-setting dt { font-size: 13px; font-weight: 500; }
+.pm-setting dd { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.pm-setting-env {
+    display: block;
+    margin-top: 2px;
+    color: var(--pm-muted-fg);
+    font-size: 11px;
+    font-weight: 400;
+}
+.pm-setting-value { font-size: 13px; overflow-wrap: anywhere; }
+.pm-setting-note { color: var(--pm-muted-fg); font-size: 12.5px; font-weight: 400; }
+.pm-card-head .pm-setting-note { margin-top: 2px; }
+
+/* Mailers: the table sits flush in its card, so its edge cells take the
+   card's padding. Second lines under a value are quieter. */
+.pm-mailer-table th:first-child, .pm-mailer-table td:first-child { padding-left: 16px; }
+.pm-mailer-table th:last-child, .pm-mailer-table td:last-child { padding-right: 16px; }
+.pm-mailer-table td { vertical-align: top; }
+.pm-mailer-role { display: block; margin-top: 3px; color: var(--pm-muted-fg); font-size: 12px; }
+.pm-mailer-provider { font-weight: 500; }
+.pm-mailer-detail { display: block; margin-top: 3px; color: var(--pm-muted-fg); font-size: 12px; }
+.pm-mailer-why { max-width: 260px; white-space: normal; }
+
+@media (max-width: 768px) {
+    .pm-mailer-table th:first-child, .pm-mailer-table td:first-child { padding-left: 0; }
+    .pm-mailer-table td { white-space: normal; }
+    /* On a phone, a mailer is its name, provider, verdict, and send count. */
+    .pm-mailer-role { display: inline; margin-left: 6px; }
+    .pm-mailer-table .pm-cell-sub .pm-mailer-detail, .pm-mailer-why { display: none; }
+}
+
+@media (max-width: 1080px) {
+    .pm-stats--words { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pm-stats--words .pm-stat:nth-child(n) { padding: 0 20px; border-left: 1px solid var(--pm-line); border-top: 0; }
+    .pm-stats--words .pm-stat:nth-child(2n + 1) { padding-left: 0; border-left: 0; }
+    .pm-stats--words .pm-stat:nth-child(2n) { padding-right: 0; }
+    .pm-stats--words .pm-stat:nth-child(n + 3) { padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--pm-line); }
+}
+
+@media (max-width: 860px) {
+    .pm-grid--pair { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+    .pm-setting { grid-template-columns: 1fr; }
+}

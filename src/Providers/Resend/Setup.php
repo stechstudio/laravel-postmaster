@@ -35,6 +35,11 @@ class Setup extends AbstractProviderSetup
         return false;
     }
 
+    public function sendingKeySet(array $mailer): ?bool
+    {
+        return $this->anySet($mailer['key'] ?? null, config('services.resend.key'));
+    }
+
     public function webhookAuthConfigured(): bool
     {
         return (bool) $this->providerConfig('signing_secret');

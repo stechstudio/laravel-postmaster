@@ -45,6 +45,15 @@ class SandboxDeliveryTest extends TestCase
         $this->assertTrue(Mail::getSymfonyTransport()->messages()->isEmpty());
     }
 
+    public function testSandboxRecordsTheMailer()
+    {
+        config(['mail.mailers.bulk' => ['transport' => 'array']]);
+
+        Mail::mailer('bulk')->raw('Hello there', fn ($message) => $message->to('recipient@example.com'));
+
+        $this->assertSame('bulk', EmailMessage::sole()->mailer);
+    }
+
     public function testSandboxMessageIdIsSynthetic()
     {
         Mail::raw('Hello there', function ($message) {

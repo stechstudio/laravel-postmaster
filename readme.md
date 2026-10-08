@@ -441,7 +441,8 @@ POSTMASTER_PERSISTENCE=false
 ```
 
 This creates an `email_messages` table. Each row tracks a message's
-`status`, `bounce_type`, `sent_at`, and `last_event_at`. The model
+`status`, `bounce_type`, `sent_at`, and `last_event_at`, along with its
+subject, sender (`from_address`, `from_name`), and `reply_to` addresses. The model
 (`STS\Postmaster\Models\EmailMessage`) is swappable via the
 `postmaster.persistence.message_model` config key.
 
@@ -659,9 +660,10 @@ implying an action that can't actually do what it suggests.
 
 ### Storing message content
 
-By default a record holds only delivery metadata. Enable content storage and
-each record also keeps a full representation of the email: sender, recipients
-(to/cc/bcc), subject, HTML and text bodies, and attachment metadata. This is
+By default a record holds only delivery metadata, plus the subject, sender,
+and Reply-To. Enable content storage and each record also keeps a full
+representation of the email: recipients (to/cc/bcc), HTML and text bodies, and
+attachment metadata. This is
 captured from the message itself at send time, so it works the same for every
 provider.
 
@@ -926,7 +928,7 @@ Postmaster::resend($messageId);
 The new send goes only to the recipient on that row, in To. Other recipients of
 the original are not sent it again, so resend a Cc or Bcc row to reach that
 person alone. It carries over everything else we can reconstruct from the
-recorded row — sender, subject, html and text bodies, related / recipient /
+recorded row — sender, Reply-To, subject, html and text bodies, related / recipient /
 tenant context, tags — and gets a `resent` tag of its own. The
 new row's `resent_from_id` points back to the original so the chain is
 queryable:

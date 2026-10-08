@@ -259,8 +259,8 @@ class RecordOutboundMessage
 
     /**
      * The columns every per-recipient row shares: provider id, subject,
-     * status, sent_at, related model, tenant, tags, content (when storage
-     * is on). Address-specific columns (to_address, recipient_role,
+     * sender, Reply-To, status, sent_at, related model, tenant, tags, content
+     * (when storage is on). Address-specific columns (to_address, recipient_role,
      * recipient_*) are added per row by record().
      *
      * @param  array<string, mixed> $metadata
@@ -273,7 +273,7 @@ class RecordOutboundMessage
             'subject'             => $message->getSubject(),
             'status'              => $status,
             'sent_at'             => now(),
-        ];
+        ] + $this->sender($message);
 
         if (isset($metadata['related_type'], $metadata['related_id'])) {
             $attributes['related_type'] = $metadata['related_type'];
@@ -410,7 +410,26 @@ class RecordOutboundMessage
     }
 
     /**
-     * A full representation of the message — sender, recipients, and bodies.
+     * Who the email claims to be from and where a reply goes. Recorded with
+     * the subject rather than the content: these are addresses the sender
+     * chose, not the recipient's personal data, and support needs them to
+     * answer "where did my reply go?" long after the bodies are pruned.
+     *
+     * @return array{from_address: string|null, from_name: string|null, reply_to: array<int, array{address: string, name: string}>|null}
+     */
+    protected function sender(Email $message): array
+    {
+        $from = $message->getFrom()[0] ?? null;
+
+        return [
+            'from_address' => $from?->getAddress(),
+            'from_name'    => $from?->getName() ?: null,
+            'reply_to'     => $this->addresses($message->getReplyTo()) ?: null,
+        ];
+    }
+
+    /**
+     * A full representation of the message — recipients and bodies.
      * Attachments are recorded separately by AttachmentStore, on their own
      * table, because they belong to the submission rather than to any one
      * envelope recipient's row.
@@ -419,10 +438,7 @@ class RecordOutboundMessage
      */
     protected function content(Email $message): array
     {
-        $from = $message->getFrom();
-
         return [
-            'from_address' => $from ? $from[0]->getAddress() : null,
             'recipients'   => [
                 'to'  => $this->addresses($message->getTo()),
                 'cc'  => $this->addresses($message->getCc()),

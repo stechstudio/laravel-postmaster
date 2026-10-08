@@ -130,6 +130,33 @@ class DashboardTest extends TestCase
             ->assertSee('q3');
     }
 
+    public function testMessageDetailShowsTheSenderAndReplyTo()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create([
+            'provider_message_id' => 'm1',
+            'from_address'        => 'no-reply@acme.test',
+            'from_name'           => 'Acme',
+            'reply_to'            => [['address' => 'support@acme.test', 'name' => 'Acme Support']],
+        ]);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSeeInOrder(['From', 'Acme', '&lt;no-reply@acme.test&gt;'], false)
+            ->assertSeeInOrder(['Reply-To', 'Acme Support', '&lt;support@acme.test&gt;'], false);
+    }
+
+    public function testMessageDetailOmitsReplyToWhenThereIsNone()
+    {
+        Postmaster::auth(fn () => true);
+        $message = EmailMessage::create(['provider_message_id' => 'm1', 'from_address' => 'no-reply@acme.test']);
+
+        $this->get('/postmaster/messages/'.$message->getKey())
+            ->assertOk()
+            ->assertSee('no-reply@acme.test')
+            ->assertDontSee('Reply-To');
+    }
+
     public function testMessageSubjectIsEscapedOnTheDetailPage()
     {
         Postmaster::auth(fn () => true);
@@ -395,6 +422,8 @@ class DashboardTest extends TestCase
             'provider_message_id' => 'orig',
             'to_address'           => 'alice@example.com',
             'from_address'        => 'no-reply@acme.test',
+            'from_name'           => 'Acme',
+            'reply_to'            => [['address' => 'support@acme.test', 'name' => 'Acme Support']],
             'subject'             => 'Receipt',
             'html_body'           => '<p>Thanks!</p>',
             'tags'                => ['billing'],
@@ -404,7 +433,8 @@ class DashboardTest extends TestCase
         $mail->build();
 
         $this->assertTrue($mail->hasTo('alice@example.com'));
-        $this->assertTrue($mail->hasFrom('no-reply@acme.test'));
+        $this->assertTrue($mail->hasFrom('no-reply@acme.test', 'Acme'));
+        $this->assertTrue($mail->hasReplyTo('support@acme.test', 'Acme Support'));
         $this->assertSame('Receipt', $mail->subject);
         $this->assertTrue($mail->hasTag('billing'));
         $this->assertTrue($mail->hasTag('resent'));

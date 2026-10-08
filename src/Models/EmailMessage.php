@@ -31,6 +31,8 @@ use STS\Postmaster\Facades\Postmaster;
  * @property int|null $resent_from_id
  * @property string|null $subject
  * @property string|null $from_address
+ * @property string|null $from_name
+ * @property array<int, array{address: string, name: string}>|null $reply_to
  * @property array|null $recipients
  * @property string|null $html_body
  * @property string|null $text_body
@@ -69,6 +71,7 @@ class EmailMessage extends Model
 
     protected $casts = [
         'recipients'    => 'array',
+        'reply_to'      => 'array',
         'tags'          => 'array',
         'sent_at'       => 'datetime',
         'last_event_at' => 'datetime',

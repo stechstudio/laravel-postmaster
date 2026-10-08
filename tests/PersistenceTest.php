@@ -844,6 +844,8 @@ class PersistenceTest extends TestCase
         $record = EmailMessage::first();
 
         $this->assertSame('sender@example.com', $record->from_address);
+        $this->assertSame('Acme Billing', $record->from_name);
+        $this->assertSame([['address' => 'support@example.com', 'name' => 'Acme Support']], $record->reply_to);
         $this->assertSame('<p>Body</p>', $record->html_body);
         $this->assertSame('Plain body', $record->text_body);
         $this->assertSame(['to@example.com'], array_column($record->recipients['to'], 'address'));
@@ -860,9 +862,30 @@ class PersistenceTest extends TestCase
 
         $this->assertNull($record->html_body);
         $this->assertNull($record->text_body);
-        $this->assertNull($record->from_address);
         $this->assertNull($record->recipients);
         $this->assertCount(0, $record->attachments);
+    }
+
+    public function testSenderAndReplyToAreRecordedWithoutStoredContent()
+    {
+        Mail::to('to@example.com')->send(new FullMail);
+
+        $record = EmailMessage::first();
+
+        $this->assertSame('sender@example.com', $record->from_address);
+        $this->assertSame('Acme Billing', $record->from_name);
+        $this->assertSame([['address' => 'support@example.com', 'name' => 'Acme Support']], $record->reply_to);
+    }
+
+    public function testAMessageWithoutReplyToRecordsNull()
+    {
+        Mail::html('<p>Hi</p>', fn ($m) => $m->to('to@example.com')->from('sender@example.com')->subject('Hi'));
+
+        $record = EmailMessage::first();
+
+        $this->assertSame('sender@example.com', $record->from_address);
+        $this->assertNull($record->from_name);
+        $this->assertNull($record->reply_to);
     }
 
     public function testPruneContentCommandPurgesOldContentButKeepsTheRecord()
@@ -887,7 +910,8 @@ class PersistenceTest extends TestCase
 
         $old->refresh();
         $this->assertNull($old->html_body);
-        $this->assertNull($old->from_address);
+        // The sender is metadata, not content — it outlives the bodies.
+        $this->assertSame('sender@example.com', $old->from_address);
         $this->assertSame(EmailEvent::STATUS_SENT, $old->status);
 
         $this->assertSame('<p>recent</p>', $recent->refresh()->html_body);

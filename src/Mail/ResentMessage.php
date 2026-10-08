@@ -12,10 +12,10 @@ use Symfony\Component\Mime\Part\DataPart;
  * the dashboard's Resend action — typically to recover from a bounce after
  * the recipient has corrected their address.
  *
- * The bodies, recipients, and subject all come from the recorded row — a
- * resend therefore requires stored content. Attachments are reattached when
- * their bytes are still stored; ones that were never captured, or have since
- * been pruned or evicted, are simply left off.
+ * The bodies, sender, Reply-To, recipients, and subject all come from the
+ * recorded row — a resend therefore requires stored content. Attachments are
+ * reattached when their bytes are still stored; ones that were never
+ * captured, or have since been pruned or evicted, are simply left off.
  *
  * Business context (related model, recipient model, tenant, tags) carries
  * over so the resend lives under the same person / record in the dashboard
@@ -31,7 +31,11 @@ class ResentMessage extends Mailable
     public function build(): static
     {
         if ($this->record->from_address) {
-            $this->from($this->record->from_address);
+            $this->from($this->record->from_address, $this->record->from_name);
+        }
+
+        foreach ($this->record->reply_to ?? [] as $replyTo) {
+            $this->replyTo($replyTo['address'], $replyTo['name'] ?: null);
         }
 
         // A resend starts from one recipient's row, so it goes to that

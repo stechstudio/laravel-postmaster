@@ -8,7 +8,8 @@ class FullMail extends Mailable
 {
     public function build()
     {
-        return $this->from('sender@example.com')
+        return $this->from('sender@example.com', 'Acme Billing')
+            ->replyTo('support@example.com', 'Acme Support')
             ->subject('Full email')
             ->html('<p>Body</p>')
             ->withSymfonyMessage(fn ($message) => $message->text('Plain body'))

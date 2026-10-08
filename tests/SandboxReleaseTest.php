@@ -81,6 +81,21 @@ class SandboxReleaseTest extends TestCase
         $this->assertSame(EmailEvent::STATUS_CAPTURED, $fresh->status);
     }
 
+    public function testReleaseKeepsTheSenderAndReplyTo()
+    {
+        Mail::html('<p>Hello</p>', function ($m) {
+            $m->to('recipient@example.com')->subject('Greetings')
+                ->from('billing@acme.test', 'Acme Billing')
+                ->replyTo('support@acme.test', 'Acme Support');
+        });
+
+        Postmaster::release(EmailMessage::firstOrFail());
+
+        $sent = Mail::getSymfonyTransport()->messages()->first()->getOriginalMessage();
+        $this->assertSame('"Acme Billing" <billing@acme.test>', $sent->getFrom()[0]->toString());
+        $this->assertSame('"Acme Support" <support@acme.test>', $sent->getReplyTo()[0]->toString());
+    }
+
     public function testReleaseRecordsTheMailerThatSentIt()
     {
         config(['mail.mailers.bulk' => ['transport' => 'array']]);

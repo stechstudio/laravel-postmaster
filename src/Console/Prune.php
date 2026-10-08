@@ -99,14 +99,12 @@ class Prune extends Command
             ->where(function ($query) {
                 $query->whereNotNull('html_body')
                     ->orWhereNotNull('text_body')
-                    ->orWhereNotNull('from_address')
                     ->orWhereNotNull('recipients');
             });
 
         $count = $dryRun
             ? $query->count()
             : $query->update([
-                'from_address' => null,
                 'recipients'   => null,
                 'html_body'    => null,
                 'text_body'    => null,

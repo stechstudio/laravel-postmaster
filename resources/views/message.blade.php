@@ -84,7 +84,23 @@
                 <h1 class="pm-email-subject">{{ $message->subject ?: '(no subject)' }}</h1>
                 <dl class="pm-meta">
                     @if ($message->from_address)
-                        <dt>From</dt><dd>{{ $message->from_address }}</dd>
+                        <dt>From</dt>
+                        <dd>
+                            @if ($message->from_name)
+                                {{ $message->from_name }} <span class="pm-dim">&lt;{{ $message->from_address }}&gt;</span>
+                            @else
+                                {{ $message->from_address }}
+                            @endif
+                        </dd>
+                    @endif
+                    @if (! empty($message->reply_to))
+                        <dt>Reply-To</dt>
+                        <dd>
+                            @foreach ($message->reply_to as $replyTo)
+                                @if ($replyTo['name'])
+                                    {{ $replyTo['name'] }} <span class="pm-dim">&lt;{{ $replyTo['address'] }}&gt;</span>@else{{ $replyTo['address'] }}@endif{{ $loop->last ? '' : ',' }}
+                            @endforeach
+                        </dd>
                     @endif
                     <dt>{{ ucfirst($message->recipient_role ?? 'to') }}</dt>
                     <dd>{{ $message->to_address ?? '—' }}</dd>

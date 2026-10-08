@@ -12,10 +12,10 @@ use Symfony\Component\Mime\Part\DataPart;
  * content but never handed it to the transport, and an operator has now
  * chosen to let this specific one out.
  *
- * The bodies, recipients, subject, and tags all come from the recorded row,
- * so a release requires stored content. Attachments are reattached when their
- * bytes are still stored; ones never captured, pruned, or evicted are left
- * off.
+ * The bodies, sender, Reply-To, recipients, subject, and tags all come from
+ * the recorded row, so a release requires stored content. Attachments are
+ * reattached when their bytes are still stored; ones never captured, pruned,
+ * or evicted are left off.
  *
  * Unlike a resend, a release does not create a new record: it carries a
  * release marker (X-Postmaster-Release-Of) that tells InterceptSandboxMail
@@ -34,7 +34,11 @@ class ReleasedMessage extends Mailable
     public function build(): static
     {
         if ($this->record->from_address) {
-            $this->from($this->record->from_address);
+            $this->from($this->record->from_address, $this->record->from_name);
+        }
+
+        foreach ($this->record->reply_to ?? [] as $replyTo) {
+            $this->replyTo($replyTo['address'], $replyTo['name'] ?: null);
         }
 
         // Release marks every sibling row sent, so it sends the original

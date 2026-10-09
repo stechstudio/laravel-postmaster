@@ -598,10 +598,17 @@ address fail safely at the source, set:
 POSTMASTER_BLOCK_SUPPRESSED=true
 ```
 
-Anything addressed to a suppressed recipient is intercepted before it reaches
-the mail transport, recorded with status `blocked` (so the attempt is visible
-in the dashboard), and dropped. Bypass it per send by lifting the suppression
-or by skipping the check yourself. There's no per-message bypass flag.
+Suppressed recipients are removed from the message before it reaches the mail
+transport and recorded with status `blocked`, so the attempt is visible in the
+dashboard. Everyone else on the message still gets it. Only when every
+recipient is suppressed is the send cancelled outright. Bypass it per send by
+lifting the suppression or by skipping the check yourself. There's no
+per-message bypass flag.
+
+Without blocking, a recipient the sending provider holds on its own
+suppression list is recorded as `dropped`. Postmark, for one, accepts a
+multi-recipient send, silently skips the inactive address, and sends no
+webhook about it, so the row would otherwise read `sent` forever.
 
 #### Two-way sync with your provider
 
@@ -1270,6 +1277,11 @@ environment**, so the dashboard is never unguarded in production by accident.
   with something attached. Each message opens to its delivery timeline and
   stored content, rendered in a sandboxed, CSP-restricted frame. Click events
   show the URL the recipient clicked, inline on the timeline.
+- **Delivery problem.** A bounced, dropped, blocked, or complained-about
+  message opens with a card above the body: a one-line summary, the
+  receiving server's full response, its SMTP status (5.4.1), and the
+  provider's own reason. Earlier deferrals and bounces
+  show their response on the timeline.
 - **Attachments.** The message detail page lists what the email carried,
   between the envelope details and the body — where a mail client puts them,
   and where they can't be missed under a body that takes the scroll gesture

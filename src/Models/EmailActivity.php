@@ -5,6 +5,7 @@ namespace STS\Postmaster\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use STS\Postmaster\EmailEvent;
 
 /**
  * A single recorded entry in the email_activity table. Two shapes share the
@@ -49,6 +50,17 @@ class EmailActivity extends Model
     public const string STATUS_SUPPRESSED   = 'suppressed';
     public const string STATUS_UNSUPPRESSED = 'unsuppressed';
 
+    /** Events that mean the email did not reach the recipient. */
+    public const array PROBLEM_STATUSES = [
+        EmailEvent::STATUS_BOUNCED,
+        EmailEvent::STATUS_DROPPED,
+        EmailEvent::STATUS_COMPLAINED,
+        EmailEvent::STATUS_BLOCKED,
+    ];
+
+    /** An RFC 3463 enhanced status code, such as 5.4.1. */
+    protected const string SMTP_STATUS_PATTERN = '/\b[245]\.\d{1,3}\.\d{1,3}\b/';
+
     public const UPDATED_AT = null;
 
     protected $guarded = [];
@@ -84,6 +96,44 @@ class EmailActivity extends Model
     public function getConnectionName()
     {
         return config('postmaster.persistence.connection') ?: parent::getConnectionName();
+    }
+
+    public function isProblem(): bool
+    {
+        return in_array($this->status, self::PROBLEM_STATUSES, true);
+    }
+
+    /**
+     * The enhanced status code (5.4.1) from the server's response, falling
+     * back to the provider's code when that is one. Postmark's code is its
+     * own bounce type number, not an SMTP status, so it never matches.
+     */
+    public function smtpStatus(): ?string
+    {
+        foreach ([$this->response, $this->code] as $value) {
+            if ($value !== null && preg_match(self::SMTP_STATUS_PATTERN, $value, $match)) {
+                return $match[0];
+            }
+        }
+
+        return null;
+    }
+
+    /** What went wrong, in one plain sentence. */
+    public function summary(): ?string
+    {
+        return match ($this->status) {
+            EmailEvent::STATUS_BOUNCED => match ($this->bounce_type) {
+                EmailEvent::BOUNCE_HARD  => 'The receiving mail server permanently rejected this email.',
+                EmailEvent::BOUNCE_SOFT  => 'The receiving mail server temporarily rejected this email.',
+                EmailEvent::BOUNCE_BLOCK => 'The receiving mail server refused this email on reputation or policy grounds.',
+                default                  => 'This email bounced.',
+            },
+            EmailEvent::STATUS_DROPPED    => ($this->provider ?? 'The mail provider').' did not send this email.',
+            EmailEvent::STATUS_COMPLAINED => 'The recipient marked this email as spam.',
+            EmailEvent::STATUS_BLOCKED    => 'Postmaster did not send this email because the address is on the suppression list.',
+            default                       => null,
+        };
     }
 
     /**

@@ -184,6 +184,21 @@ class EmailAddress extends Model
     }
 
     /**
+     * The name this row records for $provider when that provider holds the
+     * address on its own suppression list; null otherwise. Matched
+     * case-insensitively: older syncs recorded config keys ("postmark"),
+     * webhooks record adapter names ("Postmark").
+     */
+    public function suppressedBy(string $provider): ?string
+    {
+        if (! $this->isSuppressed()) {
+            return null;
+        }
+
+        return collect($this->providers ?? [])->first(fn (string $name) => strcasecmp($name, $provider) === 0);
+    }
+
+    /**
      * Every activity entry attached to this address — events from a message
      * sent to it, plus any address-level entries (manual suppression,
      * unsuppression, sync add/clear) that target the address directly with

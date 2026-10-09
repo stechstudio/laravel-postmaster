@@ -740,6 +740,7 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
    timestamp off the card — a flex item won't shrink below its content
    otherwise. */
 .pm-timeline-body { flex: 1; min-width: 0; }
+.pm-timeline-response { margin-top: 4px; font-size: 12px; overflow-wrap: anywhere; }
 .pm-timeline-when { color: var(--pm-muted-fg); font-size: 12px; white-space: nowrap; }
 
 /* Pagination + empty states */
@@ -1014,3 +1015,15 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
 @media (max-width: 620px) {
     .pm-setting { grid-template-columns: 1fr; }
 }
+
+/* The delivery problem behind a failed message: a red rule down the left
+   edge, a summary a tech can paste into a reply, then the raw response. */
+.pm-problem { border-left: 3px solid var(--pm-bad-fg); }
+.pm-problem-summary { margin: 0 0 12px; line-height: 1.5; }
+.pm-problem-response { margin-bottom: 12px; overflow-wrap: anywhere; }
+.pm-problem-facts { display: flex; flex-wrap: wrap; gap: 10px 32px; margin: 0; }
+.pm-problem-facts dt { color: var(--pm-muted-fg); font-size: 12px; }
+.pm-problem-facts dd { margin: 2px 0 0; }
+/* The main column stacks the problem over the message; a grid item needs a
+   zero min-width or a long unbroken response widens the whole column. */
+.pm-detail-main { min-width: 0; }

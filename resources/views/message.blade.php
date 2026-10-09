@@ -31,6 +31,12 @@
 
         $recipients = $message->recipients ?: [];
 
+        // The event behind a failed message, so its full response sits at
+        // the top instead of buried in the timeline.
+        $problem = in_array($message->status, \STS\Postmaster\Models\EmailActivity::PROBLEM_STATUSES, true)
+            ? $activity->last(fn ($event) => $event->isProblem())
+            : null;
+
         // Warn on hover when a replay can't carry everything the original did.
         $missing = $message->missingAttachmentCount();
         $incomplete = $missing > 0
@@ -75,108 +81,134 @@
     </div>
 
     <div class="pm-detail-grid">
-        {{-- Header, attachments and body are one message, not three findings
-             about it — so they're bands inside a single surface rather than a
-             stack of separate cards, each drawing another edge across
-             something the reader is trying to take in as a whole. --}}
-        <div class="pm-card pm-message">
-            <div class="pm-message-head">
-                <h1 class="pm-email-subject">{{ $message->subject ?: '(no subject)' }}</h1>
-                <dl class="pm-meta">
-                    @if ($message->from_address)
-                        <dt>From</dt>
-                        <dd>
-                            @if ($message->from_name)
-                                {{ $message->from_name }} <span class="pm-dim">&lt;{{ $message->from_address }}&gt;</span>
-                            @else
-                                {{ $message->from_address }}
-                            @endif
-                        </dd>
+        <div class="pm-detail-main">
+            @if ($problem)
+                <div class="pm-card pm-problem" data-problem-status="{{ $problem->status }}">
+                    <h2 class="pm-section-title">Delivery problem</h2>
+                    <p class="pm-problem-summary">{{ $problem->summary() }}</p>
+                    @if ($problem->response)
+                        <div class="pm-pre pm-problem-response">{{ $problem->response }}</div>
                     @endif
-                    @if (! empty($message->reply_to))
-                        <dt>Reply-To</dt>
-                        <dd>
-                            @foreach ($message->reply_to as $replyTo)
-                                @if ($replyTo['name'])
-                                    {{ $replyTo['name'] }} <span class="pm-dim">&lt;{{ $replyTo['address'] }}&gt;</span>@else{{ $replyTo['address'] }}@endif{{ $loop->last ? '' : ',' }}
-                            @endforeach
-                        </dd>
-                    @endif
-                    <dt>{{ ucfirst($message->recipient_role ?? 'to') }}</dt>
-                    <dd>{{ $message->to_address ?? '—' }}</dd>
-                    @foreach (['cc' => 'Cc', 'bcc' => 'Bcc'] as $key => $label)
-                        @if (! empty($recipients[$key]))
-                            <dt>{{ $label }}</dt>
-                            <dd>{{ collect($recipients[$key])->pluck('address')->implode(', ') }}</dd>
+                    <dl class="pm-problem-facts">
+                        @if ($smtpStatus = $problem->smtpStatus())
+                            <div><dt>SMTP status</dt><dd class="pm-mono">{{ $smtpStatus }}</dd></div>
                         @endif
-                    @endforeach
-                    <dt>Date</dt><dd>@include('postmaster::partials.datetime', ['when' => $message->sent_at, 'style' => 'long'])</dd>
-                </dl>
-            </div>
+                        @if ($problem->code !== null && $problem->code !== $smtpStatus)
+                            <div><dt>Provider code</dt><dd class="pm-mono">{{ $problem->code }}</dd></div>
+                        @endif
+                        @if ($problem->reason)
+                            <div><dt>Provider reason</dt><dd>{{ $problem->reason }}</dd></div>
+                        @endif
+                        <div><dt>Reported by</dt><dd>{{ $problem->provider ?? 'Postmaster' }}</dd></div>
+                        <div><dt>When</dt><dd>@include('postmaster::partials.datetime', ['when' => $problem->occurred_at])</dd></div>
+                    </dl>
+                </div>
+            @endif
 
-            {{-- Above the body, not below it. What went out attached is a fact
-                 about the message — the same class of thing as From and Date —
-                 and this is an audit view, not an inbox: nobody opens it to
-                 read the email. Gmail can afford to put attachments under the
-                 body because the body flows in the page and you scroll past it
-                 to get there; ours is a fixed-height iframe that takes the
-                 scroll gesture first, so down there they'd go unnoticed.
-
-                 Real attachments only. Embedded images belong to the body, not
-                 to this list — nobody sees them paperclipped on. --}}
-            @php $files = $message->fileAttachments(); @endphp
-
-            @if ($files->isNotEmpty())
-                <div class="pm-attachments">
-                    <div class="pm-att-head">Attachments <span class="pm-dim">· {{ $message->attachmentSummary() }}</span></div>
-                    <div class="pm-att-chips">
-                        @foreach ($files as $attachment)
-                            @include('postmaster::partials.attachment', ['message' => $message, 'attachment' => $attachment])
+            {{-- Header, attachments and body are one message, not three findings
+                 about it — so they're bands inside a single surface rather than a
+                 stack of separate cards, each drawing another edge across
+                 something the reader is trying to take in as a whole. --}}
+            <div class="pm-card pm-message">
+                <div class="pm-message-head">
+                    <h1 class="pm-email-subject">{{ $message->subject ?: '(no subject)' }}</h1>
+                    <dl class="pm-meta">
+                        @if ($message->from_address)
+                            <dt>From</dt>
+                            <dd>
+                                @if ($message->from_name)
+                                    {{ $message->from_name }} <span class="pm-dim">&lt;{{ $message->from_address }}&gt;</span>
+                                @else
+                                    {{ $message->from_address }}
+                                @endif
+                            </dd>
+                        @endif
+                        @if (! empty($message->reply_to))
+                            <dt>Reply-To</dt>
+                            <dd>
+                                @foreach ($message->reply_to as $replyTo)
+                                    @if ($replyTo['name'])
+                                        {{ $replyTo['name'] }} <span class="pm-dim">&lt;{{ $replyTo['address'] }}&gt;</span>@else{{ $replyTo['address'] }}@endif{{ $loop->last ? '' : ',' }}
+                                @endforeach
+                            </dd>
+                        @endif
+                        <dt>{{ ucfirst($message->recipient_role ?? 'to') }}</dt>
+                        <dd>{{ $message->to_address ?? '—' }}</dd>
+                        @foreach (['cc' => 'Cc', 'bcc' => 'Bcc'] as $key => $label)
+                            @if (! empty($recipients[$key]))
+                                <dt>{{ $label }}</dt>
+                                <dd>{{ collect($recipients[$key])->pluck('address')->implode(', ') }}</dd>
+                            @endif
                         @endforeach
-                    </div>
+                        <dt>Date</dt><dd>@include('postmaster::partials.datetime', ['when' => $message->sent_at, 'style' => 'long'])</dd>
+                    </dl>
                 </div>
-            @endif
 
-            @if ($message->html_body)
-                @if ($hasRemoteImages && ! $showImages)
-                    <div class="pm-imgbar">
-                        <span>Remote images aren't shown in this preview.</span>
-                        <a href="{{ route('postmaster.messages.show', ['message' => $message, 'images' => 1]) }}"
-                           class="pm-btn pm-btn--sm">Show images</a>
+                {{-- Above the body, not below it. What went out attached is a fact
+                     about the message — the same class of thing as From and Date —
+                     and this is an audit view, not an inbox: nobody opens it to
+                     read the email. Gmail can afford to put attachments under the
+                     body because the body flows in the page and you scroll past it
+                     to get there; ours is a fixed-height iframe that takes the
+                     scroll gesture first, so down there they'd go unnoticed.
+
+                     Real attachments only. Embedded images belong to the body, not
+                     to this list — nobody sees them paperclipped on. --}}
+                @php $files = $message->fileAttachments(); @endphp
+
+                @if ($files->isNotEmpty())
+                    <div class="pm-attachments">
+                        <div class="pm-att-head">Attachments <span class="pm-dim">· {{ $message->attachmentSummary() }}</span></div>
+                        <div class="pm-att-chips">
+                            @foreach ($files as $attachment)
+                                @include('postmaster::partials.attachment', ['message' => $message, 'attachment' => $attachment])
+                            @endforeach
+                        </div>
                     </div>
                 @endif
-                {{-- Embedded images are substituted in as data URIs by
-                     previewBody(). When one can't be — never captured, or
-                     since pruned or evicted — say so, rather than leaving a
-                     broken icon that reads as a broken email. --}}
-                @if ($message->hasUnresolvedInlineImages())
-                    <div class="pm-imgbar">
-                        <span>Some embedded images are no longer stored, and can't be shown.</span>
+
+                @if ($message->html_body)
+                    @if ($hasRemoteImages && ! $showImages)
+                        <div class="pm-imgbar">
+                            <span>Remote images aren't shown in this preview.</span>
+                            <a href="{{ route('postmaster.messages.show', ['message' => $message, 'images' => 1]) }}"
+                               class="pm-btn pm-btn--sm">Show images</a>
+                        </div>
+                    @endif
+                    {{-- Embedded images are substituted in as data URIs by
+                         previewBody(). When one can't be — never captured, or
+                         since pruned or evicted — say so, rather than leaving a
+                         broken icon that reads as a broken email. --}}
+                    @if ($message->hasUnresolvedInlineImages())
+                        <div class="pm-imgbar">
+                            <span>Some embedded images are no longer stored, and can't be shown.</span>
+                        </div>
+                    @endif
+                    <div class="pm-message-body">
+                        {{-- allow-same-origin lets the page opposite measure this
+                             document so the frame can grow to its content. It is
+                             safe only because allow-scripts is absent: nothing can
+                             execute in here, so there is no code to make use of the
+                             shared origin. Never add allow-scripts to this
+                             attribute — the two together let framed content strip
+                             its own sandbox and take this page's origin with it. --}}
+                        <iframe class="pm-frame" sandbox="allow-same-origin"
+                                srcdoc="{{ $previewCsp.$previewReset.$message->previewBody() }}" title="Message body"></iframe>
+                    </div>
+                @elseif ($message->text_body)
+                    <div class="pm-message-body">
+                        <div class="pm-pre">{{ $message->text_body }}</div>
+                    </div>
+                @else
+                    <div class="pm-message-body">
+                        <div class="pm-empty">
+                            Message content was not stored.<br>
+                            Enable <span class="pm-mono">POSTMASTER_STORE_CONTENT</span> to capture it.
+                        </div>
                     </div>
                 @endif
-                <div class="pm-message-body">
-                    {{-- allow-same-origin lets the page opposite measure this
-                         document so the frame can grow to its content. It is
-                         safe only because allow-scripts is absent: nothing can
-                         execute in here, so there is no code to make use of the
-                         shared origin. Never add allow-scripts to this
-                         attribute — the two together let framed content strip
-                         its own sandbox and take this page's origin with it. --}}
-                    <iframe class="pm-frame" sandbox="allow-same-origin"
-                            srcdoc="{{ $previewCsp.$previewReset.$message->previewBody() }}" title="Message body"></iframe>
-                </div>
-            @elseif ($message->text_body)
-                <div class="pm-message-body">
-                    <div class="pm-pre">{{ $message->text_body }}</div>
-                </div>
-            @else
-                <div class="pm-message-body">
-                    <div class="pm-empty">
-                        Message content was not stored.<br>
-                        Enable <span class="pm-mono">POSTMASTER_STORE_CONTENT</span> to capture it.
-                    </div>
-                </div>
-            @endif
+
+            </div>
 
         </div>
 
@@ -256,6 +288,10 @@
                                 @include('postmaster::partials.badge', ['status' => $event->status])
                                 @if ($event->reason)
                                     <span class="pm-dim">— {{ $event->reason }}</span>
+                                @endif
+                                {{-- The card above already shows the latest problem in full. --}}
+                                @if ($event->response && $event->isNot($problem) && ($event->isProblem() || $event->status === \STS\Postmaster\EmailEvent::STATUS_DEFERRED))
+                                    <div class="pm-timeline-response pm-mono pm-dim">{{ $event->response }}</div>
                                 @endif
                                 @if ($event->url)
                                     <div class="pm-timeline-url pm-dim pm-truncate">

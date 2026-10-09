@@ -1019,8 +1019,6 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
 /* The delivery problem behind a failed message: a red rule down the left
    edge, a summary a tech can paste into a reply, then the raw response. */
 .pm-problem { border-left: 3px solid var(--pm-bad-fg); }
-.pm-problem-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
-.pm-problem-head .pm-section-title { margin: 0; }
 .pm-problem-summary { margin: 0 0 12px; line-height: 1.5; }
 .pm-problem-response { margin-bottom: 12px; overflow-wrap: anywhere; }
 .pm-problem-facts { display: flex; flex-wrap: wrap; gap: 10px 32px; margin: 0; }

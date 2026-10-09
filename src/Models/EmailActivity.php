@@ -119,65 +119,21 @@ class EmailActivity extends Model
         return null;
     }
 
-    /**
-     * The words of the server's response, without the "smtp;" prefix, the
-     * leading status codes, or the trailing bracketed server trace.
-     */
-    public function responseText(): ?string
+    /** What went wrong, in one plain sentence. */
+    public function summary(): ?string
     {
-        if ($this->response === null) {
-            return null;
-        }
-
-        $text = preg_replace('/^\s*smtp\s*;\s*/i', '', $this->response);
-        $text = preg_replace('/^\d{3}[\s-]+(?:[245]\.\d{1,3}\.\d{1,3}\s+)?/', '', $text);
-        $text = trim(preg_replace('/\s*\[[^\]]*\]\s*$/', '', $text));
-
-        return $text === '' ? null : $text;
-    }
-
-    /**
-     * One plain paragraph a support tech can paste into a reply: what
-     * happened, when, and what the receiving server or provider said.
-     */
-    public function summary(string $address): ?string
-    {
-        if (($headline = $this->headline($address)) === null) {
-            return null;
-        }
-
-        if ($text = $this->responseText()) {
-            $status = $this->smtpStatus();
-
-            return $headline.' The server said: "'.$text.'"'.($status ? " (SMTP status {$status})." : '');
-        }
-
-        return $this->reason ? "{$headline} Reason: {$this->reason}." : $headline;
-    }
-
-    /** What happened and when, in one sentence. */
-    public function headline(string $address): ?string
-    {
-        $what = match ($this->status) {
+        return match ($this->status) {
             EmailEvent::STATUS_BOUNCED => match ($this->bounce_type) {
-                EmailEvent::BOUNCE_HARD  => "the receiving mail server permanently rejected the email to {$address}",
-                EmailEvent::BOUNCE_SOFT  => "the receiving mail server temporarily rejected the email to {$address}",
-                EmailEvent::BOUNCE_BLOCK => "the receiving mail server refused the email to {$address} on reputation or policy grounds",
-                default                  => "the email to {$address} bounced",
+                EmailEvent::BOUNCE_HARD  => 'The receiving mail server permanently rejected this email.',
+                EmailEvent::BOUNCE_SOFT  => 'The receiving mail server temporarily rejected this email.',
+                EmailEvent::BOUNCE_BLOCK => 'The receiving mail server refused this email on reputation or policy grounds.',
+                default                  => 'This email bounced.',
             },
-            EmailEvent::STATUS_DROPPED    => ($this->provider ?? 'the mail provider')." did not send the email to {$address}",
-            EmailEvent::STATUS_COMPLAINED => "the recipient {$address} marked the email as spam",
-            EmailEvent::STATUS_BLOCKED    => "Postmaster did not send the email to {$address} because the address is on the suppression list",
+            EmailEvent::STATUS_DROPPED    => ($this->provider ?? 'The mail provider').' did not send this email.',
+            EmailEvent::STATUS_COMPLAINED => 'The recipient marked this email as spam.',
+            EmailEvent::STATUS_BLOCKED    => 'Postmaster did not send this email because the address is on the suppression list.',
             default                       => null,
         };
-
-        if ($what === null) {
-            return null;
-        }
-
-        return $this->occurred_at
-            ? 'On '.$this->occurred_at->utc()->format('M j, Y \a\t H:i').' UTC, '.$what.'.'
-            : ucfirst($what).'.';
     }
 
     /**

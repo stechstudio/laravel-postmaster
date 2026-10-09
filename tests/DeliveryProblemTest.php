@@ -48,45 +48,18 @@ class DeliveryProblemTest extends TestCase
         $this->assertSame('5.1.1', new EmailActivity(['code' => '5.1.1'])->smtpStatus());
     }
 
-    public function testTheResponseTextDropsTheCodesAndServerTrace(): void
-    {
-        $this->assertSame(
-            'Recipient address rejected: Access denied. For more information see https://aka.ms/EXOSmtpErrors',
-            $this->bounce()->responseText(),
-        );
-        $this->assertSame('mailbox does not exist', new EmailActivity(['response' => 'smtp;550 5.1.1 mailbox does not exist'])->responseText());
-    }
-
-    public function testTheSummaryQuotesTheServer(): void
-    {
-        $this->assertSame(
-            'On Oct 8, 2026 at 20:36 UTC, the receiving mail server permanently rejected the email to jo@example.com. '
-            .'The server said: "Recipient address rejected: Access denied. For more information see https://aka.ms/EXOSmtpErrors" (SMTP status 5.4.1).',
-            $this->bounce()->summary('jo@example.com'),
-        );
-        $this->assertSame(
-            'On Oct 8, 2026 at 20:36 UTC, the receiving mail server permanently rejected the email to jo@example.com.',
-            $this->bounce()->headline('jo@example.com'),
-        );
-    }
-
     public function testEachProblemStatusHasASummary(): void
     {
-        $summary = fn (array $attributes) => new EmailActivity($attributes)->summary('jo@example.com');
+        $summary = fn (array $attributes) => new EmailActivity($attributes)->summary();
 
+        $this->assertSame('The receiving mail server permanently rejected this email.', $this->bounce()->summary());
+        $this->assertSame('The receiving mail server temporarily rejected this email.', $summary(['status' => EmailEvent::STATUS_BOUNCED, 'bounce_type' => EmailEvent::BOUNCE_SOFT]));
+        $this->assertSame('Postmark did not send this email.', $summary(['status' => EmailEvent::STATUS_DROPPED, 'provider' => 'Postmark']));
+        $this->assertSame('The recipient marked this email as spam.', $summary(['status' => EmailEvent::STATUS_COMPLAINED]));
         $this->assertSame(
-            'Postmark did not send the email to jo@example.com. Reason: On the Postmark suppression list.',
-            $summary(['status' => EmailEvent::STATUS_DROPPED, 'provider' => 'Postmark', 'reason' => 'On the Postmark suppression list']),
-        );
-        $this->assertSame(
-            'The recipient jo@example.com marked the email as spam.',
-            $summary(['status' => EmailEvent::STATUS_COMPLAINED]),
-        );
-        $this->assertSame(
-            'Postmaster did not send the email to jo@example.com because the address is on the suppression list.',
+            'Postmaster did not send this email because the address is on the suppression list.',
             $summary(['status' => EmailEvent::STATUS_BLOCKED]),
         );
-        $this->assertStringContainsString('temporarily rejected', $summary(['status' => EmailEvent::STATUS_BOUNCED, 'bounce_type' => EmailEvent::BOUNCE_SOFT]));
         $this->assertNull($summary(['status' => EmailEvent::STATUS_DELIVERED]));
     }
 
@@ -100,7 +73,7 @@ class DeliveryProblemTest extends TestCase
         $this->get('/postmaster/messages/'.$message->getKey())
             ->assertOk()
             ->assertSee('data-problem-status="bounced"', false)
-            ->assertSee('the receiving mail server permanently rejected the email to jo@example.com')
+            ->assertSee('The receiving mail server permanently rejected this email.')
             ->assertSee('08DF254F56560914')
             ->assertSee('5.4.1')
             ->assertSee('HardBounce');

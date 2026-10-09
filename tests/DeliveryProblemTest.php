@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use STS\Postmaster\EmailEvent;
 use STS\Postmaster\Facades\Postmaster;
 use STS\Postmaster\Models\EmailActivity;
+use STS\Postmaster\Models\EmailAddress;
 use STS\Postmaster\Models\EmailMessage;
 
 class DeliveryProblemTest extends TestCase
@@ -89,6 +90,84 @@ class DeliveryProblemTest extends TestCase
         $this->get('/postmaster/messages/'.$message->getKey())
             ->assertSee('451 4.7.1 Try again later')
             ->assertSee('08DF254F56560914');
+    }
+
+    /**
+     * A message to $address with one activity entry, as the address ledger
+     * would hold it.
+     *
+     * @param array<string, mixed> $event
+     */
+    protected function sendWith(EmailAddress $address, string $status, array $event): EmailActivity
+    {
+        $message = EmailMessage::create(['provider_message_id' => uniqid(), 'to_address' => $address->address, 'status' => $status]);
+
+        return $message->activity()->create($event + ['status' => $status, 'email_address_id' => $address->getKey()]);
+    }
+
+    protected function suppressionDrop(EmailAddress $address, string $at = '2026-10-08 20:42:59'): EmailActivity
+    {
+        return $this->sendWith($address, EmailEvent::STATUS_DROPPED, [
+            'provider' => 'Postmark', 'reason' => 'On the Postmark suppression list', 'occurred_at' => $at,
+        ]);
+    }
+
+    public function testADropTracesBackToTheBounceThatSuppressedTheAddress(): void
+    {
+        $address = EmailAddress::create(['address' => 'jo@example.com']);
+        $bounce = $this->sendWith($address, EmailEvent::STATUS_BOUNCED, $this->bounce()->getAttributes());
+
+        $this->assertTrue($this->suppressionDrop($address)->suppressionCause()->is($bounce));
+    }
+
+    public function testAComplaintOrABlockedSendTracesBackToo(): void
+    {
+        $address = EmailAddress::create(['address' => 'jo@example.com']);
+        $complaint = $this->sendWith($address, EmailEvent::STATUS_COMPLAINED, ['occurred_at' => '2026-10-01 09:00:00']);
+        $blocked = $this->sendWith($address, EmailEvent::STATUS_BLOCKED, ['occurred_at' => '2026-10-02 09:00:00']);
+
+        $this->assertTrue($blocked->suppressionCause()->is($complaint));
+    }
+
+    public function testOnlyAnEarlierPermanentFailureSinceTheLastUnsuppressCounts(): void
+    {
+        $address = EmailAddress::create(['address' => 'jo@example.com']);
+        $other = EmailAddress::create(['address' => 'someone@example.com']);
+        $this->sendWith($address, EmailEvent::STATUS_BOUNCED, ['bounce_type' => EmailEvent::BOUNCE_HARD, 'occurred_at' => '2026-09-01 09:00:00']);
+        $address->logActivity(['status' => EmailActivity::STATUS_UNSUPPRESSED, 'occurred_at' => '2026-09-02 09:00:00']);
+        $this->sendWith($address, EmailEvent::STATUS_BOUNCED, ['bounce_type' => EmailEvent::BOUNCE_SOFT, 'occurred_at' => '2026-10-07 09:00:00']);
+        $this->sendWith($other, EmailEvent::STATUS_BOUNCED, ['bounce_type' => EmailEvent::BOUNCE_HARD, 'occurred_at' => '2026-10-08 09:00:00']);
+        $drop = $this->suppressionDrop($address);
+        $this->sendWith($address, EmailEvent::STATUS_BOUNCED, ['bounce_type' => EmailEvent::BOUNCE_HARD, 'occurred_at' => '2026-10-09 09:00:00']);
+
+        $this->assertNull($drop->suppressionCause());
+    }
+
+    public function testOnlyADropOrABlockedSendHasASuppressionCause(): void
+    {
+        $address = EmailAddress::create(['address' => 'jo@example.com']);
+        $this->sendWith($address, EmailEvent::STATUS_BOUNCED, $this->bounce()->getAttributes());
+        $later = $this->sendWith($address, EmailEvent::STATUS_BOUNCED, ['bounce_type' => EmailEvent::BOUNCE_HARD, 'occurred_at' => '2026-10-09 09:00:00']);
+
+        $this->assertNull($later->suppressionCause());
+        $this->assertNull(new EmailActivity(['status' => EmailEvent::STATUS_DROPPED])->suppressionCause());
+    }
+
+    public function testTheMessagePageShowsTheBounceBehindADrop(): void
+    {
+        Postmaster::auth(fn () => true);
+        $address = EmailAddress::create(['address' => 'jo@example.com']);
+        $bounce = $this->sendWith($address, EmailEvent::STATUS_BOUNCED, $this->bounce()->getAttributes());
+        $drop = $this->suppressionDrop($address);
+
+        $this->get('/postmaster/messages/'.$drop->email_message_id)
+            ->assertOk()
+            ->assertSee('data-problem-status="dropped"', false)
+            ->assertSee('data-problem-cause="bounced"', false)
+            ->assertSee('An earlier email to this address bounced on')
+            ->assertSee('/postmaster/messages/'.$bounce->email_message_id, false)
+            ->assertSee('08DF254F56560914')
+            ->assertSee('5.4.1');
     }
 
     public function testADeliveredMessageHasNoProblemCard(): void

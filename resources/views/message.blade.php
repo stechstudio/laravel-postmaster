@@ -37,6 +37,12 @@
             ? $activity->last(fn ($event) => $event->isProblem())
             : null;
 
+        // A drop only says the address was suppressed. The bounce or
+        // complaint that suppressed it says why, so its response is the one
+        // worth showing.
+        $cause = $problem?->suppressionCause();
+        $detail = $cause ?? $problem;
+
         // Warn on hover when a replay can't carry everything the original did.
         $missing = $message->missingAttachmentCount();
         $incomplete = $missing > 0
@@ -86,18 +92,31 @@
                 <div class="pm-card pm-problem" data-problem-status="{{ $problem->status }}">
                     <h2 class="pm-section-title">Delivery problem</h2>
                     <p class="pm-problem-summary">{{ $problem->summary() }}</p>
-                    @if ($problem->response)
-                        <div class="pm-pre pm-problem-response">{{ $problem->response }}</div>
+                    @if ($cause)
+                        <p class="pm-problem-summary" data-problem-cause="{{ $cause->status }}">
+                            {{ $cause->status === \STS\Postmaster\EmailEvent::STATUS_COMPLAINED
+                                ? 'The recipient marked an earlier email as spam on'
+                                : 'An earlier email to this address bounced on' }}
+                            {{-- Inline, not the datetime partial: its trailing newline would set a space before the comma. --}}
+                            <time class="pm-when" datetime="{{ $cause->occurred_at->toIso8601String() }}" data-style="long">{{ $cause->occurred_at->format('M j, Y g:ia') }}</time>,
+                            which put the address on the suppression list.
+                            @if ($cause->email_message_id)
+                                <a href="{{ route('postmaster.messages.show', $cause->email_message_id) }}">View that email</a>
+                            @endif
+                        </p>
+                    @endif
+                    @if ($detail->response)
+                        <div class="pm-pre pm-problem-response">{{ $detail->response }}</div>
                     @endif
                     <dl class="pm-problem-facts">
-                        @if ($smtpStatus = $problem->smtpStatus())
+                        @if ($smtpStatus = $detail->smtpStatus())
                             <div><dt>SMTP status</dt><dd class="pm-mono">{{ $smtpStatus }}</dd></div>
                         @endif
-                        @if ($problem->code !== null && $problem->code !== $smtpStatus)
-                            <div><dt>Provider code</dt><dd class="pm-mono">{{ $problem->code }}</dd></div>
+                        @if ($detail->code !== null && $detail->code !== $smtpStatus)
+                            <div><dt>Provider code</dt><dd class="pm-mono">{{ $detail->code }}</dd></div>
                         @endif
-                        @if ($problem->reason)
-                            <div><dt>Provider reason</dt><dd>{{ $problem->reason }}</dd></div>
+                        @if ($detail->reason)
+                            <div><dt>Provider reason</dt><dd>{{ $detail->reason }}</dd></div>
                         @endif
                         <div><dt>Reported by</dt><dd>{{ $problem->provider ?? 'Postmaster' }}</dd></div>
                         <div><dt>When</dt><dd>@include('postmaster::partials.datetime', ['when' => $problem->occurred_at])</dd></div>

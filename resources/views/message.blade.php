@@ -83,14 +83,15 @@
     <div class="pm-detail-grid">
         <div class="pm-detail-main">
             @if ($problem)
-                <div class="pm-card pm-problem" data-problem-status="{{ $problem->status }}" x-data="{ copied: false }">
+                <div class="pm-card pm-problem" data-problem-status="{{ $problem->status }}"
+                     x-data="{ copied: false, summary: @js($problem->summary($message->to_address ?? 'the recipient')) }">
                     <div class="pm-problem-head">
                         <h2 class="pm-section-title">Delivery problem</h2>
                         <button type="button" class="pm-btn pm-btn--ghost pm-btn--sm"
-                                @click="navigator.clipboard.writeText($refs.summary.textContent.trim()).then(() => { copied = true; setTimeout(() => copied = false, 1500) })"
+                                @click="navigator.clipboard.writeText(summary).then(() => { copied = true; setTimeout(() => copied = false, 1500) })"
                                 x-text="copied ? 'Copied' : 'Copy summary'">Copy summary</button>
                     </div>
-                    <p class="pm-problem-summary" x-ref="summary">{{ $problem->summary($message->to_address ?? 'the recipient') }}</p>
+                    <p class="pm-problem-summary">{{ $problem->headline($message->to_address ?? 'the recipient') }}</p>
                     @if ($problem->response)
                         <div class="pm-pre pm-problem-response">{{ $problem->response }}</div>
                     @endif

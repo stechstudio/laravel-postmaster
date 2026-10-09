@@ -142,6 +142,22 @@ class EmailActivity extends Model
      */
     public function summary(string $address): ?string
     {
+        if (($headline = $this->headline($address)) === null) {
+            return null;
+        }
+
+        if ($text = $this->responseText()) {
+            $status = $this->smtpStatus();
+
+            return $headline.' The server said: "'.$text.'"'.($status ? " (SMTP status {$status})." : '');
+        }
+
+        return $this->reason ? "{$headline} Reason: {$this->reason}." : $headline;
+    }
+
+    /** What happened and when, in one sentence. */
+    public function headline(string $address): ?string
+    {
         $what = match ($this->status) {
             EmailEvent::STATUS_BOUNCED => match ($this->bounce_type) {
                 EmailEvent::BOUNCE_HARD  => "the receiving mail server permanently rejected the email to {$address}",
@@ -159,18 +175,9 @@ class EmailActivity extends Model
             return null;
         }
 
-        $sentences = [$this->occurred_at
+        return $this->occurred_at
             ? 'On '.$this->occurred_at->utc()->format('M j, Y \a\t H:i').' UTC, '.$what.'.'
-            : ucfirst($what).'.'];
-
-        if ($text = $this->responseText()) {
-            $status = $this->smtpStatus();
-            $sentences[] = 'The server said: "'.$text.'"'.($status ? " (SMTP status {$status})." : '');
-        } elseif ($this->reason) {
-            $sentences[] = "Reason: {$this->reason}.";
-        }
-
-        return implode(' ', $sentences);
+            : ucfirst($what).'.';
     }
 
     /**

@@ -64,6 +64,10 @@ class DeliveryProblemTest extends TestCase
             .'The server said: "Recipient address rejected: Access denied. For more information see https://aka.ms/EXOSmtpErrors" (SMTP status 5.4.1).',
             $this->bounce()->summary('jo@example.com'),
         );
+        $this->assertSame(
+            'On Oct 8, 2026 at 20:36 UTC, the receiving mail server permanently rejected the email to jo@example.com.',
+            $this->bounce()->headline('jo@example.com'),
+        );
     }
 
     public function testEachProblemStatusHasASummary(): void

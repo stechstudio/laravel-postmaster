@@ -111,6 +111,10 @@ class DatabaseSeeder extends Seeder
                         'provider'         => $row->provider,
                         'status'           => $eventStatus,
                         'bounce_type'      => $eventStatus === EmailEvent::STATUS_BOUNCED ? EmailEvent::BOUNCE_HARD : null,
+                        'response'         => $eventStatus === EmailEvent::STATUS_BOUNCED
+                            ? 'smtp; 550 5.4.1 Recipient address rejected: Access denied. For more information see https://aka.ms/EXOSmtpErrors [SA2PEPF00003AE6.namprd02.prod.outlook.com 2026-10-08T20:36:23.875Z 08DF254F56560914]'
+                            : null,
+                        'reason'           => $eventStatus === EmailEvent::STATUS_BOUNCED ? 'HardBounce' : null,
                         'occurred_at'      => $occurredAt,
                         'created_at'       => $occurredAt,
                     ]);

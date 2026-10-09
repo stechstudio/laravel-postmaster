@@ -1277,6 +1277,11 @@ environment**, so the dashboard is never unguarded in production by accident.
   with something attached. Each message opens to its delivery timeline and
   stored content, rendered in a sandboxed, CSP-restricted frame. Click events
   show the URL the recipient clicked, inline on the timeline.
+- **Delivery problem.** A bounced, dropped, blocked, or complained-about
+  message opens with a card above the body: a plain summary with a Copy
+  button for support replies, the receiving server's full response, its SMTP
+  status (5.4.1), and the provider's own reason. Earlier deferrals and bounces
+  show their response on the timeline.
 - **Attachments.** The message detail page lists what the email carried,
   between the envelope details and the body — where a mail client puts them,
   and where they can't be missed under a body that takes the scroll gesture

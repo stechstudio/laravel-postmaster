@@ -5,6 +5,7 @@ namespace STS\Postmaster\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use STS\Postmaster\EmailEvent;
 
 /**
  * A single recorded entry in the email_activity table. Two shapes share the
@@ -49,6 +50,17 @@ class EmailActivity extends Model
     public const string STATUS_SUPPRESSED   = 'suppressed';
     public const string STATUS_UNSUPPRESSED = 'unsuppressed';
 
+    /** Events that mean the email did not reach the recipient. */
+    public const array PROBLEM_STATUSES = [
+        EmailEvent::STATUS_BOUNCED,
+        EmailEvent::STATUS_DROPPED,
+        EmailEvent::STATUS_COMPLAINED,
+        EmailEvent::STATUS_BLOCKED,
+    ];
+
+    /** An RFC 3463 enhanced status code, such as 5.4.1. */
+    protected const string SMTP_STATUS_PATTERN = '/\b[245]\.\d{1,3}\.\d{1,3}\b/';
+
     public const UPDATED_AT = null;
 
     protected $guarded = [];
@@ -84,6 +96,81 @@ class EmailActivity extends Model
     public function getConnectionName()
     {
         return config('postmaster.persistence.connection') ?: parent::getConnectionName();
+    }
+
+    public function isProblem(): bool
+    {
+        return in_array($this->status, self::PROBLEM_STATUSES, true);
+    }
+
+    /**
+     * The enhanced status code (5.4.1) from the server's response, falling
+     * back to the provider's code when that is one. Postmark's code is its
+     * own bounce type number, not an SMTP status, so it never matches.
+     */
+    public function smtpStatus(): ?string
+    {
+        foreach ([$this->response, $this->code] as $value) {
+            if ($value !== null && preg_match(self::SMTP_STATUS_PATTERN, $value, $match)) {
+                return $match[0];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The words of the server's response, without the "smtp;" prefix, the
+     * leading status codes, or the trailing bracketed server trace.
+     */
+    public function responseText(): ?string
+    {
+        if ($this->response === null) {
+            return null;
+        }
+
+        $text = preg_replace('/^\s*smtp\s*;\s*/i', '', $this->response);
+        $text = preg_replace('/^\d{3}[\s-]+(?:[245]\.\d{1,3}\.\d{1,3}\s+)?/', '', $text);
+        $text = trim(preg_replace('/\s*\[[^\]]*\]\s*$/', '', $text));
+
+        return $text === '' ? null : $text;
+    }
+
+    /**
+     * One plain paragraph a support tech can paste into a reply: what
+     * happened, when, and what the receiving server or provider said.
+     */
+    public function summary(string $address): ?string
+    {
+        $what = match ($this->status) {
+            EmailEvent::STATUS_BOUNCED => match ($this->bounce_type) {
+                EmailEvent::BOUNCE_HARD  => "the receiving mail server permanently rejected the email to {$address}",
+                EmailEvent::BOUNCE_SOFT  => "the receiving mail server temporarily rejected the email to {$address}",
+                EmailEvent::BOUNCE_BLOCK => "the receiving mail server refused the email to {$address} on reputation or policy grounds",
+                default                  => "the email to {$address} bounced",
+            },
+            EmailEvent::STATUS_DROPPED    => ($this->provider ?? 'the mail provider')." did not send the email to {$address}",
+            EmailEvent::STATUS_COMPLAINED => "the recipient {$address} marked the email as spam",
+            EmailEvent::STATUS_BLOCKED    => "Postmaster did not send the email to {$address} because the address is on the suppression list",
+            default                       => null,
+        };
+
+        if ($what === null) {
+            return null;
+        }
+
+        $sentences = [$this->occurred_at
+            ? 'On '.$this->occurred_at->utc()->format('M j, Y \a\t H:i').' UTC, '.$what.'.'
+            : ucfirst($what).'.'];
+
+        if ($text = $this->responseText()) {
+            $status = $this->smtpStatus();
+            $sentences[] = 'The server said: "'.$text.'"'.($status ? " (SMTP status {$status})." : '');
+        } elseif ($this->reason) {
+            $sentences[] = "Reason: {$this->reason}.";
+        }
+
+        return implode(' ', $sentences);
     }
 
     /**

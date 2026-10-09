@@ -139,6 +139,7 @@ class RecordOutboundMessage
 
         $this->storeAttachments($message, $messageId, $metadata);
 
+        $skipped = $status === EmailEvent::STATUS_SENT ? $this->skippedRecipients($envelope, $mailer) : [];
         $primary = null;
 
         foreach ($envelope as $entry) {
@@ -146,6 +147,18 @@ class RecordOutboundMessage
                 'to_address'     => $entry['address'],
                 'recipient_role' => $entry['role'],
             ];
+
+            $activity = ['status' => $status, 'occurred_at' => $shared['sent_at']];
+
+            if ($provider = $skipped[$entry['address']] ?? null) {
+                $row['status']   = EmailEvent::STATUS_DROPPED;
+                $row['provider'] = $provider;
+                $activity        = [
+                    'status'   => EmailEvent::STATUS_DROPPED,
+                    'provider' => $provider,
+                    'reason'   => "On the {$provider} suppression list",
+                ] + $activity;
+            }
 
             // Per-address recipient model: a declared map wins; the singular
             // declaration applies only to the primary To row; resolver fills
@@ -155,7 +168,7 @@ class RecordOutboundMessage
                 $row['recipient_id']   = $model['id'];
             }
 
-            $record = $this->withMessageLock((string) $messageId, function () use ($messageId, $entry, $row, $status, $shared) {
+            $record = $this->withMessageLock((string) $messageId, function () use ($messageId, $entry, $row, $activity) {
                 $record = $messageId ? EmailMessage::model()->newQuery()->withoutGlobalScopes()
                     ->where('provider_message_id', $messageId)->where('to_address', $entry['address'])->latest('id')->first() : null;
                 // A webhook may have recorded delivery before MessageSent fires.
@@ -172,10 +185,7 @@ class RecordOutboundMessage
 
                 // Seed the timeline with the send itself, so the history is
                 // complete rather than starting at the first webhook event.
-                $this->recordActivity($record, [
-                    'status'      => $status,
-                    'occurred_at' => $shared['sent_at'],
-                ]);
+                $this->recordActivity($record, $activity);
 
                 // Note the address so it's on record as one we send to.
                 $this->touchAddress($entry['address']);
@@ -187,6 +197,33 @@ class RecordOutboundMessage
         }
 
         return $primary;
+    }
+
+    /**
+     * Recipients the sending provider will skip because the address is on its
+     * own suppression list, mapped to that provider's name. Postmark, for one,
+     * accepts a multi-recipient send, delivers to everyone else, and sends no
+     * webhook for the skipped address — left alone, its row reads "sent"
+     * forever. A suppression the provider never heard of (a manual one, or
+     * one recorded by a different provider) doesn't count: that send goes out.
+     *
+     * @param  array<int, array{address: string, role: string}> $envelope
+     * @return array<string, string>
+     */
+    protected function skippedRecipients(array $envelope, ?string $mailer): array
+    {
+        [$provider] = $this->events->detectProvider($mailer);
+
+        if ($provider === null) {
+            return [];
+        }
+
+        return EmailAddress::model()->newQuery()
+            ->whereIn('address', array_column($envelope, 'address'))
+            ->get()
+            ->mapWithKeys(fn (EmailAddress $address) => [$address->address => $address->suppressedBy($provider)])
+            ->filter()
+            ->all();
     }
 
     /**

@@ -598,10 +598,17 @@ address fail safely at the source, set:
 POSTMASTER_BLOCK_SUPPRESSED=true
 ```
 
-Anything addressed to a suppressed recipient is intercepted before it reaches
-the mail transport, recorded with status `blocked` (so the attempt is visible
-in the dashboard), and dropped. Bypass it per send by lifting the suppression
-or by skipping the check yourself. There's no per-message bypass flag.
+Suppressed recipients are removed from the message before it reaches the mail
+transport and recorded with status `blocked`, so the attempt is visible in the
+dashboard. Everyone else on the message still gets it. Only when every
+recipient is suppressed is the send cancelled outright. Bypass it per send by
+lifting the suppression or by skipping the check yourself. There's no
+per-message bypass flag.
+
+Without blocking, a recipient the sending provider holds on its own
+suppression list is recorded as `dropped`. Postmark, for one, accepts a
+multi-recipient send, silently skips the inactive address, and sends no
+webhook about it, so the row would otherwise read `sent` forever.
 
 #### Two-way sync with your provider
 

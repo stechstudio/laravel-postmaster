@@ -61,9 +61,10 @@ return [
 
     /*
      * When true, the package refuses to send to any address on its
-     * suppression list. The attempt is still recorded (status: blocked) so
-     * it shows up in the dashboard, but the message is never handed to the
-     * mailer. Off by default — apps that want this safety net opt in.
+     * suppression list. Suppressed recipients are removed and recorded
+     * (status: blocked) so they show up in the dashboard; the rest still get
+     * the message. A send with no recipients left is cancelled. Off by
+     * default — apps that want this safety net opt in.
      *
      * Needs the persistence layer (suppression lives there).
      */

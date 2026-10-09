@@ -137,6 +137,42 @@ class EmailActivity extends Model
     }
 
     /**
+     * For a send the suppression list stopped, the earlier failure that put
+     * the address there: the latest hard bounce or complaint before it, since
+     * the address was last unsuppressed. A drop says only that the address was
+     * suppressed; this is the event that says why.
+     *
+     * Null for any other event, and when the ledger holds no such failure
+     * (a manual suppression, or one learned from a provider sync). The cause
+     * may sit on another tenant's message, since suppression is global.
+     */
+    public function suppressionCause(): ?self
+    {
+        if (! in_array($this->status, [EmailEvent::STATUS_DROPPED, EmailEvent::STATUS_BLOCKED], true)
+            || $this->email_address_id === null || $this->occurred_at === null) {
+            return null;
+        }
+
+        $earlier = static::model()->newQuery()
+            ->where('email_address_id', $this->email_address_id)
+            ->where('occurred_at', '<=', $this->occurred_at)
+            ->whereKeyNot($this->getKey());
+
+        $unsuppressedAt = (clone $earlier)->where('status', self::STATUS_UNSUPPRESSED)->max('occurred_at');
+
+        return $earlier
+            ->when($unsuppressedAt, fn ($query) => $query->where('occurred_at', '>', $unsuppressedAt))
+            ->where(fn ($query) => $query
+                ->where('status', EmailEvent::STATUS_COMPLAINED)
+                ->orWhere(fn ($query) => $query
+                    ->where('status', EmailEvent::STATUS_BOUNCED)
+                    ->where(fn ($query) => $query->whereNull('bounce_type')->orWhere('bounce_type', '!=', EmailEvent::BOUNCE_SOFT))))
+            ->latest('occurred_at')
+            ->latest('id')
+            ->first();
+    }
+
+    /**
      * The email this activity entry belongs to, if any. Address-only entries
      * (manual suppression, unsuppression, sync add/clear) have no message.
      */

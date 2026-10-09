@@ -1280,7 +1280,10 @@ environment**, so the dashboard is never unguarded in production by accident.
 - **Delivery problem.** A bounced, dropped, blocked, or complained-about
   message opens with a card above the body: a one-line summary, the
   receiving server's full response, its SMTP status (5.4.1), and the
-  provider's own reason. Earlier deferrals and bounces
+  provider's own reason. A drop or blocked send says only that the address
+  was suppressed, so its card names the earlier bounce or complaint that put
+  the address on the list, shows that event's response instead, and links to
+  the email it happened on. Earlier deferrals and bounces
   show their response on the timeline.
 - **Attachments.** The message detail page lists what the email carried,
   between the envelope details and the body — where a mail client puts them,

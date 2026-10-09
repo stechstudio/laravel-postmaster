@@ -1020,6 +1020,8 @@ a.pm-att-chip:hover .pm-att-icon { color: var(--pm-fg); }
    edge, a summary a tech can paste into a reply, then the raw response. */
 .pm-problem { border-left: 3px solid var(--pm-bad-fg); }
 .pm-problem-summary { margin: 0 0 12px; line-height: 1.5; }
+.pm-problem-summary a { text-decoration: underline; text-underline-offset: 2px; }
+.pm-problem-summary a:hover { color: var(--pm-muted-fg); }
 .pm-problem-response { margin-bottom: 12px; overflow-wrap: anywhere; }
 .pm-problem-facts { display: flex; flex-wrap: wrap; gap: 10px 32px; margin: 0; }
 .pm-problem-facts dt { color: var(--pm-muted-fg); font-size: 12px; }

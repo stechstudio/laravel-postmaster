@@ -8,7 +8,7 @@
 **Provider-agnostic email delivery tracking for Laravel.**
 
 Your app sends mail through SendGrid, Postmark, Mailgun, Amazon SES, Resend,
-Helo, or MailerSend. Postmaster handles everything those providers send back.
+Helo, MailerSend, or PostShiba. Postmaster handles everything those providers send back.
 It verifies each inbound webhook and normalizes them into one event your app
 listens for — so switching providers, running several at once, or failing over
 between them never touches your code.
@@ -117,7 +117,7 @@ provider's dashboard, set the webhook URL to:
 https://your-app.com/webhooks/postmaster/{provider}
 ```
 
-…where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, `helo`, or `mailersend`.
+…where `{provider}` is `sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, `helo`, `mailersend`, or `postshiba`.
 
 ### 2. Listen for the event
 
@@ -247,6 +247,19 @@ timestamp, so there is no clock check.
 See [MailerSend](docs/mailersend.md) for sending, suppression sync, and live
 test results.
 
+### PostShiba
+
+```
+POSTMASTER_POSTSHIBA_SIGNING_SECRET=...
+```
+
+Create a webhook endpoint in PostShiba that sends to
+`/webhooks/postmaster/postshiba`, and copy its signing secret. Postmaster checks
+the HMAC-SHA256 signature and rejects timestamps more than five minutes from
+the server clock. Test events get a 2xx response and are not recorded.
+
+See [PostShiba](docs/postshiba.md) for sending and suppression sync.
+
 ### Postmark
 
 Postmark does not sign webhook payloads. Use HTTP basic auth (the default) or a
@@ -311,7 +324,7 @@ Every webhook becomes an `EmailEvent` with a normalized API. The methods are
 the same whatever the provider:
 
 ```php
-$event->provider();           // "SendGrid", "Postmark", "Mailgun", "SES", "Resend", "Helo", "MailerSend"
+$event->provider();           // "SendGrid", "Postmark", "Mailgun", "SES", "Resend", "Helo", "MailerSend", "PostShiba"
 $event->status();             // one of the EmailEvent::STATUS_* constants
 $event->toAddress();          // the recipient email address
 $event->providerMessageId();  // the provider's message id
@@ -329,7 +342,7 @@ $event->toArray();            // everything above as an array
 ```
 
 > **A note on provider casing.** Config keys are lowercase identifiers
-> (`sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, `helo`, `mailersend`). Stored and surfaced
+> (`sendgrid`, `postmark`, `mailgun`, `ses`, `resend`, `helo`, `mailersend`, `postshiba`). Stored and surfaced
 > values are the canonical product name (`SendGrid`, `Postmark`, …). The
 > `provider()` method, the `provider` column, and the dashboard all use the
 > latter.
@@ -643,6 +656,7 @@ missing credentials, channel configuration, or required SDKs are skipped:
 | Amazon SES | `composer require aws/aws-sdk-php` | Uses the standard AWS credential chain |
 | Helo | `composer require stechstudio/laravel-helo-email` | `HELO_API_KEY`, `HELO_CHANNEL_ID`, and `HELO_MAIL_TYPE` (defaults to `transactional`) |
 | MailerSend | — | `POSTMASTER_MAILERSEND_API_KEY` (or `MAILERSEND_API_KEY`), and optionally `POSTMASTER_MAILERSEND_DOMAIN_ID` |
+| PostShiba | — | `POSTMASTER_POSTSHIBA_API_KEY` (a Full access key) + `POSTMASTER_POSTSHIBA_TEAM_ID` |
 | Resend | — | Resend has a full API but no suppression-list resource (suppressions are dashboard-only); sync is a no-op for Resend, and the local table is fed entirely by the webhook stream |
 
 Sync retains suppressions associated with another provider or several

@@ -7,6 +7,7 @@ use STS\Postmaster\Providers\Helo\Adapter as Helo;
 use STS\Postmaster\Providers\MailerSend\Adapter as MailerSend;
 use STS\Postmaster\Providers\Mailgun\Adapter as Mailgun;
 use STS\Postmaster\Providers\Postmark\Adapter as Postmark;
+use STS\Postmaster\Providers\PostShiba\Adapter as PostShiba;
 use STS\Postmaster\Providers\Resend\Adapter as Resend;
 use STS\Postmaster\Providers\SendGrid\Adapter as SendGrid;
 use STS\Postmaster\Providers\Ses\Adapter as Ses;
@@ -54,6 +55,14 @@ class FixtureTest extends TestCase
             'mailersend complaint'    => [MailerSend::class, 'mailersend/spam-complaint.json', EmailEvent::STATUS_COMPLAINED, null],
             'mailersend suppressed'   => [MailerSend::class, 'mailersend/suppressed.json', EmailEvent::STATUS_DROPPED, null],
             'mailersend v1 bounce'    => [MailerSend::class, 'mailersend/v1-hard-bounced.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'postshiba processed'   => [PostShiba::class, 'postshiba/processed.json', EmailEvent::STATUS_ACCEPTED, null],
+            'postshiba delivered'   => [PostShiba::class, 'postshiba/delivered.json', EmailEvent::STATUS_DELIVERED, null],
+            'postshiba deferred'    => [PostShiba::class, 'postshiba/deferred.json', EmailEvent::STATUS_DEFERRED, null],
+            'postshiba bounce'      => [PostShiba::class, 'postshiba/bounce.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            'postshiba blocked'     => [PostShiba::class, 'postshiba/blocked.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_BLOCK],
+            'postshiba dropped'     => [PostShiba::class, 'postshiba/dropped.json', EmailEvent::STATUS_DROPPED, EmailEvent::BOUNCE_HARD],
+            'postshiba spamreport'  => [PostShiba::class, 'postshiba/spamreport.json', EmailEvent::STATUS_COMPLAINED, null],
+            'postshiba unsubscribe' => [PostShiba::class, 'postshiba/unsubscribe.json', EmailEvent::STATUS_UNSUBSCRIBED, null],
             'ses delivery'       => [Ses::class, 'ses/delivery.json', EmailEvent::STATUS_DELIVERED, null],
             'ses bounce'         => [Ses::class, 'ses/bounce.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
         ];

@@ -60,6 +60,10 @@ class ProviderSetupTest extends TestCase
         $this->assertFalse($this->resolve('mailersend')->sendingKeySet([]));
         config(['mailersend-driver.api_key' => 'x']);
         $this->assertTrue($this->resolve('mailersend')->sendingKeySet([]));
+
+        $this->assertFalse($this->resolve('postshiba')->sendingKeySet([]));
+        config(['services.postshiba.key' => 'x']);
+        $this->assertTrue($this->resolve('postshiba')->sendingKeySet([]));
     }
 
     public function testCannotTellWhenSesUsesTheServersAwsRole()
@@ -161,5 +165,26 @@ class ProviderSetupTest extends TestCase
 
         $this->assertSame([], $this->resolve('mailersend')->askSuppressionSync());
         \Laravel\Prompts\Prompt::assertOutputContains('Found a MailerSend API token');
+    }
+
+    public function testPostShibaExplainsTheSigningSecret(): void
+    {
+        config(['postmaster.providers.postshiba.signing_secret' => null]);
+        $guidance = implode("\n", $this->resolve('postshiba')->webhookAuthGuidance());
+        $this->assertStringContainsString('POSTMASTER_POSTSHIBA_SIGNING_SECRET is NOT set', $guidance);
+        $this->assertTrue($this->resolve('postshiba')->supportsSuppressionSync());
+    }
+
+    public function testPostShibaAsksForTheSigningSecretKeyAndTeam(): void
+    {
+        (fn () => static::$shouldFallback = false)->bindTo(null, \Laravel\Prompts\Prompt::class)();
+        config(['postmaster.providers.postshiba.team_id' => null]);
+        $setup = $this->resolve('postshiba');
+
+        \Laravel\Prompts\Prompt::fake(['s', 'e', 'c', \Laravel\Prompts\Key::ENTER]);
+        $this->assertSame(['POSTMASTER_POSTSHIBA_SIGNING_SECRET' => 'sec'], $setup->askWebhookAuth());
+
+        \Laravel\Prompts\Prompt::fake(['k', 'e', 'y', \Laravel\Prompts\Key::ENTER, 'O', 'j', \Laravel\Prompts\Key::ENTER]);
+        $this->assertSame(['POSTMASTER_POSTSHIBA_API_KEY' => 'key', 'POSTMASTER_POSTSHIBA_TEAM_ID' => 'Oj'], $setup->askSuppressionSync());
     }
 }

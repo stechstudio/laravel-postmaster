@@ -1,0 +1,18 @@
+[
+  {
+    "id": "YtReWq",
+    "email": "Blocked@example.com",
+    "reason": "manual",
+    "tenant_id": "WbLcFd",
+    "tenant": "default",
+    "created_at": "2026-08-30T00:00:00Z"
+  },
+  {
+    "id": "ZuSfXr",
+    "email": "bounce@example.com",
+    "reason": "bounce",
+    "tenant_id": "WbLcFd",
+    "tenant": "default",
+    "created_at": "2026-08-31T12:30:00Z"
+  }
+]

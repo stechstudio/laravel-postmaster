@@ -232,7 +232,7 @@ class RecordOutboundMessage
             ->mapWithKeys(fn (EmailAddress $address) => [$address->address => $address->suppressedBy($provider)]);
 
         return $lookup
-            ->filter(fn (string $key) => $suppressedBy[$key] ?? null)
+            ->filter(fn (string $key) => isset($suppressedBy[$key]))
             ->map(fn (string $key) => [$suppressedBy[$key], $key])
             ->all();
     }

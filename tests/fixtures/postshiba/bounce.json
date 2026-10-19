@@ -1,0 +1,18 @@
+{
+  "event": "bounce",
+  "email": "recipient@example.com",
+  "timestamp": 1790000000,
+  "sg_event_id": "capsule-1460267",
+  "sg_message_id": "77493b8e5f1c4d2a9e0b3c6d8f1a2b4c",
+  "smtp-id": "<abc@capsule.test>",
+  "response": "The email account that you tried to reach does not exist. Please try double-checking the recipient's email address for typos or unnecessary spaces. For more information, go to  https://support.google.com/mail/?p=NoSuchUser a1b2c3d4e5f6-7890abcdef0si1234567890.1 - gsmtp",
+  "reason": "The email account that you tried to reach does not exist. Please try double-checking the recipient's email address for typos or unnecessary spaces. For more information, go to  https://support.google.com/mail/?p=NoSuchUser a1b2c3d4e5f6-7890abcdef0si1234567890.1 - gsmtp",
+  "status": "5.1.1",
+  "attempt": "0",
+  "bounce_classification": "Invalid Address",
+  "tenant_id": "default",
+  "from": "\"Example\" <hello@mail.example.com>",
+  "subject": "PostShiba test",
+  "ip": "203.0.113.10",
+  "type": "bounce"
+}

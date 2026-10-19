@@ -52,13 +52,13 @@ class InterceptSuppressedRecipient
         }
 
         $message    = $event->message;
-        $suppressed = $this->suppressed($message);
+        $mailer     = $event->data['mailer'] ?? config('mail.default');
+        $suppressed = $this->suppressed($message, $mailer);
 
         if ($suppressed === []) {
             return null;
         }
 
-        $mailer    = $event->data['mailer'] ?? config('mail.default');
         $isBlocked = fn (Address $address) => in_array(EmailAddress::normalize($address->getAddress()), $suppressed, true);
 
         // Some recipients can still be reached: record the suppressed ones as
@@ -96,11 +96,12 @@ class InterceptSuppressedRecipient
 
     /**
      * The message's envelope addresses that are on the suppression list,
-     * normalized.
+     * normalized. That includes an address the sending provider would skip
+     * under another form, such as PostShiba skipping jo+news@ for jo@.
      *
      * @return array<int, string>
      */
-    protected function suppressed(Email $message): array
+    protected function suppressed(Email $message, ?string $mailer): array
     {
         $addresses = array_map(fn (Address $address) => EmailAddress::normalize($address->getAddress()), $this->addresses($message));
 
@@ -108,11 +109,18 @@ class InterceptSuppressedRecipient
             return [];
         }
 
-        return EmailAddress::model()->newQuery()
+        $listed = EmailAddress::model()->newQuery()
             ->whereIn('address', $addresses)
             ->where('status', EmailAddress::STATUS_SUPPRESSED)
             ->pluck('address')
             ->all();
+
+        $skipped = array_keys($this->recorder->skippedRecipients(
+            array_map(fn (string $address) => ['address' => $address], $addresses),
+            $mailer,
+        ));
+
+        return array_values(array_unique([...$listed, ...$skipped]));
     }
 
     /**

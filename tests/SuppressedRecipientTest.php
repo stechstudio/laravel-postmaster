@@ -29,6 +29,7 @@ class SuppressedRecipientTest extends TestCase
         $app['config']->set('mail.default', 'postmark');
         $app['config']->set('mail.mailers.postmark', ['transport' => 'postmark']);
         $app['config']->set('mail.mailers.resend', ['transport' => 'resend']);
+        $app['config']->set('mail.mailers.postshiba', ['transport' => 'postshiba']);
     }
 
     /** The blocking listener registers at boot, so this has to be set before it. */
@@ -47,6 +48,7 @@ class SuppressedRecipientTest extends TestCase
         $this->transport = new ArrayTransport;
         Mail::extend('postmark', fn () => $this->transport);
         Mail::extend('resend', fn () => new ArrayTransport);
+        Mail::extend('postshiba', fn () => $this->transport);
     }
 
     protected function suppressAt(string $address, string $provider): void
@@ -56,10 +58,10 @@ class SuppressedRecipientTest extends TestCase
         $record->save();
     }
 
-    protected function send(?string $mailer = null): void
+    protected function send(?string $mailer = null, array $to = ['billing@example.com', 'gone@example.com']): void
     {
-        Mail::mailer($mailer)->raw('Invoice', function ($mail) {
-            $mail->to(['billing@example.com', 'gone@example.com'])->subject('Invoice');
+        Mail::mailer($mailer)->raw('Invoice', function ($mail) use ($to) {
+            $mail->to($to)->subject('Invoice');
             $mail->getHeaders()->addTextHeader('X-Postmaster-Tenant', '7');
         });
     }
@@ -89,6 +91,53 @@ class SuppressedRecipientTest extends TestCase
         $this->send('resend');
 
         $this->assertSame(EmailEvent::STATUS_SENT, EmailMessage::where('to_address', 'gone@example.com')->sole()->status);
+    }
+
+    public function testPostShibaDropsATaggedAliasOfASuppressedAddress(): void
+    {
+        // PostShiba checks its list without the "+tag", so it skips gone+news@.
+        $this->suppressAt('gone@example.com', 'PostShiba');
+
+        $this->send('postshiba', ['billing@example.com', 'gone+news@example.com']);
+
+        $this->assertSame(EmailEvent::STATUS_SENT, EmailMessage::where('to_address', 'billing@example.com')->sole()->status);
+
+        $dropped = EmailMessage::where('to_address', 'gone+news@example.com')->sole();
+        $this->assertSame(EmailEvent::STATUS_DROPPED, $dropped->status);
+        $this->assertSame('On the PostShiba suppression list as gone@example.com', $dropped->activity()->sole()->reason);
+    }
+
+    public function testOtherProvidersSendToATaggedAlias(): void
+    {
+        $this->suppressAt('gone@example.com', 'Postmark');
+
+        $this->send(to: ['billing@example.com', 'gone+news@example.com']);
+
+        $this->assertSame(EmailEvent::STATUS_SENT, EmailMessage::where('to_address', 'gone+news@example.com')->sole()->status);
+    }
+
+    #[DefineEnvironment('blockSuppressed')]
+    public function testBlockingRemovesATaggedAliasPostShibaWouldSkip(): void
+    {
+        $this->suppressAt('gone@example.com', 'PostShiba');
+
+        $this->send('postshiba', ['billing@example.com', 'gone+news@example.com']);
+
+        $recipients = $this->transport->messages()->sole()->getEnvelope()->getRecipients();
+        $this->assertSame(['billing@example.com'], array_map(fn ($a) => $a->getAddress(), $recipients));
+        $this->assertSame(EmailEvent::STATUS_BLOCKED, EmailMessage::where('to_address', 'gone+news@example.com')->sole()->status);
+    }
+
+    #[DefineEnvironment('blockSuppressed')]
+    public function testBlockingCancelsASendPostShibaWouldRefuse(): void
+    {
+        // PostShiba answers 403 "suppressed" when it would skip every recipient.
+        $this->suppressAt('gone@example.com', 'PostShiba');
+
+        $this->send('postshiba', ['gone+news@example.com']);
+
+        $this->assertCount(0, $this->transport->messages());
+        $this->assertSame(EmailEvent::STATUS_BLOCKED, EmailMessage::where('to_address', 'gone+news@example.com')->sole()->status);
     }
 
     public function testAManualSuppressionStaysSent(): void

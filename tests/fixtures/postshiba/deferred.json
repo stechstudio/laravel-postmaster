@@ -1,0 +1,16 @@
+{
+  "event": "deferred",
+  "email": "recipient@example.com",
+  "timestamp": 1790000000,
+  "sg_event_id": "capsule-1460521",
+  "sg_message_id": "77493b8e5f1c4d2a9e0b3c6d8f1a2b4c",
+  "smtp-id": "<abc@capsule.test>",
+  "response": "failed to resolve queue cluster-198:343.464@no-such-domain.example: MX lookup for no-such-domain.example failed after 6.7ms: NXDOMAIN",
+  "reason": "failed to resolve queue cluster-198:343.464@no-such-domain.example: MX lookup for no-such-domain.example failed after 6.7ms: NXDOMAIN",
+  "status": "4.4.4",
+  "attempt": "0",
+  "bounce_classification": "Unclassified",
+  "tenant_id": "default",
+  "from": "\"Example\" <hello@mail.example.com>",
+  "subject": "PostShiba test"
+}

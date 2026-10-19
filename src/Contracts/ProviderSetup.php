@@ -82,4 +82,13 @@ interface ProviderSetup
      * @return array<int, string>
      */
     public function webhookAuthGuidance(): array;
+
+    /**
+     * The form of $address this provider looks up on its own suppression
+     * list. Most match the whole address; PostShiba drops a "+tag", so
+     * suppressing jo@example.com also skips jo+news@example.com.
+     *
+     * @param string $address Already normalized by EmailAddress::normalize().
+     */
+    public function suppressionAddress(string $address): string;
 }

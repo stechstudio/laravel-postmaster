@@ -177,6 +177,19 @@ return [
             'domain_id' => env('POSTMASTER_MAILERSEND_DOMAIN_ID'),
         ],
 
+        'postshiba' => [
+            'adapter' => \STS\Postmaster\Providers\PostShiba\Adapter::class,
+            'auth' => env('POSTMASTER_POSTSHIBA_AUTH', \STS\Postmaster\Providers\PostShiba\SignatureAuth::class),
+            'sync' => \STS\Postmaster\Providers\PostShiba\SuppressionSync::class,
+            'setup' => \STS\Postmaster\Providers\PostShiba\Setup::class,
+            // One secret per webhook endpoint; separate several with commas.
+            'signing_secret' => env('POSTMASTER_POSTSHIBA_SIGNING_SECRET'),
+            // Sync only. Needs a Full access key, so there is no fallback to
+            // the Send only key in services.postshiba.key.
+            'api_key' => env('POSTMASTER_POSTSHIBA_API_KEY'),
+            'team_id' => env('POSTMASTER_POSTSHIBA_TEAM_ID'),
+        ],
+
     ],
 
     /*

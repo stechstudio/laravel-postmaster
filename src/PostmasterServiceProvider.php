@@ -25,6 +25,7 @@ use STS\Postmaster\Providers\Helo\SignatureAuth as HeloSignatureAuth;
 use STS\Postmaster\Providers\MailerSend\SignatureAuth as MailerSendSignatureAuth;
 use STS\Postmaster\Providers\Helo\RecordSendResult as RecordHeloSendResult;
 use STS\Postmaster\Providers\Mailgun\SignatureAuth as MailgunSignatureAuth;
+use STS\Postmaster\Providers\PostShiba\SignatureAuth as PostShibaSignatureAuth;
 use STS\Postmaster\Providers\Resend\SignatureAuth as ResendSignatureAuth;
 use STS\Postmaster\Providers\SendGrid\SignatureAuth as SendGridSignatureAuth;
 
@@ -185,6 +186,12 @@ class PostmasterServiceProvider extends ServiceProvider
         $this->app->bind(MailerSendSignatureAuth::class, function ($app) {
             return new MailerSendSignatureAuth(
                 $app['config']->get('postmaster.providers.mailersend.signing_secret')
+            );
+        });
+
+        $this->app->bind(PostShibaSignatureAuth::class, function ($app) {
+            return new PostShibaSignatureAuth(
+                $app['config']->get('postmaster.providers.postshiba.signing_secret')
             );
         });
 

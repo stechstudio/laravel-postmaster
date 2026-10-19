@@ -37,6 +37,12 @@ class Setup extends AbstractProviderSetup
         return $this->anySet(config('services.postshiba.key'), config('services.postshiba.api_key'));
     }
 
+    public function suppressionAddress(string $address): string
+    {
+        // PostShiba stores and checks suppressions without the "+tag".
+        return preg_replace('/\+[^@]*(?=@)/', '', $address, 1);
+    }
+
     public function webhookAuthConfigured(): bool
     {
         return (bool) $this->providerConfig('signing_secret');

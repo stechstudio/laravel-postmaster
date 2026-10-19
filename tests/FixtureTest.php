@@ -55,6 +55,8 @@ class FixtureTest extends TestCase
             'mailersend complaint'    => [MailerSend::class, 'mailersend/spam-complaint.json', EmailEvent::STATUS_COMPLAINED, null],
             'mailersend suppressed'   => [MailerSend::class, 'mailersend/suppressed.json', EmailEvent::STATUS_DROPPED, null],
             'mailersend v1 bounce'    => [MailerSend::class, 'mailersend/v1-hard-bounced.json', EmailEvent::STATUS_BOUNCED, EmailEvent::BOUNCE_HARD],
+            // PostShiba's processed, delivered, deferred, bounce, and blocked fixtures
+            // are redacted live captures. The rest follow PostShiba's docs.
             'postshiba processed'   => [PostShiba::class, 'postshiba/processed.json', EmailEvent::STATUS_ACCEPTED, null],
             'postshiba delivered'   => [PostShiba::class, 'postshiba/delivered.json', EmailEvent::STATUS_DELIVERED, null],
             'postshiba deferred'    => [PostShiba::class, 'postshiba/deferred.json', EmailEvent::STATUS_DEFERRED, null],

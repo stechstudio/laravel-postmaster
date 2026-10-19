@@ -3,8 +3,8 @@
 Postmaster supports PostShiba's webhooks, suppression sync, and the dashboard,
 tracking, resend, and sandbox features. It needs no extra SDK.
 
-**Status:** built from PostShiba's docs and tested with fixtures. It hasn't
-been tested against live webhooks yet.
+**Status:** tested against a live account on 2026-10-18. See
+[Live test results](#live-test-results) for what was and wasn't covered.
 
 ## Send
 
@@ -18,6 +18,14 @@ With an older transport, webhooks arrive but match no message.
 
 PostShiba doesn't return Laravel's `metadata()`. `$event->data()` holds the
 event's `unique_args`.
+
+PostShiba checks its suppression list without the `+tag`, so suppressing
+`jo@example.com` also skips `jo+news@example.com`. A skipped recipient gets no
+webhook. Postmaster records it as dropped, with a reason such as "On the
+PostShiba suppression list as jo@example.com". If PostShiba would skip every
+recipient, it refuses the send and the transport throws
+`PostShiba\Error: suppressed`. Turn on `POSTMASTER_BLOCK_SUPPRESSED` to block
+those recipients before the send instead.
 
 ## Webhooks
 
@@ -86,3 +94,48 @@ matches reasons loosely:
 
 To unsuppress an address, Postmaster calls PostShiba's bulk delete with that
 address.
+
+## Live test results
+
+Tested on a transactional cluster through the `postshiba/postshiba` transport.
+The sends covered To, Cc, and Bcc deliveries, a hard bounce, a null-MX domain,
+a domain that doesn't exist, and suppressed recipients.
+
+**Works as documented:**
+
+- Webhooks are signed with `X-Capsule-Signature`, and "Send test event" is
+  accepted without being recorded.
+- `processed` arrives within seconds. `delivered` follows 20 to 60 seconds
+  later, and a hard bounce about 15 seconds later.
+- Each To, Cc, and Bcc recipient gets its own events, all with the same
+  `smtp-id`. The `smtp-id` matches the message Postmaster recorded.
+- `unique_args` come back on every event as `$event->data()`.
+- A hard bounce suppresses the address locally, and PostShiba adds it to its
+  own list with reason `bounce`.
+- Sync reads a manual suppression, and unsuppress removes it with bulk delete.
+
+**Differs from the docs:**
+
+- PostShiba drops the `+tag` and lowercases addresses when it stores and
+  checks suppressions. See [Send](#send).
+- The bounce `response` is the receiving server's text without the `550 5.1.1`
+  prefix. The enhanced code is in `status`, which `$event->code()` returns.
+- `attempt` is a string, such as `"0"`.
+- The unique args are also copied onto the top level of each event. No
+  `category` field arrives, even when the message has tags.
+- A null-MX domain sends `bounce` with `type` `blocked` and status `5.1.10`.
+  Postmaster suppresses the address locally, like any block, but PostShiba
+  doesn't. The next sync clears the local suppression.
+- A domain that doesn't exist sends `deferred` with status `4.4.4`. One send
+  produced two `deferred` events with the same timestamp; Postmaster recorded
+  one.
+- A send to an `.invalid` domain is refused with
+  `PostShiba\Error: The cluster did not accept the message`. No message is
+  recorded.
+
+**Not tested:**
+
+- `dropped`, `spamreport`, and `unsubscribe`. A suppressed recipient got no
+  `dropped` event, and a transactional cluster adds no unsubscribe link.
+- Soft bounces that later deliver, and the final bounce after a long deferral.
+- Webhook retries after a failed delivery.

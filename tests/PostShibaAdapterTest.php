@@ -64,10 +64,15 @@ class PostShibaAdapterTest extends TestCase
     {
         $adapter = new Adapter(self::fixture('bounce'));
 
+        // The code is only in "status"; the response text has no "550 5.1.1".
         $this->assertSame('5.1.1', $adapter->code());
-        $this->assertStringStartsWith('550 5.1.1', $adapter->reason());
-        $this->assertStringStartsWith('550 5.1.1', $adapter->response());
+        $this->assertStringStartsWith('The email account that you tried to reach does not exist.', $adapter->reason());
+        $this->assertStringStartsWith('The email account that you tried to reach does not exist.', $adapter->response());
         $this->assertTrue($adapter->isPermanent());
+
+        $blocked = new Adapter(self::fixture('blocked'));
+        $this->assertSame('5.1.10', $blocked->code());
+        $this->assertSame('Recipient address has a null MX', $blocked->reason());
     }
 
     public function testReturnsTheUniqueArgsAsData(): void

@@ -187,4 +187,14 @@ class ProviderSetupTest extends TestCase
         \Laravel\Prompts\Prompt::fake(['k', 'e', 'y', \Laravel\Prompts\Key::ENTER, 'O', 'j', \Laravel\Prompts\Key::ENTER]);
         $this->assertSame(['POSTMASTER_POSTSHIBA_API_KEY' => 'key', 'POSTMASTER_POSTSHIBA_TEAM_ID' => 'Oj'], $setup->askSuppressionSync());
     }
+
+    public function testPostShibaLooksUpSuppressionsWithoutThePlusTag(): void
+    {
+        $postshiba = $this->resolve('postshiba');
+        $this->assertSame('jo@example.com', $postshiba->suppressionAddress('jo+news@example.com'));
+        $this->assertSame('jo.smith@example.com', $postshiba->suppressionAddress('jo.smith@example.com'));
+
+        // Every other provider matches the whole address.
+        $this->assertSame('jo+news@example.com', $this->resolve('postmark')->suppressionAddress('jo+news@example.com'));
+    }
 }

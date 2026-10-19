@@ -150,13 +150,14 @@ class RecordOutboundMessage
 
             $activity = ['status' => $status, 'occurred_at' => $shared['sent_at']];
 
-            if ($provider = $skipped[$entry['address']] ?? null) {
+            if ($skip = $skipped[$entry['address']] ?? null) {
+                [$provider, $listedAs] = $skip;
                 $row['status']   = EmailEvent::STATUS_DROPPED;
                 $row['provider'] = $provider;
                 $activity        = [
                     'status'   => EmailEvent::STATUS_DROPPED,
                     'provider' => $provider,
-                    'reason'   => "On the {$provider} suppression list",
+                    'reason'   => "On the {$provider} suppression list".($listedAs === $entry['address'] ? '' : " as {$listedAs}"),
                 ] + $activity;
             }
 
@@ -201,16 +202,17 @@ class RecordOutboundMessage
 
     /**
      * Recipients the sending provider will skip because the address is on its
-     * own suppression list, mapped to that provider's name. Postmark, for one,
-     * accepts a multi-recipient send, delivers to everyone else, and sends no
-     * webhook for the skipped address — left alone, its row reads "sent"
-     * forever. A suppression the provider never heard of (a manual one, or
-     * one recorded by a different provider) doesn't count: that send goes out.
+     * own suppression list, mapped to the provider's name and the address as
+     * the provider lists it. Postmark, for one, accepts a multi-recipient
+     * send, delivers to everyone else, and sends no webhook for the skipped
+     * address — left alone, its row reads "sent" forever. A suppression the
+     * provider never heard of (a manual one, or one recorded by a different
+     * provider) doesn't count: that send goes out.
      *
-     * @param  array<int, array{address: string, role: string}> $envelope
-     * @return array<string, string>
+     * @param  array<int, array{address: string}> $envelope
+     * @return array<string, array{0: string, 1: string}>
      */
-    protected function skippedRecipients(array $envelope, ?string $mailer): array
+    public function skippedRecipients(array $envelope, ?string $mailer): array
     {
         [$provider] = $this->events->detectProvider($mailer);
 
@@ -218,11 +220,20 @@ class RecordOutboundMessage
             return [];
         }
 
-        return EmailAddress::model()->newQuery()
-            ->whereIn('address', array_column($envelope, 'address'))
+        // Look each recipient up the way the provider does: PostShiba skips
+        // jo+news@ when jo@ is suppressed.
+        $setup  = $this->events->setup($provider);
+        $lookup = collect(array_column($envelope, 'address'))
+            ->mapWithKeys(fn (string $address) => [$address => $setup->suppressionAddress($address)]);
+
+        $suppressedBy = EmailAddress::model()->newQuery()
+            ->whereIn('address', $lookup->unique()->values())
             ->get()
-            ->mapWithKeys(fn (EmailAddress $address) => [$address->address => $address->suppressedBy($provider)])
-            ->filter()
+            ->mapWithKeys(fn (EmailAddress $address) => [$address->address => $address->suppressedBy($provider)]);
+
+        return $lookup
+            ->filter(fn (string $key) => $suppressedBy[$key] ?? null)
+            ->map(fn (string $key) => [$suppressedBy[$key], $key])
             ->all();
     }
 

@@ -54,6 +54,11 @@ abstract class AbstractProviderSetup implements ProviderSetup
         return [];
     }
 
+    public function suppressionAddress(string $address): string
+    {
+        return $address;
+    }
+
     public function webhookAuthGuidance(): array
     {
         return [

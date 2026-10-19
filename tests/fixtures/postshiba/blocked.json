@@ -2,22 +2,16 @@
   "event": "bounce",
   "email": "recipient@example.com",
   "timestamp": 1790000000,
+  "sg_event_id": "capsule-1460523",
   "sg_message_id": "77493b8e5f1c4d2a9e0b3c6d8f1a2b4c",
   "smtp-id": "<abc@capsule.test>",
+  "response": "Recipient address has a null MX",
+  "reason": "Recipient address has a null MX",
+  "status": "5.1.10",
+  "attempt": "0",
+  "bounce_classification": "Technical",
   "tenant_id": "default",
-  "from": "hello@mail.example.com",
+  "from": "\"Example\" <hello@mail.example.com>",
   "subject": "PostShiba test",
-  "campaign_id": "cmp_123",
-  "site": "docs",
-  "unique_args": {
-    "campaign_id": "cmp_123",
-    "site": "docs"
-  },
-  "sg_event_id": "capsule-46",
-  "type": "blocked",
-  "response": "554 5.7.1 Message rejected as spam",
-  "reason": "554 5.7.1 Message rejected as spam",
-  "status": "5.7.1",
-  "attempt": "1",
-  "bounce_classification": "Content"
+  "type": "blocked"
 }

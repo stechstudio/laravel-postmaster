@@ -12,7 +12,8 @@ PostShiba's webhooks identify a message by its `smtp-id`, which is the
 Message-ID PostShiba gives the email. Postmaster stores that Message-ID when
 you send, so the two match.
 
-This needs a version of the `postshiba/postshiba` transport that copies the Message-ID from PostShiba's response onto the sent message.
+This needs a version of the `postshiba/postshiba` transport that copies the
+Message-ID from PostShiba's response onto the sent message.
 With an older transport, webhooks arrive but match no message.
 
 PostShiba doesn't return Laravel's `metadata()`. `$event->data()` holds the

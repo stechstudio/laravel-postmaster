@@ -22,7 +22,7 @@ support dashboard to browse it all.
 ## What you get
 
 - **One event for every provider.** Every webhook arrives as the same
-  `EmailEvent`, no matter which of the six providers sent it. There's no
+  `EmailEvent`, no matter which of the eight providers sent it. There's no
   provider-specific parsing anywhere in your app.
 - **Provider independence.** Your code only ever sees the normalized event, so
   you can switch providers, run several at once, or fail over between them
@@ -258,7 +258,8 @@ Create a webhook endpoint in PostShiba that sends to
 the HMAC-SHA256 signature and rejects timestamps more than five minutes from
 the server clock. Test events get a 2xx response and are not recorded.
 
-See [PostShiba](docs/postshiba.md) for sending and suppression sync.
+See [PostShiba](docs/postshiba.md) for sending, suppression sync, and live
+test results.
 
 ### Postmark
 
